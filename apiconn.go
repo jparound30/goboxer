@@ -4,38 +4,53 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"sync"
 	"time"
 )
 
+const (
+	RefreshMarginInSec = 60.0
+)
+
+type ApiConnRefreshNotifier interface {
+	Success(apiConn *ApiConn)
+	Fail(apiConn *ApiConn, err error)
+}
+
 // Box Api connection structure
 type ApiConn struct {
-	ClientID         string
-	ClientSecret     string
-	AccessToken      string
-	RefreshToken     string
-	TokenURL         string
-	RevokeURL        string
-	BaseURL          string
-	BaseUploadURL    string
-	AuthorizationURL string
-	UserAgent        string
-	LastRefresh      time.Time
-	Expires          float64
-	rwLock           sync.RWMutex
+	ClientID           string
+	ClientSecret       string
+	AccessToken        string
+	RefreshToken       string
+	TokenURL           string
+	RevokeURL          string
+	BaseURL            string
+	BaseUploadURL      string
+	AuthorizationURL   string
+	UserAgent          string
+	LastRefresh        time.Time
+	Expires            float64
+	MaxRequestAttempts int
+	rwLock             sync.RWMutex
+	notifier           ApiConnRefreshNotifier
+	//	accessTokenLock    sync.RWMutex
 }
 
 // Common Initialization
-func (apiConn *ApiConn) commonInit() {
-	apiConn.TokenURL = "https://api.box.com/oauth2/token"
-	apiConn.RevokeURL = "https://api.box.com/oauth2/revoke"
-	apiConn.BaseURL = "https://api.box.com/2.0/"
-	apiConn.BaseUploadURL = "https://upload.box.com/api/2.0/"
-	apiConn.AuthorizationURL = "https://account.box.com/api/oauth2/authorize"
-	apiConn.UserAgent = "gobox/v0.0.1"
+func (ac *ApiConn) commonInit() {
+	ac.TokenURL = "https://api.box.com/oauth2/token"
+	ac.RevokeURL = "https://api.box.com/oauth2/revoke"
+	ac.BaseURL = "https://api.box.com/2.0/"
+	ac.BaseUploadURL = "https://upload.box.com/api/2.0/"
+	ac.AuthorizationURL = "https://account.box.com/api/oauth2/authorize"
+	ac.UserAgent = "gobox/v0.0.1"
+	ac.MaxRequestAttempts = 5
+}
+
+func (ac *ApiConn) setApiConnRefreshNotifier(notifier ApiConnRefreshNotifier) {
+	ac.notifier = notifier
 }
 
 // Create Box Api connection from AccessToken.
@@ -63,105 +78,189 @@ func NewApiConnWithRefreshToken(clientID string, clientSecret string, accessToke
 	return instance
 }
 
-func (apiConn *ApiConn) canRefresh() bool {
-	return apiConn.RefreshToken != ""
+func (ac *ApiConn) canRefresh() bool {
+	return ac.RefreshToken != ""
 }
-func (apiConn *ApiConn) Refresh() error {
+func (ac *ApiConn) notifySuccess() {
+	if ac.notifier != nil {
+		ac.notifier.Success(ac)
+	}
+}
+func (ac *ApiConn) notifyFail(err error) {
+	if ac.notifier != nil {
+		ac.notifier.Fail(ac, err)
+	}
+}
+func (ac *ApiConn) Refresh() error {
 
-	apiConn.rwLock.Lock()
-	defer apiConn.rwLock.Unlock()
+	ac.rwLock.Lock()
+	defer ac.rwLock.Unlock()
 
-	if !apiConn.canRefresh() {
-		//apiConn.notifyError(err)
-		return errors.New("cannot refreshed(There is NO RefreshToken")
+	if !ac.canRefresh() {
+		err := errors.New("cannot refreshed(There is NO RefreshToken")
+		ac.notifyFail(err)
+		return err
 	}
 
 	// TODO Authorizationヘッダ不要。共通化するなら修正
 	var params = url.Values{}
 	params.Add("grant_type", "refresh_token")
-	params.Add("refresh_token", apiConn.RefreshToken)
-	params.Add("client_id", apiConn.ClientID)
-	params.Add("client_secret", apiConn.ClientSecret)
-	resp, err := http.PostForm(apiConn.TokenURL, params)
+	params.Add("refresh_token", ac.RefreshToken)
+	params.Add("client_id", ac.ClientID)
+	params.Add("client_secret", ac.ClientSecret)
+
+	request := NewRequest(ac, ac.TokenURL, POST)
+	resp, err := request.SendForm(&params)
 	if err != nil {
-		//apiConn.notifyError(err)
+		ac.notifyFail(err)
 		return err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
 	// TODO 500 >= statuscode || 429 == statuscodeはリトライ化
-	if resp.StatusCode != 200 {
+	if resp.ResponseCode != 200 {
 		fmt.Printf("ResponseHeader:\n")
-		for key, value := range resp.Header {
+		for key, value := range resp.headers {
 			fmt.Printf("  %s: %v\n", key, value)
 		}
-		bytes, err := ioutil.ReadAll(resp.Body)
-		if err == nil {
-			bodyStr := string(bytes)
-			fmt.Printf("ResponseBody:\n%v\n", bodyStr)
-		}
-		//apiConn.notifyError(err)
+
+		fmt.Printf("ResponseBody:\n%v\n", string(resp.Body))
+		//bytes, err := ioutil.ReadAll(resp.Body)
+		//if err == nil {
+		//	bodyStr := string(bytes)
+		//}
+
+		ac.notifyFail(err)
 		return errors.New("failed to refresh")
 	}
 
-	var jsonBody map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&jsonBody)
-	if err != nil {
-		//apiConn.notifyError(err)
+	var tokenResp tokenResponse
+	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
+		ac.notifyFail(err)
 		return err
 	}
 	//fmt.Print(jsonBody)
 
-	apiConn.AccessToken = jsonBody["access_token"].(string)
-	apiConn.RefreshToken = jsonBody["refresh_token"].(string)
-	apiConn.LastRefresh = time.Now()
-	apiConn.Expires = jsonBody["expires_in"].(float64) * 1000
+	ac.AccessToken = tokenResp.AccessToken
+	ac.RefreshToken = tokenResp.RefreshToken
+	ac.Expires = tokenResp.ExpiresIn
+	ac.LastRefresh = time.Now()
 
-	//apiConn.notifyRefresh()
+	ac.notifySuccess()
+
 	return nil
 }
 
-func (apiConn *ApiConn) Authenticate(authCode string) error {
-	apiConn.rwLock.Lock()
-	defer apiConn.rwLock.Unlock()
+func (ac *ApiConn) Authenticate(authCode string) error {
+	ac.rwLock.Lock()
+	defer ac.rwLock.Unlock()
 
 	// TODO Authorizationヘッダ不要。共通化するなら修正
 	var params = url.Values{}
 	params.Add("grant_type", "authorization_code")
 	params.Add("code", authCode)
-	params.Add("client_id", apiConn.ClientID)
-	params.Add("client_secret", apiConn.ClientSecret)
-	resp, err := http.PostForm(apiConn.TokenURL, params)
+	params.Add("client_id", ac.ClientID)
+	params.Add("client_secret", ac.ClientSecret)
+	request := NewRequest(ac, ac.TokenURL, POST)
+	resp, err := request.SendForm(&params)
 	if err != nil {
-		//apiConn.notifyError(err)
+		ac.notifyFail(err)
 		return err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
 	// TODO 500 >= statuscode || 429 == statuscodeはリトライ化
-	if resp.StatusCode != 200 {
-		//apiConn.notifyError(err)
-		return errors.New("failed to Authenticate with authCode")
+	if resp.ResponseCode != 200 {
+		err := errors.New("failed to Authenticate with authCode")
+		ac.notifyFail(err)
+		return err
 	}
 
-	var jsonBody map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&jsonBody)
-	if err != nil {
-		//apiConn.notifyError(err)
+	var tokenResp tokenResponse
+	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
+		ac.notifyFail(err)
 		return err
 	}
 	//fmt.Print(jsonBody)
 
-	apiConn.AccessToken = jsonBody["access_token"].(string)
-	apiConn.RefreshToken = jsonBody["refresh_token"].(string)
-	apiConn.LastRefresh = time.Now()
-	apiConn.Expires = jsonBody["expires_in"].(float64) * 1000
+	ac.AccessToken = tokenResp.AccessToken
+	ac.RefreshToken = tokenResp.RefreshToken
+	ac.Expires = tokenResp.ExpiresIn
+	ac.LastRefresh = time.Now()
 
-	//apiConn.notifyRefresh()
+	ac.notifySuccess()
+
 	return nil
+}
 
+type ApiConnState struct {
+	AccessToken        string    `json:"accessToken"`
+	RefreshToken       string    `json:"refreshToken"`
+	LastRefresh        time.Time `json:"lastRefresh"`
+	Expires            float64   `json:"expires"`
+	UserAgent          string    `json:"userAgent"`
+	MaxRequestAttempts int       `json:"maxRequestAttempts"`
+}
+
+func (ac *ApiConn) SaveState() ([]byte, error) {
+	var state = ApiConnState{
+		AccessToken:        ac.AccessToken,
+		RefreshToken:       ac.RefreshToken,
+		LastRefresh:        ac.LastRefresh,
+		Expires:            ac.Expires,
+		UserAgent:          ac.UserAgent,
+		MaxRequestAttempts: ac.MaxRequestAttempts,
+	}
+
+	bytes, err := json.Marshal(state)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
+func (ac *ApiConn) RestoreApiConn(stateData []byte) error {
+	var state ApiConnState
+	err := json.Unmarshal(stateData, &state)
+	if err != nil {
+		return err
+	}
+	ac.AccessToken = state.AccessToken
+	ac.RefreshToken = state.RefreshToken
+	ac.LastRefresh = state.LastRefresh
+	ac.Expires = state.Expires
+	ac.UserAgent = state.UserAgent
+	ac.MaxRequestAttempts = state.MaxRequestAttempts
+	return nil
+}
+
+type tokenResponse struct {
+	AccessToken  string   `json:"access_token"`
+	RefreshToken string   `json:"refresh_token"`
+	ExpiresIn    float64  `json:"expires_in"`
+	RestrictedTo []string `json:"restricted_to"`
+	TokenType    string   `json:"token_type"`
+}
+
+func (ac *ApiConn) needsRefresh() bool {
+	var needsRefresh = false
+	ac.rwLock.RLock()
+	defer ac.rwLock.RUnlock()
+
+	now := time.Now()
+	durationInSec := now.Unix() - ac.LastRefresh.Unix()
+	needsRefresh = float64(durationInSec) >= ac.Expires-RefreshMarginInSec
+	return needsRefresh
+}
+func (ac *ApiConn) lockAccessToken() (string, error) {
+	if ac.canRefresh() && ac.needsRefresh() {
+		err := ac.Refresh()
+		if err != nil {
+			return "", err
+		}
+		//ac.accessTokenLock.Lock()
+	} else {
+		//ac.accessTokenLock.Lock()
+	}
+	return ac.AccessToken, nil
+}
+func (ac *ApiConn) unlockAccessToken() {
+	//ac.accessTokenLock.Unlock()
 }

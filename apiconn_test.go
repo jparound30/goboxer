@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestApiConn_Refresh(t *testing.T) {
@@ -152,6 +154,77 @@ func TestNewApiConnWithAccessToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NewApiConnWithAccessToken(tt.args.accessToken); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewApiConnWithAccessToken() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestApiConn_SaveStateAndRestore(t *testing.T) {
+	type fields struct {
+		ClientID           string
+		ClientSecret       string
+		AccessToken        string
+		RefreshToken       string
+		TokenURL           string
+		RevokeURL          string
+		BaseURL            string
+		BaseUploadURL      string
+		AuthorizationURL   string
+		UserAgent          string
+		LastRefresh        time.Time
+		Expires            float64
+		MaxRequestAttempts int
+		rwLock             sync.RWMutex
+		notifier           ApiConnRefreshNotifier
+	}
+	testTime := time.Now().Truncate(time.Microsecond)
+
+	tests := []struct {
+		name    string
+		fields  fields
+		want    ApiConn
+		wantErr bool
+	}{
+		{"SaveState Normal",
+			fields{"CLIENT_ID", "CLIENT_SECRET", "ACCESS_TOKEN", "REFRESH_TOKEN",
+				"TOKEN_URL", "REVOKE_URL", "BASE_URL", "BASE_UPLOAD_URL",
+				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10, sync.RWMutex{}, nil},
+			ApiConn{"CLIENT_ID", "CLIENT_SECRET", "ACCESS_TOKEN", "REFRESH_TOKEN",
+				"TOKEN_URL", "REVOKE_URL", "BASE_URL", "BASE_UPLOAD_URL",
+				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10, sync.RWMutex{}, nil},
+			false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ac := &ApiConn{
+				ClientID:           tt.fields.ClientID,
+				ClientSecret:       tt.fields.ClientSecret,
+				AccessToken:        tt.fields.AccessToken,
+				RefreshToken:       tt.fields.RefreshToken,
+				TokenURL:           tt.fields.TokenURL,
+				RevokeURL:          tt.fields.RevokeURL,
+				BaseURL:            tt.fields.BaseURL,
+				BaseUploadURL:      tt.fields.BaseUploadURL,
+				AuthorizationURL:   tt.fields.AuthorizationURL,
+				UserAgent:          tt.fields.UserAgent,
+				LastRefresh:        testTime,
+				Expires:            tt.fields.Expires,
+				MaxRequestAttempts: tt.fields.MaxRequestAttempts,
+				rwLock:             sync.RWMutex{},
+				notifier:           nil,
+			}
+			got, err := ac.SaveState()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ApiConn.SaveState() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			err = ac.RestoreApiConn(got)
+			if err != nil {
+				t.Errorf("ApiConn.RestoreApiConn() error = \n%v", err)
+				return
+			}
+			if !reflect.DeepEqual(ac, &tt.want) {
+				t.Errorf("ApiConn.SaveState() = \n%v, want \n%v", ac, &tt.want)
 			}
 		})
 	}
