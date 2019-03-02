@@ -176,6 +176,7 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 		MaxRequestAttempts int
 		rwLock             sync.RWMutex
 		notifier           ApiConnRefreshNotifier
+		accessTokenLock    sync.RWMutex
 	}
 	testTime := time.Now().Truncate(time.Microsecond)
 
@@ -188,10 +189,10 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 		{"SaveState Normal",
 			fields{"CLIENT_ID", "CLIENT_SECRET", "ACCESS_TOKEN", "REFRESH_TOKEN",
 				"TOKEN_URL", "REVOKE_URL", "BASE_URL", "BASE_UPLOAD_URL",
-				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10, sync.RWMutex{}, nil},
+				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10, sync.RWMutex{}, nil, sync.RWMutex{}},
 			ApiConn{"CLIENT_ID", "CLIENT_SECRET", "ACCESS_TOKEN", "REFRESH_TOKEN",
 				"TOKEN_URL", "REVOKE_URL", "BASE_URL", "BASE_UPLOAD_URL",
-				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10, sync.RWMutex{}, nil},
+				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10, sync.RWMutex{}, nil, sync.RWMutex{}},
 			false},
 	}
 	for _, tt := range tests {
@@ -212,6 +213,7 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 				MaxRequestAttempts: tt.fields.MaxRequestAttempts,
 				rwLock:             sync.RWMutex{},
 				notifier:           nil,
+				accessTokenLock:    sync.RWMutex{},
 			}
 			got, err := ac.SaveState()
 			if (err != nil) != tt.wantErr {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 )
@@ -35,7 +36,7 @@ type ApiConn struct {
 	MaxRequestAttempts int
 	rwLock             sync.RWMutex
 	notifier           ApiConnRefreshNotifier
-	//	accessTokenLock    sync.RWMutex
+	accessTokenLock    sync.RWMutex
 }
 
 // Common Initialization
@@ -102,7 +103,6 @@ func (ac *ApiConn) Refresh() error {
 		return err
 	}
 
-	// TODO Authorizationヘッダ不要。共通化するなら修正
 	var params = url.Values{}
 	params.Add("grant_type", "refresh_token")
 	params.Add("refresh_token", ac.RefreshToken)
@@ -110,7 +110,9 @@ func (ac *ApiConn) Refresh() error {
 	params.Add("client_secret", ac.ClientSecret)
 
 	request := NewRequest(ac, ac.TokenURL, POST)
-	resp, err := request.SendForm(&params)
+	request.shouldAuthenticate = false
+
+	resp, err := request.Send("application/x-www-form-urlencoded", strings.NewReader(params.Encode()))
 	if err != nil {
 		ac.notifyFail(err)
 		return err
@@ -153,14 +155,16 @@ func (ac *ApiConn) Authenticate(authCode string) error {
 	ac.rwLock.Lock()
 	defer ac.rwLock.Unlock()
 
-	// TODO Authorizationヘッダ不要。共通化するなら修正
 	var params = url.Values{}
 	params.Add("grant_type", "authorization_code")
 	params.Add("code", authCode)
 	params.Add("client_id", ac.ClientID)
 	params.Add("client_secret", ac.ClientSecret)
+
 	request := NewRequest(ac, ac.TokenURL, POST)
-	resp, err := request.SendForm(&params)
+	request.shouldAuthenticate = false
+
+	resp, err := request.Send("application/x-www-form-urlencoded", strings.NewReader(params.Encode()))
 	if err != nil {
 		ac.notifyFail(err)
 		return err
@@ -255,12 +259,12 @@ func (ac *ApiConn) lockAccessToken() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		//ac.accessTokenLock.Lock()
+		ac.accessTokenLock.Lock()
 	} else {
-		//ac.accessTokenLock.Lock()
+		ac.accessTokenLock.Lock()
 	}
 	return ac.AccessToken, nil
 }
 func (ac *ApiConn) unlockAccessToken() {
-	//ac.accessTokenLock.Unlock()
+	ac.accessTokenLock.Unlock()
 }
