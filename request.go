@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"time"
 )
@@ -16,6 +17,22 @@ const (
 	PUT
 	DELETE
 )
+
+var transport = &http.Transport{
+	Proxy: http.ProxyFromEnvironment,
+	DialContext: (&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext,
+	MaxIdleConns:          100,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+	DisableCompression:    false,
+}
+var client = &http.Client{
+	Transport: transport,
+}
 
 type Request struct {
 	apiConn            *ApiConn
@@ -71,6 +88,7 @@ func (req *Request) Send(contentType string, body io.Reader) (*Response, error) 
 		defer req.apiConn.unlockAccessToken()
 		newRequest.Header.Add("AUTHORIZATION", "Bearer "+token)
 	}
+
 	newRequest.Header.Add("Content-Type", contentType)
 	newRequest.Header.Add("User-Agent", req.apiConn.UserAgent)
 	for key, values := range req.headers {
@@ -88,26 +106,24 @@ func (req *Request) Send(contentType string, body io.Reader) (*Response, error) 
 		}
 	}
 
-	client := http.Client{}
 	b := time.Now()
 	resp, err = client.Do(newRequest)
 	a := time.Now()
 	timeInMilli := float64(b.UnixNano()-a.UnixNano()) / 1000000
-	fmt.Printf("Request turn around time: %f [ms]\n", timeInMilli)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
+
+		// TODO logging
+		fmt.Printf("Request turn around time: %f [ms]\n", timeInMilli)
 		_ = resp.Body.Close()
 	}()
-
-	// TODO logging
+	fmt.Printf("Maybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed)
 	fmt.Printf("ResponseHeader:\n")
 	for key, value := range resp.Header {
 		fmt.Printf("  %s: %v\n", key, value)
 	}
-
-	// TODO logging
 	bytes, err := ioutil.ReadAll(resp.Body)
 	var bodyStr string
 	if err == nil {
