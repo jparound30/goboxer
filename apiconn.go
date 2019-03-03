@@ -46,7 +46,7 @@ func (ac *ApiConn) commonInit() {
 	ac.BaseURL = "https://api.box.com/2.0/"
 	ac.BaseUploadURL = "https://upload.box.com/api/2.0/"
 	ac.AuthorizationURL = "https://account.box.com/api/oauth2/authorize"
-	ac.UserAgent = "gobox/v0.0.1"
+	ac.UserAgent = fmt.Sprintf("gobox/%s", VERSION)
 	ac.MaxRequestAttempts = 5
 }
 
@@ -199,7 +199,6 @@ type ApiConnState struct {
 	RefreshToken       string    `json:"refreshToken"`
 	LastRefresh        time.Time `json:"lastRefresh"`
 	Expires            float64   `json:"expires"`
-	UserAgent          string    `json:"userAgent"`
 	MaxRequestAttempts int       `json:"maxRequestAttempts"`
 }
 
@@ -209,7 +208,6 @@ func (ac *ApiConn) SaveState() ([]byte, error) {
 		RefreshToken:       ac.RefreshToken,
 		LastRefresh:        ac.LastRefresh,
 		Expires:            ac.Expires,
-		UserAgent:          ac.UserAgent,
 		MaxRequestAttempts: ac.MaxRequestAttempts,
 	}
 
@@ -230,7 +228,6 @@ func (ac *ApiConn) RestoreApiConn(stateData []byte) error {
 	ac.RefreshToken = state.RefreshToken
 	ac.LastRefresh = state.LastRefresh
 	ac.Expires = state.Expires
-	ac.UserAgent = state.UserAgent
 	ac.MaxRequestAttempts = state.MaxRequestAttempts
 	return nil
 }
