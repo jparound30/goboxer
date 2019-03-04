@@ -46,6 +46,13 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Folder Info:\n%+v", folderInfo)
+
+	createFolder, err := folder.Create("69069008141", "NEW FOLDER", gobox.FolderAllFields)
+	if err != nil {
+		fmt.Printf("%v", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Created Folder Info:\n%+v", createFolder)
 }
 
 type Main struct {

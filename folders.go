@@ -1,7 +1,9 @@
 package gobox
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -136,26 +138,55 @@ func NewFolder(api *ApiConn) *Folder {
 
 // Get information about a folder.
 func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
-
 	var url string
-	if fieldsLen := len(fields); fieldsLen != 0 {
-		buffer := make([]byte, 0, 1024)
-		for index, v := range fields {
-			buffer = append(buffer, v...)
-			if index != fieldsLen-1 {
-				buffer = append(buffer, ',')
-			}
-		}
-		url = fmt.Sprintf("%sfolders/%s?fields=%s", f.apiInfo.api.BaseURL, folderId, string(buffer))
-	} else {
-		url = fmt.Sprintf("%sfolders/%s", f.apiInfo.api.BaseURL, folderId)
-	}
+	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, buildFieldsQueryParams(fields))
+
 	req := NewRequest(f.apiInfo.api, url, GET)
 	resp, err := req.Send("", nil)
 	if err != nil {
 		return nil, err
 	}
 
+	if resp.ResponseCode != 200 {
+		// TODO improve error handling...
+		err = errors.New(fmt.Sprintf("faild to get folder info for id: %s", folderId))
+		return nil, err
+	}
+	folder := Folder{}
+	err = json.Unmarshal(resp.Body, &folder)
+	if err != nil {
+		return nil, err
+	}
+	folder.apiInfo = f.apiInfo
+	return &folder, nil
+}
+
+// Get information about a folder.
+func (f *Folder) Create(parentFolderId string, name string, fields []string) (*Folder, error) {
+
+	var url string
+	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "folders?", buildFieldsQueryParams(fields))
+
+	var parent = map[string]interface{}{
+		"id": parentFolderId,
+	}
+	var bodyMap = map[string]interface{}{
+		"name":   name,
+		"parent": parent,
+	}
+	bodyBytes, _ := json.Marshal(bodyMap)
+
+	req := NewRequest(f.apiInfo.api, url, POST)
+	resp, err := req.Send(applicationJson, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.ResponseCode != 201 {
+		// TODO improve error handling...
+		err = errors.New(fmt.Sprintf("faild to create folder"))
+		return nil, err
+	}
 	folder := Folder{}
 	err = json.Unmarshal(resp.Body, &folder)
 	if err != nil {

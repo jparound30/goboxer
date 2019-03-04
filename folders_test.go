@@ -26,9 +26,15 @@ func TestFolder_GetInfo(t *testing.T) {
 				t.Fatalf("アクセストークンなしでのリクエスト")
 			}
 			// レスポンスを設定する
-			w.Header().Set("content-Type", "application/json")
-			resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
-			_, _ = w.Write(resp)
+			folderId := strings.TrimPrefix(r.URL.Path, "/2.0/folders/")
+			switch folderId {
+			case "500":
+				w.WriteHeader(500)
+			default:
+				w.Header().Set("content-Type", "application/json")
+				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
+				_, _ = w.Write(resp)
+			}
 			return
 		},
 	))
@@ -95,12 +101,17 @@ func TestFolder_GetInfo(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 		{"Normal", args{folderId: "11446498", fields: nil}, nil, false},
+		{"Normal / all fields", args{folderId: "11446498", fields: FolderAllFields}, nil, false},
+		{"HTTP ERROR / 500", args{folderId: "500", fields: FolderAllFields}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := folder.GetInfo(tt.args.folderId, tt.args.fields)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Folder.GetInfo() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
 				return
 			}
 			if got == nil {
