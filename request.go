@@ -89,7 +89,9 @@ func (req *Request) Send(contentType string, body io.Reader) (*Response, error) 
 		newRequest.Header.Add("AUTHORIZATION", "Bearer "+token)
 	}
 
-	newRequest.Header.Add("Content-Type", contentType)
+	if req.Method != GET && req.Method != DELETE {
+		newRequest.Header.Add("Content-Type", contentType)
+	}
 	newRequest.Header.Add("User-Agent", req.apiConn.UserAgent)
 	for key, values := range req.headers {
 		for _, v := range values {
@@ -109,7 +111,7 @@ func (req *Request) Send(contentType string, body io.Reader) (*Response, error) 
 	b := time.Now()
 	resp, err = client.Do(newRequest)
 	a := time.Now()
-	timeInMilli := float64(b.UnixNano()-a.UnixNano()) / 1000000
+	timeInMilli := float64(a.UnixNano()-b.UnixNano()) / 1000000
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +147,9 @@ func (req *Request) Send(contentType string, body io.Reader) (*Response, error) 
 //func (req *Request)redirect() {
 //
 //}
+func (req *Request) isResponseSuccessful(responseCode int) bool {
+	return responseCode < 400
+}
 func (req *Request) isResponseRetryable(responseCode int) bool {
 	return responseCode >= 500 || responseCode == 429
 }

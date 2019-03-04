@@ -14,6 +14,8 @@ const (
 	RefreshMarginInSec = 60.0
 )
 
+// TODO Suppressing Notifications https://developer.box.com/reference#suppressing-notifications
+
 type ApiConnRefreshNotifier interface {
 	Success(apiConn *ApiConn)
 	Fail(apiConn *ApiConn, err error)
@@ -50,7 +52,7 @@ func (ac *ApiConn) commonInit() {
 	ac.MaxRequestAttempts = 5
 }
 
-func (ac *ApiConn) setApiConnRefreshNotifier(notifier ApiConnRefreshNotifier) {
+func (ac *ApiConn) SetApiConnRefreshNotifier(notifier ApiConnRefreshNotifier) {
 	ac.notifier = notifier
 }
 

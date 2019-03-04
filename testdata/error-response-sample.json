@@ -1,0 +1,19 @@
+{
+  "type": "error",
+  "status": 409,
+  "code": "item_name_in_use",
+  "context_info": {
+    "conflicts": [
+      {
+        "type": "folder",
+        "id": "871642494",
+        "sequence_id": "0",
+        "etag": "0",
+        "name": "New Folder"
+      }
+    ]
+  },
+  "help_url": "http://developers.box.com/docs/#errors",
+  "message": "Item with the same name already exists",
+  "request_id": "170397861659135cc65a65"
+}

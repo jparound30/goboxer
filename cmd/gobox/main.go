@@ -33,21 +33,39 @@ func main() {
 		}
 	}
 
-	err = apiConn.Refresh()
+	mainState := Main{}
+	apiConn.SetApiConnRefreshNotifier(&mainState)
+
+	// API Usage Example
+
+	// 1. Get Folder Info.
+	folder := gobox.NewFolder(apiConn)
+	folderInfo, err := folder.GetInfo("0", gobox.FolderAllFields)
 	if err != nil {
-		fmt.Printf("ERROR: %+v", err)
+		fmt.Printf("%v", err)
 		os.Exit(1)
 	}
+	fmt.Printf("Folder Info:\n%+v", folderInfo)
+}
+
+type Main struct {
+}
+
+func (*Main) Success(apiConn *gobox.ApiConn) {
 	fmt.Printf("access_token: %s", apiConn.AccessToken)
 	fmt.Printf("refresh_token: %s", apiConn.RefreshToken)
-
 	bytes, err := apiConn.SaveState()
 	if err != nil {
-		os.Exit(1)
+		fmt.Printf("%v", err)
+		return
 	}
 	err = ioutil.WriteFile(StateFilename, bytes, 0666)
 	if err != nil {
-		os.Exit(1)
+		fmt.Printf("%v", err)
+		return
 	}
-	os.Exit(0)
+}
+
+func (*Main) Fail(apiConn *gobox.ApiConn, err error) {
+	fmt.Printf("%v", err)
 }

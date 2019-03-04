@@ -1,0 +1,8 @@
+{
+  "accessToken": "ACCESS_TOKEN",
+  "refreshToken": "REFRESH_TOKEN",
+  "lastRefresh": "2019-01-01T20:00:00.00000+0900",
+  "expires": 3600,
+  "userAgent": "USER_AGENT",
+  "maxRequestAttempts": 10
+}
