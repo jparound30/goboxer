@@ -1,4 +1,6 @@
-apiconnstate.json
+/apiconnstate.json
+/cert/server.key
+/cert/server.crt
 
 
 # Created by .ignore support plugin (hsz.mobi)
