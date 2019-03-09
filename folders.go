@@ -468,7 +468,7 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 }
 
 // Get Folder Collaborations
-func (f *Folder) Collaborations(folderId string, fields []string) (*Folder, error) {
+func (f *Folder) Collaborations(folderId string, fields []string) ([]Collaboration, error) {
 
 	var url string
 	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/collaborations", buildFieldsQueryParams(fields))
@@ -488,10 +488,17 @@ func (f *Folder) Collaborations(folderId string, fields []string) (*Folder, erro
 		return nil, err
 	}
 	folder := Folder{}
-	err = json.Unmarshal(resp.Body, &folder)
+	collabs := struct {
+		TotalCount int             `json:"total_count"`
+		Entries    []Collaboration `json:"entries"`
+	}{}
+	err = json.Unmarshal(resp.Body, &collabs)
 	if err != nil {
 		return nil, err
 	}
+	for _, collab := range collabs.Entries {
+		collab.ApiInfo = f.apiInfo
+	}
 	folder.apiInfo = f.apiInfo
-	return &folder, nil
+	return collabs.Entries, nil
 }

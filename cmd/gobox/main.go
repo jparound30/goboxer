@@ -84,6 +84,11 @@ func main() {
 		_, _ = uf.Update(*createFolder.ID, gobox.FolderAllFields)
 
 		_, _ = uf.Copy(*createFolder.ID, "69069008141", "COPY_"+*uf.Name, gobox.FolderAllFields)
+
+		collabs, _ := uf.Collaborations("69069008141", gobox.CollaborationAllFields)
+		for _, collab := range collabs {
+			fmt.Printf("%+v\n", collab)
+		}
 		_ = uf.Delete(*createFolder.ID, false)
 	}
 
