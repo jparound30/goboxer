@@ -87,7 +87,7 @@ func main() {
 
 		collabs, _ := uf.Collaborations("69069008141", gobox.CollaborationAllFields)
 		for _, collab := range collabs {
-			fmt.Printf("%+v\n", collab)
+			_, _ = fmt.Printf("%s\n", collab)
 		}
 		_ = uf.Delete(*createFolder.ID, false)
 	}

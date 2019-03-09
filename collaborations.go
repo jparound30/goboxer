@@ -1,6 +1,7 @@
 package gobox
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -11,8 +12,19 @@ type UserOrGroup struct {
 	Login *string `json:"login,omitempty"`
 }
 
+func (u UserOrGroup) String() string {
+	toString := func(s *string) string {
+		if s == nil {
+			return "<nil>"
+		} else {
+			return *s
+		}
+	}
+	return fmt.Sprintf("{Type:%s, ID:%s, Name:%s, Login:%s}", toString(u.Type), toString(u.ID), toString(u.Name), toString(u.Login))
+}
+
 type Collaboration struct {
-	ApiInfo        *apiInfo     `json:"-"`
+	apiInfo        *apiInfo     `json:"-"`
 	Type           *string      `json:"type,omitempty"`
 	ID             *string      `json:"id,omitempty"`
 	CreatedBy      *UserOrGroup `json:"created_by"`
@@ -26,6 +38,44 @@ type Collaboration struct {
 	AcknowledgedAt *time.Time   `json:"modified_at,omitempty"`
 	Item           *ItemMini    `json:"item,omitempty"`
 	CanViewPath    *bool        `json:"can_view_path,omitempty"`
+}
+
+func (c Collaboration) String() string {
+	toString := func(s *string) string {
+		if s == nil {
+			return "<nil>"
+		} else {
+			return *s
+		}
+	}
+	boolToString := func(s *bool) string {
+		if s == nil {
+			return "<nil>"
+		} else if !*s {
+			return "false"
+		} else {
+			return "true"
+		}
+	}
+	timeToString := func(s *time.Time) string {
+		if s == nil {
+			return "<nil>"
+		} else {
+			return s.String()
+		}
+	}
+	ugToString := func(s *UserOrGroup) string {
+		if s == nil {
+			return "<nil>"
+		} else {
+			return s.String()
+		}
+	}
+	return fmt.Sprintf("{Type:%s, ID:%s, CreatedBy:%s, CreatedAt:%s, Modified:%s, ExpiresAt:%s, Status:%s,"+
+		" AccessibleBy:%s, InviteEmail:%s, Role:%s, AcknowledgedAt:%s, Item:%s, CanViewPath:%s}",
+		toString(c.Type), toString(c.ID), ugToString(c.CreatedBy), timeToString(c.CreatedAt), timeToString(c.ModifiedAt),
+		timeToString(c.ExpiresAt), toString(c.Status), ugToString(c.AccessibleBy), toString(c.InviteEmail),
+		toString(c.Role), timeToString(c.AcknowledgedAt), c.Item.String(), boolToString(c.CanViewPath))
 }
 
 var CollaborationAllFields = []string{"type", "id", "item", "accessible_by", "role", "expires_at",

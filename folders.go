@@ -38,6 +38,19 @@ type ItemMini struct {
 	Name       *string `json:"name"`
 }
 
+func (m ItemMini) String() string {
+	toString := func(s *string) string {
+		if s == nil {
+			return "<nil>"
+		} else {
+			return *s
+		}
+	}
+	return fmt.Sprintf("{Type:%s, ID:%s, SequenceId:%s, ETag:%s, Name:%s\n}",
+		toString(m.Type), toString(m.ID), toString(m.SequenceId), toString(m.ETag), toString(m.Name))
+
+}
+
 type FolderMini struct {
 	ItemMini
 }
@@ -487,7 +500,6 @@ func (f *Folder) Collaborations(folderId string, fields []string) ([]Collaborati
 		err = errors.New(fmt.Sprintf("faild to get folder collaborations"))
 		return nil, err
 	}
-	folder := Folder{}
 	collabs := struct {
 		TotalCount int             `json:"total_count"`
 		Entries    []Collaboration `json:"entries"`
@@ -497,8 +509,7 @@ func (f *Folder) Collaborations(folderId string, fields []string) ([]Collaborati
 		return nil, err
 	}
 	for _, collab := range collabs.Entries {
-		collab.ApiInfo = f.apiInfo
+		collab.apiInfo = f.apiInfo
 	}
-	folder.apiInfo = f.apiInfo
 	return collabs.Entries, nil
 }
