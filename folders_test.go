@@ -101,8 +101,8 @@ func TestFolder_GetInfo(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 		{"Normal", args{folderId: "11446498", fields: nil}, nil, false},
-		{"Normal / all fields", args{folderId: "11446498", fields: FolderAllFields}, nil, false},
-		{"HTTP ERROR / 500", args{folderId: "500", fields: FolderAllFields}, nil, true},
+		{"Normal/allFields", args{folderId: "11446498", fields: FolderAllFields}, nil, false},
+		{"HTTPERROR/500", args{folderId: "500", fields: FolderAllFields}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
