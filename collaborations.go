@@ -5,14 +5,27 @@ import (
 	"time"
 )
 
-type UserOrGroup struct {
+type UserGroupMini struct {
 	Type  *string `json:"type,omitempty"`
 	ID    *string `json:"id,omitempty"`
 	Name  *string `json:"name,omitempty"`
 	Login *string `json:"login,omitempty"`
 }
 
-func (u UserOrGroup) String() string {
+func (u *UserGroupMini) IsUser() bool {
+	if u == nil {
+		return false
+	} else if *u.Type == "group" {
+		return true
+	} else {
+		return false
+	}
+}
+
+func (u *UserGroupMini) String() string {
+	if u == nil {
+		return "<nil>"
+	}
 	toString := func(s *string) string {
 		if s == nil {
 			return "<nil>"
@@ -24,23 +37,26 @@ func (u UserOrGroup) String() string {
 }
 
 type Collaboration struct {
-	apiInfo        *apiInfo     `json:"-"`
-	Type           *string      `json:"type,omitempty"`
-	ID             *string      `json:"id,omitempty"`
-	CreatedBy      *UserOrGroup `json:"created_by"`
-	CreatedAt      *time.Time   `json:"created_at,omitempty"`
-	ModifiedAt     *time.Time   `json:"modified_at,omitempty"`
-	ExpiresAt      *time.Time   `json:"modified_at,omitempty"`
-	Status         *string      `json:"status,omitempty"`
-	AccessibleBy   *UserOrGroup `json:"accessible_by"`
-	InviteEmail    *string      `json:"invite_email"`
-	Role           *string      `json:"role,omitempty"`
-	AcknowledgedAt *time.Time   `json:"modified_at,omitempty"`
-	Item           *ItemMini    `json:"item,omitempty"`
-	CanViewPath    *bool        `json:"can_view_path,omitempty"`
+	apiInfo        *apiInfo       `json:"-"`
+	Type           *string        `json:"type,omitempty"`
+	ID             *string        `json:"id,omitempty"`
+	CreatedBy      *UserGroupMini `json:"created_by"`
+	CreatedAt      *time.Time     `json:"created_at,omitempty"`
+	ModifiedAt     *time.Time     `json:"modified_at,omitempty"`
+	ExpiresAt      *time.Time     `json:"modified_at,omitempty"`
+	Status         *string        `json:"status,omitempty"`
+	AccessibleBy   *UserGroupMini `json:"accessible_by"`
+	InviteEmail    *string        `json:"invite_email"`
+	Role           *string        `json:"role,omitempty"`
+	AcknowledgedAt *time.Time     `json:"modified_at,omitempty"`
+	Item           *ItemMini      `json:"item,omitempty"`
+	CanViewPath    *bool          `json:"can_view_path,omitempty"`
 }
 
-func (c Collaboration) String() string {
+func (c *Collaboration) String() string {
+	if c == nil {
+		return "<nil>"
+	}
 	toString := func(s *string) string {
 		if s == nil {
 			return "<nil>"
@@ -64,7 +80,7 @@ func (c Collaboration) String() string {
 			return s.String()
 		}
 	}
-	ugToString := func(s *UserOrGroup) string {
+	ugToString := func(s *UserGroupMini) string {
 		if s == nil {
 			return "<nil>"
 		} else {

@@ -8,17 +8,9 @@ import (
 	"time"
 )
 
-// Mini User info.
-type UserMini struct {
-	Type  *string `json:"type"`
-	ID    *string `json:"id"`
-	Name  *string `json:"name"`
-	Login *string `json:"login"`
-}
-
 type PathCollection struct {
-	TotalCount  int          `json:"total_count"`
-	PathEntries []FolderMini `json:"entries"`
+	TotalCount  int        `json:"total_count"`
+	PathEntries []ItemMini `json:"entries"`
 }
 
 type FolderUploadEmail struct {
@@ -38,7 +30,10 @@ type ItemMini struct {
 	Name       *string `json:"name"`
 }
 
-func (m ItemMini) String() string {
+func (m *ItemMini) String() string {
+	if m == nil {
+		return "<nil>"
+	}
 	toString := func(s *string) string {
 		if s == nil {
 			return "<nil>"
@@ -46,17 +41,9 @@ func (m ItemMini) String() string {
 			return *s
 		}
 	}
-	return fmt.Sprintf("{Type:%s, ID:%s, SequenceId:%s, ETag:%s, Name:%s\n}",
+	return fmt.Sprintf("{Type:%s, ID:%s, SequenceId:%s, ETag:%s, Name:%s}",
 		toString(m.Type), toString(m.ID), toString(m.SequenceId), toString(m.ETag), toString(m.Name))
 
-}
-
-type FolderMini struct {
-	ItemMini
-}
-
-type FileMini struct {
-	ItemMini
 }
 
 const (
@@ -100,28 +87,24 @@ type Metadata struct {
 }
 
 type Folder struct {
+	ItemMini
 	apiInfo                               *apiInfo           `json:"-"`
-	Type                                  *string            `json:"type,omitempty"`
-	ID                                    *string            `json:"id,omitempty"`
-	SequenceId                            *string            `json:"sequence_id,omitempty"`
-	ETag                                  *string            `json:"etag,omitempty"`
-	Name                                  *string            `json:"name,omitempty"`
 	CreatedAt                             *time.Time         `json:"created_at,omitempty"`
 	ModifiedAt                            *time.Time         `json:"modified_at,omitempty"`
 	Description                           *string            `json:"description,omitempty"`
 	Size                                  float64            `json:"size,omitempty"`
 	PathCollection                        *PathCollection    `json:"path_collection,omitempty"`
-	CreatedBy                             *UserMini          `json:"created_by,omitempty"`
-	ModifiedBy                            *UserMini          `json:"modified_by,omitempty"`
+	CreatedBy                             *UserGroupMini     `json:"created_by,omitempty"`
+	ModifiedBy                            *UserGroupMini     `json:"modified_by,omitempty"`
 	TrashedAt                             *time.Time         `json:"trashed_at,omitempty"`
 	PurgedAt                              *time.Time         `json:"purged_at,omitempty"`
 	ContentCreatedAt                      *time.Time         `json:"content_created_at,omitempty"`
 	ContentModifiedAt                     *time.Time         `json:"content_modified_at,omitempty"`
 	ExpiresAt                             *time.Time         `json:"expires_at,omitempty"`
-	OwnedBy                               *UserMini          `json:"owned_by,omitempty"`
+	OwnedBy                               *UserGroupMini     `json:"owned_by,omitempty"`
 	SharedLink                            *SharedLink        `json:"shared_link,omitempty"`
 	FolderUploadEmail                     *FolderUploadEmail `json:"folder_upload_email,omitempty"`
-	Parent                                *FolderMini        `json:"parent,omitempty"`
+	Parent                                *ItemMini          `json:"parent,omitempty"`
 	ItemStatus                            *string            `json:"item_status,omitempty"`
 	ItemCollection                        *ItemCollection    `json:"item_collection,omitempty"`
 	SyncState                             *string            `json:"sync_state,omitempty"`

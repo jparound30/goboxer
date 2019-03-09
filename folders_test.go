@@ -64,17 +64,17 @@ func TestFolder_GetInfo(t *testing.T) {
 		Description                           *string
 		Size                                  float64
 		PathCollection                        *PathCollection
-		CreatedBy                             *UserMini
-		ModifiedBy                            *UserMini
+		CreatedBy                             *UserGroupMini
+		ModifiedBy                            *UserGroupMini
 		TrashedAt                             *time.Time
 		PurgedAt                              *time.Time
 		ContentCreatedAt                      *time.Time
 		ContentModifiedAt                     *time.Time
 		ExpiresAt                             *time.Time
-		OwnedBy                               *UserMini
+		OwnedBy                               *UserGroupMini
 		SharedLink                            *SharedLink
 		FolderUploadEmail                     *FolderUploadEmail
-		Parent                                *FolderMini
+		Parent                                *ItemMini
 		ItemStatus                            *string
 		ItemCollection                        *ItemCollection
 		SyncState                             *string
