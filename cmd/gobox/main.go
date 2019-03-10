@@ -80,6 +80,15 @@ func main() {
 	isCollaborationRestrictedToEnterprise := false
 	uf.IsCollaborationRestrictedToEnterprise = &isCollaborationRestrictedToEnterprise
 
+	// PendingCollaboration
+	collaboration := gobox.NewCollaboration(apiConn)
+	pendingList, _, _, outTotalCount, err := collaboration.PendingCollaborations(0, 1000, gobox.CollaborationAllFields)
+	if err != nil {
+		fmt.Printf("pendingConnection: count=%d", outTotalCount)
+		for _, v := range pendingList {
+			fmt.Println(v)
+		}
+	}
 	if createFolder.ID != nil {
 		_, _ = uf.Update(*createFolder.ID, gobox.FolderAllFields)
 

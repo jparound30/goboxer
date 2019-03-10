@@ -1,6 +1,8 @@
 package gobox
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -53,6 +55,10 @@ type Collaboration struct {
 	CanViewPath    *bool          `json:"can_view_path,omitempty"`
 }
 
+func NewCollaboration(api *ApiConn) *Collaboration {
+	return &Collaboration{apiInfo: &apiInfo{api: api}}
+}
+
 func (c *Collaboration) String() string {
 	if c == nil {
 		return "<nil>"
@@ -97,3 +103,54 @@ func (c *Collaboration) String() string {
 var CollaborationAllFields = []string{"type", "id", "item", "accessible_by", "role", "expires_at",
 	"can_view_path", "status", "acknowledged_at", "created_by",
 	"created_at", "modified_at", "invite_email"}
+
+func (c *Collaboration) GetInfo(collabId string, fields []string) (*Collaboration, error) {
+	// TODO
+	return nil, nil
+}
+
+func (c *Collaboration) Create(fields []string, notify bool) (*Collaboration, error) {
+	return nil, nil
+}
+
+func (c *Collaboration) Update(collabId string, fields []string) (*Collaboration, error) {
+	return nil, nil
+}
+func (c *Collaboration) Delete(collabId string) error {
+	return nil
+}
+
+// Get all pending collaboration invites for a user.
+func (c *Collaboration) PendingCollaborations(offset int, limit int, fields []string) (pendingList []Collaboration, outOffset int, outLimit int, outTotalCount int, err error) {
+	var url string
+	url = fmt.Sprintf("%s%s?status=%s&offset=%d&limit=%d&%s",
+		c.apiInfo.api.BaseURL, "collaborations", "pending", offset, limit, buildFieldsQueryParams(fields))
+
+	req := NewRequest(c.apiInfo.api, url, GET)
+	resp, err := req.Send("", nil)
+	if err != nil {
+		return nil, offset, limit, 0, err
+	}
+
+	if resp.ResponseCode != 200 {
+		// TODO improve error handling...
+		err = errors.New(fmt.Sprintf("faild to get pending collaboratins info"))
+		return nil, offset, limit, 0, err
+	}
+
+	r := struct {
+		TotalCount int             `json:"total_count"`
+		Offset     int             `json:"offset"`
+		Limit      int             `json:"limit"`
+		Entries    []Collaboration `json:"entries"`
+	}{}
+	err = json.Unmarshal(resp.Body, &r)
+	if err != nil {
+		return nil, offset, limit, 0, err
+	}
+
+	for _, v := range r.Entries {
+		v.apiInfo = c.apiInfo
+	}
+	return r.Entries, r.Offset, r.Limit, r.TotalCount, nil
+}
