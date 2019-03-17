@@ -121,16 +121,6 @@ func (ac *ApiConn) Refresh() error {
 	}
 	// TODO 500 >= statuscode || 429 == statuscodeはリトライ化
 	if resp.ResponseCode != 200 {
-		fmt.Printf("ResponseHeader:\n")
-		for key, value := range resp.headers {
-			fmt.Printf("  %s: %v\n", key, value)
-		}
-
-		fmt.Printf("ResponseBody:\n%v\n", string(resp.Body))
-		//bytes, err := ioutil.ReadAll(resp.Body)
-		//if err == nil {
-		//	bodyStr := string(bytes)
-		//}
 
 		ac.notifyFail(err)
 		return errors.New("failed to refresh")
@@ -213,7 +203,7 @@ func (ac *ApiConn) SaveState() ([]byte, error) {
 		MaxRequestAttempts: ac.MaxRequestAttempts,
 	}
 
-	bytes, err := json.Marshal(state)
+	bytes, err := json.MarshalIndent(state, "", "")
 	if err != nil {
 		return nil, err
 	}

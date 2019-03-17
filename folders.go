@@ -18,8 +18,8 @@ type FolderUploadEmail struct {
 	Email  *string                  `json:"email,omitempty"`
 }
 type ItemCollection struct {
-	TotalCount  int        `json:"total_count"`
-	ItemEntries []ItemMini `json:"entries"`
+	TotalCount  int         `json:"total_count"`
+	ItemEntries *[]ItemMini `json:"entries,omitempty"`
 }
 
 type ItemMini struct {
@@ -321,7 +321,6 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 
 	var url string
 	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, buildFieldsQueryParams(fields))
-	fmt.Printf("RequestURI: %s\n", url)
 
 	data := &Folder{}
 
@@ -407,7 +406,6 @@ func (f *Folder) Delete(folderId string, recursive bool) error {
 		param = "recursive=false"
 	}
 	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, param)
-	fmt.Printf("RequestURI: %s\n", url)
 
 	req := NewRequest(f.apiInfo.api, url, DELETE)
 	resp, err := req.Send(applicationJson, nil)
@@ -430,7 +428,6 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 	var url string
 	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/copy", buildFieldsQueryParams(fields))
 
-	fmt.Printf("RequestURI: %s\n", url)
 	var parent = map[string]interface{}{
 		"id": parentFolderId,
 	}
@@ -464,12 +461,10 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 }
 
 // Get Folder Collaborations
-func (f *Folder) Collaborations(folderId string, fields []string) ([]Collaboration, error) {
+func (f *Folder) Collaborations(folderId string, fields []string) ([]*Collaboration, error) {
 
 	var url string
 	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/collaborations", buildFieldsQueryParams(fields))
-
-	fmt.Printf("RequestURI: %s\n", url)
 
 	req := NewRequest(f.apiInfo.api, url, GET)
 	resp, err := req.Send(applicationJson, nil)
@@ -484,15 +479,15 @@ func (f *Folder) Collaborations(folderId string, fields []string) ([]Collaborati
 		return nil, err
 	}
 	collabs := struct {
-		TotalCount int             `json:"total_count"`
-		Entries    []Collaboration `json:"entries"`
+		TotalCount int              `json:"total_count"`
+		Entries    []*Collaboration `json:"entries"`
 	}{}
 	err = json.Unmarshal(resp.Body, &collabs)
 	if err != nil {
 		return nil, err
 	}
 	for _, collab := range collabs.Entries {
-		collab.apiInfo = f.apiInfo
+		collab.apiInfo = &apiInfo{api: f.apiInfo.api}
 	}
 	return collabs.Entries, nil
 }

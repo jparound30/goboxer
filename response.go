@@ -8,4 +8,5 @@ type Response struct {
 	headers      http.Header
 	Body         []byte
 	ResponseCode int
+	RTTInMillis  int64
 }

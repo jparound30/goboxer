@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -99,46 +100,55 @@ func (req *Request) Send(contentType string, body io.Reader) (*Response, error) 
 		}
 	}
 
-	// TODO logging
-	if true {
-		fmt.Printf("Request URI: %s\n", req.Url)
-		fmt.Printf("RequestHeader:\n")
+	if IsEnabledRequestResponseLog && Log != nil {
+		builder := strings.Builder{}
+		builder.WriteString(fmt.Sprintf("\tRequest URI: %s\n", req.Url))
+		builder.WriteString("\tReuestHeader:\n")
 		for key, value := range newRequest.Header {
-			fmt.Printf("  %s: %v\n", key, value)
+			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
 		}
+		if body != nil {
+			reqBody, _ := ioutil.ReadAll(body)
+			builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
+		}
+		Log.RequestDumpf("[gobox Req] %s", builder.String())
 	}
 
 	b := time.Now()
 	resp, err = client.Do(newRequest)
 	a := time.Now()
-	timeInMilli := float64(a.UnixNano()-b.UnixNano()) / 1000000
+	timeInMilli := (a.UnixNano() - b.UnixNano()) / 1000000
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-
-		// TODO logging
-		fmt.Printf("Request turn around time: %f [ms]\n", timeInMilli)
 		_ = resp.Body.Close()
 	}()
-	fmt.Printf("Maybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed)
-	fmt.Printf("ResponseHeader:\n")
-	for key, value := range resp.Header {
-		fmt.Printf("  %s: %v\n", key, value)
-	}
-	bytes, err := ioutil.ReadAll(resp.Body)
-	var bodyStr string
-	if err == nil {
-		bodyStr = string(bytes)
-		fmt.Printf("ResponseBody:\n%v\n", bodyStr)
+
+	respBodyBytes, err := ioutil.ReadAll(resp.Body)
+
+	if IsEnabledRequestResponseLog && Log != nil {
+		builder := strings.Builder{}
+		builder.WriteString(fmt.Sprintf("\tHTTP Status Code:%d\n", resp.StatusCode))
+		builder.WriteString("\tResponseHeader:\n")
+		for key, value := range resp.Header {
+			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
+		}
+		builder.WriteString(fmt.Sprintf("Maybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
+
+		builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
+		Log.ResponseDumpf("[gobox Res] %s", builder.String())
+
+		Log.Debugf("Request turn around time: %d [ms]\n", timeInMilli)
 	}
 
 	result = Response{
 		ResponseCode: resp.StatusCode,
 		headers:      resp.Header,
-		Body:         bytes,
+		Body:         respBodyBytes,
 		Request:      req,
 		ContentType:  resp.Header.Get("Content-Type"),
+		RTTInMillis:  timeInMilli,
 	}
 
 	return &result, nil

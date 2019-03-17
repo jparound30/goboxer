@@ -36,6 +36,7 @@ func main() {
 
 	mainState := Main{}
 	apiConn.SetApiConnRefreshNotifier(&mainState)
+	gobox.Log = &mainState
 
 	// API Usage Example
 
@@ -46,7 +47,7 @@ func main() {
 		fmt.Printf("%+v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Folder Info:\n%+v", folderInfo)
+	fmt.Printf("Folder Info:\n%+v\n", folderInfo)
 
 	createFolder, err := folder.Create("69069008141", "NEW FOLDER", gobox.FolderAllFields)
 	if err != nil {
@@ -84,7 +85,7 @@ func main() {
 	collaboration := gobox.NewCollaboration(apiConn)
 	pendingList, _, _, outTotalCount, err := collaboration.PendingCollaborations(0, 1000, gobox.CollaborationAllFields)
 	if err != nil {
-		fmt.Printf("pendingConnection: count=%d", outTotalCount)
+		fmt.Printf("pendingConnection: count=%d\n", outTotalCount)
 		for _, v := range pendingList {
 			fmt.Println(v)
 		}
@@ -96,7 +97,13 @@ func main() {
 
 		collabs, _ := uf.Collaborations("69069008141", gobox.CollaborationAllFields)
 		for _, collab := range collabs {
-			_, _ = fmt.Printf("%s\n", &collab)
+			_, _ = fmt.Printf("%s\n", collab)
+			info, err := collab.GetInfo(*collab.ID, gobox.CollaborationAllFields)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+			fmt.Printf("[COLLAB] %s\n", info)
 		}
 		_ = uf.Delete(*createFolder.ID, false)
 	}
@@ -104,6 +111,34 @@ func main() {
 }
 
 type Main struct {
+}
+
+func (*Main) RequestDumpf(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
+}
+
+func (*Main) ResponseDumpf(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
+}
+
+func (*Main) Debugf(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
+}
+
+func (*Main) Infof(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
+}
+
+func (*Main) Warnf(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
+}
+
+func (*Main) Errorf(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
+}
+
+func (*Main) Fatalf(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
 }
 
 func (*Main) Success(apiConn *gobox.ApiConn) {

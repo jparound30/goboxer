@@ -105,8 +105,29 @@ var CollaborationAllFields = []string{"type", "id", "item", "accessible_by", "ro
 	"created_at", "modified_at", "invite_email"}
 
 func (c *Collaboration) GetInfo(collabId string, fields []string) (*Collaboration, error) {
-	// TODO
-	return nil, nil
+	var url string
+	url = fmt.Sprintf("%s%s%s?%s",
+		c.apiInfo.api.BaseURL, "collaborations/", collabId, buildFieldsQueryParams(fields))
+
+	req := NewRequest(c.apiInfo.api, url, GET)
+	resp, err := req.Send("", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.ResponseCode != 200 {
+		// TODO improve error handling...
+		err = errors.New(fmt.Sprintf("faild to get collaboratin info"))
+		return nil, err
+	}
+
+	r := Collaboration{apiInfo: &apiInfo{api: c.apiInfo.api}}
+	err = json.Unmarshal(resp.Body, &r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &r, nil
 }
 
 func (c *Collaboration) Create(fields []string, notify bool) (*Collaboration, error) {
