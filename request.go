@@ -57,6 +57,15 @@ type Request struct {
 	shouldAuthenticate bool
 }
 
+// Execute request as specified user
+//
+// This functionality required "Perform actions as users" permission.
+// See https://developer.box.com/reference#as-user-1
+func (req *Request) AsUser(userId string) *Request {
+	req.headers.Set("As-User", userId)
+	return req
+}
+
 func NewRequest(apiConn *ApiConn, url string, method METHOD, headers http.Header, body io.Reader) *Request {
 	h := make(http.Header, len(headers))
 	for k, v := range headers {
