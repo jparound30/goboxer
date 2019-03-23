@@ -1,11 +1,16 @@
 # goboxer
-Unofficial Box API library for golang 
+_goboxer_ is **UNOFFICIAL** Box API(https://developer.box.com/reference) library for golang.  
 
-Under development.
+This library is Under development and its API will may change aggressively.
 
+* Batch request supported.
+* Builtin retry process (HTTP Status Code 429 or 500+)
+* Auto refreshing access_token / refresh_token
+* JWT is not supported currently.
 
-Implementation status.
+**About features for enterprise (Retention policy, Whitelist, etc...), it will not be implemented. ( I have no environment that testing those api! )**
 
+### Implementation status.
 
 | category | sub category | status | impl. priority | 
 ----|---- |----|----|
@@ -116,12 +121,12 @@ Implementation status.
 | Relay Workflow | Get List of Published Templates | not yet | no plan |
 |  | Get List of Relay Workflows | not yet | no plan |
 |  | Launch Relay Workflow | not yet | no plan |
-| Watermarking | Get Watermark on File | not yet | Low |
-|  | Apply Watermark on File | not yet | Low |
-|  | Remove Watermark on File | not yet | Low |
-|  | Get Watermark on Folder | not yet | Low |
-|  | Apply Watermark on Folder | not yet | Low |
-|  | Remove Watermark on Folder | not yet | Low |
+| Watermarking | Get Watermark on File | not yet | no plan |
+|  | Apply Watermark on File | not yet | no plan |
+|  | Remove Watermark on File | not yet | no plan |
+|  | Get Watermark on Folder | not yet | no plan |
+|  | Apply Watermark on Folder | not yet | no plan |
+|  | Remove Watermark on Folder | not yet | no plan |
 | Webhooks | Get Webhooks | not yet | no plan |
 |  | Get Webhook | not yet | no plan |
 |  | Create Weboook | not yet | no plan |
