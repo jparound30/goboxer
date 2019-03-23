@@ -105,16 +105,16 @@ var CollaborationAllFields = []string{"type", "id", "item", "accessible_by", "ro
 	"can_view_path", "status", "acknowledged_at", "created_by",
 	"created_at", "modified_at", "invite_email"}
 
-func (c *Collaboration) GetInfoReq(collabId string, fields []string) *Request {
+func (c *Collaboration) GetInfoReq(collaborationId string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", c.apiInfo.api.BaseURL, "collaborations/", collabId, BuildFieldsQueryParams(fields))
+	url = fmt.Sprintf("%s%s%s?%s", c.apiInfo.api.BaseURL, "collaborations/", collaborationId, BuildFieldsQueryParams(fields))
 
 	return NewRequest(c.apiInfo.api, url, GET, nil, nil)
 }
 
-func (c *Collaboration) GetInfo(collabId string, fields []string) (*Collaboration, error) {
+func (c *Collaboration) GetInfo(collaborationId string, fields []string) (*Collaboration, error) {
 
-	req := c.GetInfoReq(collabId, fields)
+	req := c.GetInfoReq(collaborationId, fields)
 	resp, err := req.Send()
 	if err != nil {
 		return nil, err
@@ -138,10 +138,10 @@ func (c *Collaboration) Create(fields []string, notify bool) (*Collaboration, er
 	return nil, nil
 }
 
-func (c *Collaboration) Update(collabId string, fields []string) (*Collaboration, error) {
+func (c *Collaboration) Update(collaborationId string, fields []string) (*Collaboration, error) {
 	return nil, nil
 }
-func (c *Collaboration) Delete(collabId string) error {
+func (c *Collaboration) Delete(collaborationId string) error {
 	return nil
 }
 
