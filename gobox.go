@@ -5,6 +5,9 @@ const (
 )
 
 var (
-	Log                         Logger = nil
-	IsEnabledRequestResponseLog        = true
+	Log Logger = nil
 )
+
+type apiInfo struct {
+	api *ApiConn
+}

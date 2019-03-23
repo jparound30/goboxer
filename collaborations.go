@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 )
 
@@ -104,18 +105,22 @@ var CollaborationAllFields = []string{"type", "id", "item", "accessible_by", "ro
 	"can_view_path", "status", "acknowledged_at", "created_by",
 	"created_at", "modified_at", "invite_email"}
 
-func (c *Collaboration) GetInfo(collabId string, fields []string) (*Collaboration, error) {
+func (c *Collaboration) GetInfoReq(collabId string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s",
-		c.apiInfo.api.BaseURL, "collaborations/", collabId, buildFieldsQueryParams(fields))
+	url = fmt.Sprintf("%s%s%s?%s", c.apiInfo.api.BaseURL, "collaborations/", collabId, BuildFieldsQueryParams(fields))
 
-	req := NewRequest(c.apiInfo.api, url, GET)
-	resp, err := req.Send("", nil)
+	return NewRequest(c.apiInfo.api, url, GET, nil, nil)
+}
+
+func (c *Collaboration) GetInfo(collabId string, fields []string) (*Collaboration, error) {
+
+	req := c.GetInfoReq(collabId, fields)
+	resp, err := req.Send()
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.ResponseCode != 200 {
+	if resp.ResponseCode != http.StatusOK {
 		// TODO improve error handling...
 		err = errors.New(fmt.Sprintf("faild to get collaboratin info"))
 		return nil, err
@@ -126,7 +131,6 @@ func (c *Collaboration) GetInfo(collabId string, fields []string) (*Collaboratio
 	if err != nil {
 		return nil, err
 	}
-
 	return &r, nil
 }
 
@@ -145,15 +149,15 @@ func (c *Collaboration) Delete(collabId string) error {
 func (c *Collaboration) PendingCollaborations(offset int, limit int, fields []string) (pendingList []Collaboration, outOffset int, outLimit int, outTotalCount int, err error) {
 	var url string
 	url = fmt.Sprintf("%s%s?status=%s&offset=%d&limit=%d&%s",
-		c.apiInfo.api.BaseURL, "collaborations", "pending", offset, limit, buildFieldsQueryParams(fields))
+		c.apiInfo.api.BaseURL, "collaborations", "pending", offset, limit, BuildFieldsQueryParams(fields))
 
-	req := NewRequest(c.apiInfo.api, url, GET)
-	resp, err := req.Send("", nil)
+	req := NewRequest(c.apiInfo.api, url, GET, nil, nil)
+	resp, err := req.Send()
 	if err != nil {
 		return nil, offset, limit, 0, err
 	}
 
-	if resp.ResponseCode != 200 {
+	if resp.ResponseCode != http.StatusOK {
 		// TODO improve error handling...
 		err = errors.New(fmt.Sprintf("faild to get pending collaboratins info"))
 		return nil, offset, limit, 0, err

@@ -1,11 +1,16 @@
 package gobox
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
+	"math/rand"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,49 +40,73 @@ var client = &http.Client{
 	Transport: transport,
 }
 
+const (
+	httpHeaderAuthorization = "Authorization"
+	httpHeaderUserAgent     = "User-Agent"
+	httpHeaderContentType   = "Content-Type"
+	httpAuthType            = "Bearer"
+)
+
 type Request struct {
 	apiConn            *ApiConn
 	Url                string
 	headers            http.Header
+	body               io.Reader
 	Method             METHOD
 	numRedirects       int
 	shouldAuthenticate bool
 }
 
-func NewRequest(apiConn *ApiConn, url string, method METHOD) *Request {
-	return &Request{apiConn: apiConn, Url: url, Method: method, shouldAuthenticate: true, headers: map[string][]string{}}
+func NewRequest(apiConn *ApiConn, url string, method METHOD, headers http.Header, body io.Reader) *Request {
+	h := make(http.Header, len(headers))
+	for k, v := range headers {
+		vv := make([]string, len(v))
+		copy(vv, v)
+		h[k] = vv
+	}
+
+	return &Request{
+		apiConn:            apiConn,
+		Url:                url,
+		headers:            h,
+		body:               body,
+		Method:             method,
+		numRedirects:       3,
+		shouldAuthenticate: true,
+	}
 }
 
-func (req *Request) Send(contentType string, body io.Reader) (*Response, error) {
+func convertMethodStr(method METHOD) string {
+	switch method {
+	case GET:
+		return http.MethodGet
+	case POST:
+		return http.MethodPost
+	case PUT:
+		return http.MethodPut
+	case DELETE:
+		return http.MethodDelete
+	default:
+		return ""
+	}
+}
+
+func (req *Request) Send() (*Response, error) {
 	var (
 		resp   *http.Response
 		err    error
-		result Response
+		result *Response
 	)
 
 	var (
 		url    string
 		method string
 	)
-	var convMethodStr = func(method METHOD) string {
-		switch method {
-		case GET:
-			return http.MethodGet
-		case POST:
-			return http.MethodPost
-		case PUT:
-			return http.MethodPut
-		case DELETE:
-			return http.MethodDelete
-		default:
-			return ""
-		}
-	}
 
 	url = req.Url
-	method = convMethodStr(req.Method)
+	method = convertMethodStr(req.Method)
 
-	newRequest, err := http.NewRequest(method, url, body)
+	newRequest, err := http.NewRequest(method, url, req.body)
 	if err != nil {
 		return nil, err
 	}
@@ -87,37 +116,259 @@ func (req *Request) Send(contentType string, body io.Reader) (*Response, error) 
 			return nil, err
 		}
 		defer req.apiConn.unlockAccessToken()
-		newRequest.Header.Add("AUTHORIZATION", "Bearer "+token)
+		newRequest.Header.Add(httpHeaderAuthorization, httpAuthType+" "+token)
 	}
 
-	if req.Method != GET && req.Method != DELETE {
-		newRequest.Header.Add("Content-Type", contentType)
+	newRequest.Header.Add(httpHeaderUserAgent, req.apiConn.UserAgent)
+	for key, values := range req.headers {
+		if key != httpHeaderUserAgent && key != httpHeaderAuthorization {
+			for _, v := range values {
+				newRequest.Header.Add(key, v)
+			}
+		}
 	}
-	newRequest.Header.Add("User-Agent", req.apiConn.UserAgent)
+	switch req.Method {
+	case POST:
+		fallthrough
+	case PUT:
+		if newRequest.Header.Get(httpHeaderContentType) == "" {
+			newRequest.Header.Add(httpHeaderContentType, ContentTypeApplicationJson)
+		}
+	}
+
+	if Log != nil {
+		builder := strings.Builder{}
+		builder.WriteString(fmt.Sprintf("\tRequest URI: %s\n", req.Url))
+		builder.WriteString("\tRequestHeader:\n")
+		for key, value := range newRequest.Header {
+			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
+		}
+		if req.body != nil {
+			readCloser, _ := newRequest.GetBody()
+			reqBody, _ := ioutil.ReadAll(readCloser)
+			builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
+		}
+		Log.RequestDumpf("[gobox Req]\n%s", builder.String())
+	}
+
+	resp, rttInMillis, err := send(newRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	var respBodyBytes []byte
+
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	respBodyBytes, err = ioutil.ReadAll(resp.Body)
+
+	if Log != nil {
+		builder := strings.Builder{}
+		builder.WriteString(fmt.Sprintf("\tHTTP Status Code:%d\n", resp.StatusCode))
+		builder.WriteString("\tResponseHeader:\n")
+		for key, value := range resp.Header {
+			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
+		}
+		builder.WriteString(fmt.Sprintf("\tMaybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
+
+		builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
+		Log.ResponseDumpf("[gobox Res]\n%s", builder.String())
+
+		Log.Debugf("Request turn around time: %d [ms]\n", rttInMillis)
+	}
+
+	result = &Response{
+		ResponseCode: resp.StatusCode,
+		Headers:      resp.Header,
+		Body:         respBodyBytes,
+		Request:      req,
+		ContentType:  resp.Header.Get(httpHeaderContentType),
+		RTTInMillis:  rttInMillis,
+	}
+
+	return result, nil
+}
+
+func send(request *http.Request) (resp *http.Response, rttInMillis int64, err error) {
+
+	bodyCloser := request.Body
+	defer func() {
+		_ = bodyCloser.Close()
+	}()
+
+	b := time.Now()
+
+	for retryCount := 5; retryCount > 0; retryCount-- {
+		request.Body = bodyCloser
+		bodyNoClose, _ := request.GetBody()
+		request.Body = bodyNoClose
+
+		resp, err = client.Do(request)
+		a := time.Now()
+		rttInMillis = (a.UnixNano() - b.UnixNano()) / 1000000
+		if err != nil {
+			Log.Warnf("err: %s\n", err)
+			return nil, rttInMillis, err
+		}
+
+		if !isResponseRetryable(resp.StatusCode) {
+			break
+		}
+		if retryCount == 1 {
+			Log.Warnf("Retry count reached max count\n")
+			break
+		}
+		var retryAfter int
+		if resp.StatusCode == http.StatusTooManyRequests {
+			retryAfter, _ = strconv.Atoi(resp.Header.Get("Retry-After"))
+		} else {
+			exponent := 5 - (retryCount - 1)
+			minWindow := 0.5
+			maxWindow := 1.5
+			rand.Seed(time.Now().Unix())
+			jitter := (rand.Float64() * (maxWindow - minWindow)) + minWindow
+
+			retryAfter = int(math.Pow(2, float64(exponent)) * jitter)
+		}
+		if Log != nil {
+			Log.Infof("Retry request...after %d secs.\n", retryAfter)
+		}
+		time.Sleep(time.Duration(retryAfter) * time.Second)
+	}
+	return resp, rttInMillis, nil
+}
+
+//func (req *Request)redirect() {
+//
+//}
+func isResponseSuccessful(responseCode int) bool {
+	return responseCode < 400
+}
+func isResponseRetryable(responseCode int) bool {
+	return responseCode >= 500 || responseCode == http.StatusTooManyRequests
+}
+func isResponseRedirect(responseCode int) bool {
+	return responseCode == http.StatusMovedPermanently || responseCode == http.StatusFound
+}
+
+type BatchRequest struct {
+	Request
+}
+
+func NewBatchRequest(apiConn *ApiConn) *BatchRequest {
+	return &BatchRequest{
+		Request{apiConn: apiConn, shouldAuthenticate: true},
+	}
+}
+
+type BatchResponse struct {
+	Response
+	Responses []*Response
+}
+
+func (req *Request) MarshalJSON() ([]byte, error) {
+
+	method := convertMethodStr(req.Method)
+	baseUrlLen := len(req.apiConn.BaseURL)
+	relativeUrl := string(req.Url[baseUrlLen-1:])
+	relativeUrlBytes, err := json.Marshal(relativeUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+
+	buf.WriteString("{")
+
+	buf.WriteString(`"method":"`)
+	buf.WriteString(method)
+	buf.WriteString(`",`)
+
+	buf.WriteString(`"relative_url":`)
+	buf.Write(relativeUrlBytes)
+
+	if req.body != nil {
+		all, err := ioutil.ReadAll(req.body)
+		if err != nil {
+			return nil, err
+		}
+		buf.WriteString(`,`)
+		buf.WriteString(`"body":"`)
+		buf.Write(all)
+		buf.WriteString(`"`)
+	}
+
+	if req.headers != nil && len(req.headers) != 0 {
+		buf.WriteString(`,`)
+		buf.WriteString(`"headers":"`)
+
+		err := req.headers.Write(&buf)
+		if err != nil {
+			return nil, err
+		}
+		buf.WriteString(`"`)
+	}
+
+	buf.WriteString("}")
+
+	return buf.Bytes(), nil
+}
+
+// Execute batch request
+func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, error) {
+	batchUrl := req.apiConn.BaseURL + "batch"
+
+	var buf bytes.Buffer
+
+	buf.WriteString(`{"requests":[`)
+	for i, r := range requests {
+		if i != 0 {
+			buf.WriteString(",")
+		}
+		batchReqJson, err := json.Marshal(&r)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(batchReqJson)
+	}
+	buf.WriteString("]}")
+
+	newRequest, err := http.NewRequest("POST", batchUrl, bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		return nil, err
+	}
+	if req.shouldAuthenticate {
+		token, err := req.apiConn.lockAccessToken()
+		if err != nil {
+			return nil, err
+		}
+		defer req.apiConn.unlockAccessToken()
+		newRequest.Header.Add(httpHeaderAuthorization, httpAuthType+" "+token)
+	}
+
+	newRequest.Header.Add(httpHeaderUserAgent, req.apiConn.UserAgent)
 	for key, values := range req.headers {
 		for _, v := range values {
 			newRequest.Header.Add(key, v)
 		}
 	}
 
-	if IsEnabledRequestResponseLog && Log != nil {
+	if Log != nil {
 		builder := strings.Builder{}
 		builder.WriteString(fmt.Sprintf("\tRequest URI: %s\n", req.Url))
-		builder.WriteString("\tReuestHeader:\n")
+		builder.WriteString("\tRequestHeader:\n")
 		for key, value := range newRequest.Header {
 			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
 		}
-		if body != nil {
-			reqBody, _ := ioutil.ReadAll(body)
-			builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
-		}
-		Log.RequestDumpf("[gobox Req] %s", builder.String())
+		readCloser, _ := newRequest.GetBody()
+		reqBody, _ := ioutil.ReadAll(readCloser)
+		builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
+		Log.RequestDumpf("[gobox Req]\n%s", builder.String())
 	}
 
-	b := time.Now()
-	resp, err = client.Do(newRequest)
-	a := time.Now()
-	timeInMilli := (a.UnixNano() - b.UnixNano()) / 1000000
+	resp, rttInMillis, err := send(newRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -127,42 +378,66 @@ func (req *Request) Send(contentType string, body io.Reader) (*Response, error) 
 
 	respBodyBytes, err := ioutil.ReadAll(resp.Body)
 
-	if IsEnabledRequestResponseLog && Log != nil {
+	if Log != nil {
 		builder := strings.Builder{}
 		builder.WriteString(fmt.Sprintf("\tHTTP Status Code:%d\n", resp.StatusCode))
 		builder.WriteString("\tResponseHeader:\n")
 		for key, value := range resp.Header {
 			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
 		}
-		builder.WriteString(fmt.Sprintf("Maybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
+		builder.WriteString(fmt.Sprintf("\tMaybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
 
 		builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
-		Log.ResponseDumpf("[gobox Res] %s", builder.String())
+		Log.ResponseDumpf("[gobox Res]\n%s", builder.String())
 
-		Log.Debugf("Request turn around time: %d [ms]\n", timeInMilli)
+		Log.Debugf("Request turn around time: %d [ms]\n", rttInMillis)
 	}
 
-	result = Response{
-		ResponseCode: resp.StatusCode,
-		headers:      resp.Header,
-		Body:         respBodyBytes,
-		Request:      req,
-		ContentType:  resp.Header.Get("Content-Type"),
-		RTTInMillis:  timeInMilli,
+	var result *BatchResponse
+
+	var responses []*Response
+
+	if resp.StatusCode == http.StatusOK {
+		// TODO need retry for retryable status code?
+		var r struct {
+			Responses []struct {
+				Status   int                    `json:"status"`
+				Headers  map[string]interface{} `json:"headers"`
+				Response json.RawMessage        `json:"response"`
+			} `json:"responses"`
+		}
+		err := json.Unmarshal(respBodyBytes, &r)
+		if err != nil {
+			return nil, err
+		}
+		rs := r.Responses
+		for i, v := range rs {
+			httpHeader := http.Header{}
+			for hi, hv := range v.Headers {
+				httpHeader.Add(hi, fmt.Sprintf("%s", hv))
+			}
+			bo := v.Response
+			indResp := &Response{
+				ResponseCode: v.Status,
+				Headers:      httpHeader,
+				Body:         []byte(bo),
+				Request:      requests[i],
+				ContentType:  resp.Header.Get(httpHeaderContentType),
+				RTTInMillis:  rttInMillis,
+			}
+			responses = append(responses, indResp)
+		}
 	}
-
-	return &result, nil
-}
-
-//func (req *Request)redirect() {
-//
-//}
-func (req *Request) isResponseSuccessful(responseCode int) bool {
-	return responseCode < 400
-}
-func (req *Request) isResponseRetryable(responseCode int) bool {
-	return responseCode >= 500 || responseCode == 429
-}
-func (req *Request) isResponseRedirect(responseCode int) bool {
-	return responseCode == 301 || responseCode == 302
+	result = &BatchResponse{
+		Response: Response{
+			ResponseCode: resp.StatusCode,
+			Headers:      resp.Header,
+			Body:         respBodyBytes,
+			Request:      &req.Request,
+			ContentType:  resp.Header.Get(httpHeaderContentType),
+			RTTInMillis:  rttInMillis,
+		},
+		Responses: responses,
+	}
+	return result, nil
 }

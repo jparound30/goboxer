@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 )
 
 type PathCollection struct {
-	TotalCount  int        `json:"total_count"`
-	PathEntries []ItemMini `json:"entries"`
+	TotalCount  int         `json:"total_count"`
+	PathEntries []*ItemMini `json:"entries"`
 }
 
 type FolderUploadEmail struct {
@@ -19,7 +20,7 @@ type FolderUploadEmail struct {
 }
 type ItemCollection struct {
 	TotalCount  int         `json:"total_count"`
-	ItemEntries *[]ItemMini `json:"entries,omitempty"`
+	ItemEntries []*ItemMini `json:"entries,omitempty"`
 }
 
 type ItemMini struct {
@@ -129,10 +130,6 @@ var FolderAllFields = []string{
 	"allowed_shared_link_access_levels", "allowed_invitee_roles", "watermark_info", "metadata",
 }
 
-type apiInfo struct {
-	api *ApiConn
-}
-
 func NewFolder(api *ApiConn) *Folder {
 	return &Folder{
 		apiInfo: &apiInfo{api: api},
@@ -142,15 +139,15 @@ func NewFolder(api *ApiConn) *Folder {
 // Get information about a folder.
 func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, buildFieldsQueryParams(fields))
+	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, BuildFieldsQueryParams(fields))
 
-	req := NewRequest(f.apiInfo.api, url, GET)
-	resp, err := req.Send("", nil)
+	req := NewRequest(f.apiInfo.api, url, GET, nil, nil)
+	resp, err := req.Send()
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.ResponseCode != 200 {
+	if resp.ResponseCode != http.StatusOK {
 		// TODO improve error handling...
 		err = errors.New(fmt.Sprintf("faild to get folder info for id: %s", folderId))
 		return nil, err
@@ -168,7 +165,7 @@ func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 func (f *Folder) Create(parentFolderId string, name string, fields []string) (*Folder, error) {
 
 	var url string
-	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "folders?", buildFieldsQueryParams(fields))
+	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "folders?", BuildFieldsQueryParams(fields))
 
 	var parent = map[string]interface{}{
 		"id": parentFolderId,
@@ -179,8 +176,8 @@ func (f *Folder) Create(parentFolderId string, name string, fields []string) (*F
 	}
 	bodyBytes, _ := json.Marshal(bodyMap)
 
-	req := NewRequest(f.apiInfo.api, url, POST)
-	resp, err := req.Send(applicationJson, bytes.NewReader(bodyBytes))
+	req := NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	resp, err := req.Send()
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +317,7 @@ func (fue *FolderUploadEmail) SetAccess(access FolderUploadEmailAccess) {
 func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, buildFieldsQueryParams(fields))
+	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, BuildFieldsQueryParams(fields))
 
 	data := &Folder{}
 
@@ -371,16 +368,13 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 
 	bodyBytes, _ := json.Marshal(data)
 
-	// TODO remove
-	fmt.Printf("body:\n%s\n", string(bodyBytes))
-
-	req := NewRequest(f.apiInfo.api, url, PUT)
-	resp, err := req.Send(applicationJson, bytes.NewReader(bodyBytes))
+	req := NewRequest(f.apiInfo.api, url, PUT, nil, bytes.NewReader(bodyBytes))
+	resp, err := req.Send()
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.ResponseCode != 200 {
+	if resp.ResponseCode != http.StatusOK {
 		// TODO improve error handling...
 		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
 		err = errors.New(fmt.Sprintf("faild to update folder"))
@@ -407,8 +401,8 @@ func (f *Folder) Delete(folderId string, recursive bool) error {
 	}
 	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, param)
 
-	req := NewRequest(f.apiInfo.api, url, DELETE)
-	resp, err := req.Send(applicationJson, nil)
+	req := NewRequest(f.apiInfo.api, url, DELETE, nil, nil)
+	resp, err := req.Send()
 	if err != nil {
 		return err
 	}
@@ -426,7 +420,7 @@ func (f *Folder) Delete(folderId string, recursive bool) error {
 func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fields []string) (*Folder, error) {
 
 	var url string
-	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/copy", buildFieldsQueryParams(fields))
+	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/copy", BuildFieldsQueryParams(fields))
 
 	var parent = map[string]interface{}{
 		"id": parentFolderId,
@@ -439,8 +433,8 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 	}
 	bodyBytes, _ := json.Marshal(bodyMap)
 
-	req := NewRequest(f.apiInfo.api, url, POST)
-	resp, err := req.Send(applicationJson, bytes.NewReader(bodyBytes))
+	req := NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	resp, err := req.Send()
 	if err != nil {
 		return nil, err
 	}
@@ -460,19 +454,22 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 	return &folder, nil
 }
 
+func (f *Folder) CollaborationsReq(folderId string, fields []string) *Request {
+	var url string
+	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/collaborations", BuildFieldsQueryParams(fields))
+	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
+}
+
 // Get Folder Collaborations
 func (f *Folder) Collaborations(folderId string, fields []string) ([]*Collaboration, error) {
 
-	var url string
-	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/collaborations", buildFieldsQueryParams(fields))
-
-	req := NewRequest(f.apiInfo.api, url, GET)
-	resp, err := req.Send(applicationJson, nil)
+	req := f.CollaborationsReq(folderId, fields)
+	resp, err := req.Send()
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.ResponseCode != 200 {
+	if resp.ResponseCode != http.StatusOK {
 		// TODO improve error handling...
 		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
 		err = errors.New(fmt.Sprintf("faild to get folder collaborations"))

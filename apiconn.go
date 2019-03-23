@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -111,16 +112,17 @@ func (ac *ApiConn) Refresh() error {
 	params.Add("client_id", ac.ClientID)
 	params.Add("client_secret", ac.ClientSecret)
 
-	request := NewRequest(ac, ac.TokenURL, POST)
+	header := http.Header{}
+	header.Add(httpHeaderContentType, "application/x-www-form-urlencoded")
+	request := NewRequest(ac, ac.TokenURL, POST, header, strings.NewReader(params.Encode()))
 	request.shouldAuthenticate = false
 
-	resp, err := request.Send("application/x-www-form-urlencoded", strings.NewReader(params.Encode()))
+	resp, err := request.Send()
 	if err != nil {
 		ac.notifyFail(err)
 		return err
 	}
-	// TODO 500 >= statuscode || 429 == statuscodeはリトライ化
-	if resp.ResponseCode != 200 {
+	if resp.ResponseCode != http.StatusOK {
 
 		ac.notifyFail(err)
 		return errors.New("failed to refresh")
@@ -153,17 +155,19 @@ func (ac *ApiConn) Authenticate(authCode string) error {
 	params.Add("client_id", ac.ClientID)
 	params.Add("client_secret", ac.ClientSecret)
 
-	request := NewRequest(ac, ac.TokenURL, POST)
+	header := http.Header{}
+	header.Add(httpHeaderContentType, "application/x-www-form-urlencoded")
+
+	request := NewRequest(ac, ac.TokenURL, POST, header, strings.NewReader(params.Encode()))
 	request.shouldAuthenticate = false
 
-	resp, err := request.Send("application/x-www-form-urlencoded", strings.NewReader(params.Encode()))
+	resp, err := request.Send()
 	if err != nil {
 		ac.notifyFail(err)
 		return err
 	}
 
-	// TODO 500 >= statuscode || 429 == statuscodeはリトライ化
-	if resp.ResponseCode != 200 {
+	if resp.ResponseCode != http.StatusOK {
 		err := errors.New("failed to Authenticate with authCode")
 		ac.notifyFail(err)
 		return err
@@ -174,7 +178,6 @@ func (ac *ApiConn) Authenticate(authCode string) error {
 		ac.notifyFail(err)
 		return err
 	}
-	//fmt.Print(jsonBody)
 
 	ac.AccessToken = tokenResp.AccessToken
 	ac.RefreshToken = tokenResp.RefreshToken
