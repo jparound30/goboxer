@@ -1,4 +1,4 @@
-package gobox //import "github.com/jparound30/gobox"
+package goboxer //import "github.com/jparound30/goboxer"
 
 const (
 	VERSION = "0.0.1"

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/jparound30/gobox"
+	"github.com/jparound30/goboxer"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -21,7 +21,7 @@ func main() {
 	accessToken := os.Getenv("_BOX_AT")
 	refreshToken := os.Getenv("_BOX_RT")
 
-	apiConn := gobox.NewApiConnWithRefreshToken(clientId, clientSecret, accessToken, refreshToken)
+	apiConn := goboxer.NewApiConnWithRefreshToken(clientId, clientSecret, accessToken, refreshToken)
 
 	_, err := os.Stat(StateFilename)
 	if err == nil {
@@ -38,7 +38,7 @@ func main() {
 
 	mainState := Main{}
 	apiConn.SetApiConnRefreshNotifier(&mainState)
-	gobox.Log = &mainState
+	goboxer.Log = &mainState
 
 	// API Usage Example
 
@@ -60,12 +60,12 @@ func main() {
 		//"69649310195","69649755031",
 	}
 
-	batchRequest := gobox.NewBatchRequest(apiConn)
+	batchRequest := goboxer.NewBatchRequest(apiConn)
 
-	var br []*gobox.Request
+	var br []*goboxer.Request
 	for _, id := range targetFolderIds {
-		folder := gobox.NewFolder(apiConn)
-		br = append(br, folder.CollaborationsReq(id, gobox.CollaborationAllFields))
+		folder := goboxer.NewFolder(apiConn)
+		br = append(br, folder.CollaborationsReq(id, goboxer.CollaborationAllFields))
 	}
 
 	for counter := 1; counter < 21; counter++ {
@@ -135,7 +135,7 @@ func (*Main) Fatalf(format string, args ...interface{}) {
 	fmt.Printf(format, args...)
 }
 
-func (*Main) Success(apiConn *gobox.ApiConn) {
+func (*Main) Success(apiConn *goboxer.ApiConn) {
 	fmt.Printf("access_token: %s\n", apiConn.AccessToken)
 	fmt.Printf("refresh_token: %s\n", apiConn.RefreshToken)
 	bytes, err := apiConn.SaveState()
@@ -150,6 +150,6 @@ func (*Main) Success(apiConn *gobox.ApiConn) {
 	}
 }
 
-func (*Main) Fail(apiConn *gobox.ApiConn, err error) {
+func (*Main) Fail(apiConn *goboxer.ApiConn, err error) {
 	fmt.Printf("%v\n", err)
 }

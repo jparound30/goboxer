@@ -1,4 +1,4 @@
-package gobox
+package goboxer
 
 import (
 	"encoding/json"
@@ -49,7 +49,7 @@ func (ac *ApiConn) commonInit() {
 	ac.BaseURL = "https://api.box.com/2.0/"
 	ac.BaseUploadURL = "https://upload.box.com/api/2.0/"
 	ac.AuthorizationURL = "https://account.box.com/api/oauth2/authorize"
-	ac.UserAgent = fmt.Sprintf("gobox/%s", VERSION)
+	ac.UserAgent = fmt.Sprintf("goboxer/%s", VERSION)
 	ac.MaxRequestAttempts = 5
 }
 

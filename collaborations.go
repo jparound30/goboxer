@@ -1,4 +1,4 @@
-package gobox
+package goboxer
 
 import (
 	"encoding/json"

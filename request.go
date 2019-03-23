@@ -1,4 +1,4 @@
-package gobox
+package goboxer
 
 import (
 	"bytes"
@@ -157,7 +157,7 @@ func (req *Request) Send() (*Response, error) {
 			reqBody, _ := ioutil.ReadAll(readCloser)
 			builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
 		}
-		Log.RequestDumpf("[gobox Req]\n%s", builder.String())
+		Log.RequestDumpf("[goboxer Req]\n%s", builder.String())
 	}
 
 	resp, rttInMillis, err := send(newRequest)
@@ -183,7 +183,7 @@ func (req *Request) Send() (*Response, error) {
 		builder.WriteString(fmt.Sprintf("\tMaybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
 
 		builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
-		Log.ResponseDumpf("[gobox Res]\n%s", builder.String())
+		Log.ResponseDumpf("[goboxer Res]\n%s", builder.String())
 
 		Log.Debugf("Request turn around time: %d [ms]\n", rttInMillis)
 	}
@@ -374,7 +374,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		readCloser, _ := newRequest.GetBody()
 		reqBody, _ := ioutil.ReadAll(readCloser)
 		builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
-		Log.RequestDumpf("[gobox Req]\n%s", builder.String())
+		Log.RequestDumpf("[goboxer Req]\n%s", builder.String())
 	}
 
 	resp, rttInMillis, err := send(newRequest)
@@ -397,7 +397,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		builder.WriteString(fmt.Sprintf("\tMaybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
 
 		builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
-		Log.ResponseDumpf("[gobox Res]\n%s", builder.String())
+		Log.ResponseDumpf("[goboxer Res]\n%s", builder.String())
 
 		Log.Debugf("Request turn around time: %d [ms]\n", rttInMillis)
 	}

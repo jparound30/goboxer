@@ -1,4 +1,4 @@
-package gobox
+package goboxer
 
 type Logger interface {
 	RequestDumpf(format string, args ...interface{})

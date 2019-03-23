@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/jparound30/gobox"
+	"github.com/jparound30/goboxer"
 	"io/ioutil"
 	"os"
 	"time"
@@ -19,7 +19,7 @@ func main() {
 	accessToken := os.Getenv("_BOX_AT")
 	refreshToken := os.Getenv("_BOX_RT")
 
-	apiConn := gobox.NewApiConnWithRefreshToken(clientId, clientSecret, accessToken, refreshToken)
+	apiConn := goboxer.NewApiConnWithRefreshToken(clientId, clientSecret, accessToken, refreshToken)
 
 	_, err := os.Stat(StateFilename)
 	if err == nil {
@@ -36,27 +36,27 @@ func main() {
 
 	mainState := Main{}
 	apiConn.SetApiConnRefreshNotifier(&mainState)
-	gobox.Log = &mainState
+	goboxer.Log = &mainState
 
 	// API Usage Example
 
 	// 1. Get Folder Info.
-	folder := gobox.NewFolder(apiConn)
-	folderInfo, err := folder.GetInfo("0", gobox.FolderAllFields)
+	folder := goboxer.NewFolder(apiConn)
+	folderInfo, err := folder.GetInfo("0", goboxer.FolderAllFields)
 	if err != nil {
 		fmt.Printf("%+v\n", err)
 		os.Exit(1)
 	}
 	fmt.Printf("Folder Info:\n%+v\n", folderInfo)
 
-	createFolder, err := folder.Create("69069008141", "NEW FOLDER", gobox.FolderAllFields)
+	createFolder, err := folder.Create("69069008141", "NEW FOLDER", goboxer.FolderAllFields)
 	if err != nil {
 		fmt.Printf("%v", err)
 		os.Exit(1)
 	}
 	fmt.Printf("Created Folder Info:\n%+v\n", createFolder)
 
-	uf := gobox.NewFolder(apiConn)
+	uf := goboxer.NewFolder(apiConn)
 
 	uf.SetName("NEW FOLDER " + time.Now().Format("2006-01-02-150405"))
 
@@ -66,8 +66,8 @@ func main() {
 	unsharedAt := time.Now().Add(time.Hour * 24 * 365)
 	uf.SetSharedLinkCollaborators(unsharedAt)
 
-	uf.FolderUploadEmail = &gobox.FolderUploadEmail{}
-	uf.FolderUploadEmail.SetAccess(gobox.FolderUploadEmailAccessCollaborators)
+	uf.FolderUploadEmail = &goboxer.FolderUploadEmail{}
+	uf.FolderUploadEmail.SetAccess(goboxer.FolderUploadEmailAccessCollaborators)
 
 	syncState := "not_synced"
 	uf.SyncState = &syncState
@@ -82,8 +82,8 @@ func main() {
 	uf.IsCollaborationRestrictedToEnterprise = &isCollaborationRestrictedToEnterprise
 
 	// PendingCollaboration
-	collaboration := gobox.NewCollaboration(apiConn)
-	pendingList, _, _, outTotalCount, err := collaboration.PendingCollaborations(0, 1000, gobox.CollaborationAllFields)
+	collaboration := goboxer.NewCollaboration(apiConn)
+	pendingList, _, _, outTotalCount, err := collaboration.PendingCollaborations(0, 1000, goboxer.CollaborationAllFields)
 	if err != nil {
 		fmt.Printf("pendingConnection: count=%d\n", outTotalCount)
 		for _, v := range pendingList {
@@ -91,14 +91,14 @@ func main() {
 		}
 	}
 	if createFolder.ID != nil {
-		_, _ = uf.Update(*createFolder.ID, gobox.FolderAllFields)
+		_, _ = uf.Update(*createFolder.ID, goboxer.FolderAllFields)
 
-		_, _ = uf.Copy(*createFolder.ID, "69069008141", "COPY_"+*uf.Name, gobox.FolderAllFields)
+		_, _ = uf.Copy(*createFolder.ID, "69069008141", "COPY_"+*uf.Name, goboxer.FolderAllFields)
 
-		collabs, _ := uf.Collaborations("69069008141", gobox.CollaborationAllFields)
+		collabs, _ := uf.Collaborations("69069008141", goboxer.CollaborationAllFields)
 		for _, collab := range collabs {
 			_, _ = fmt.Printf("%s\n", collab)
-			info, err := collab.GetInfo(*collab.ID, gobox.CollaborationAllFields)
+			info, err := collab.GetInfo(*collab.ID, goboxer.CollaborationAllFields)
 			if err != nil {
 				fmt.Println(err)
 				continue
@@ -141,7 +141,7 @@ func (*Main) Fatalf(format string, args ...interface{}) {
 	fmt.Printf(format, args...)
 }
 
-func (*Main) Success(apiConn *gobox.ApiConn) {
+func (*Main) Success(apiConn *goboxer.ApiConn) {
 	fmt.Printf("access_token: %s\n", apiConn.AccessToken)
 	fmt.Printf("refresh_token: %s\n", apiConn.RefreshToken)
 	bytes, err := apiConn.SaveState()
@@ -156,6 +156,6 @@ func (*Main) Success(apiConn *gobox.ApiConn) {
 	}
 }
 
-func (*Main) Fail(apiConn *gobox.ApiConn, err error) {
+func (*Main) Fail(apiConn *goboxer.ApiConn, err error) {
 	fmt.Printf("%v\n", err)
 }

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/jparound30/gobox"
+	"github.com/jparound30/goboxer"
 	"log"
 	"math/rand"
 	"net/http"
@@ -96,7 +96,7 @@ func redirectHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		apiConn := gobox.NewApiConnWithRefreshToken(ClientID, ClientSecret, "", "")
+		apiConn := goboxer.NewApiConnWithRefreshToken(ClientID, ClientSecret, "", "")
 		err := apiConn.Authenticate(authCode)
 		if err != nil {
 			writeErrorHtml(w, err)
