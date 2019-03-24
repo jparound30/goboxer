@@ -90,8 +90,27 @@ func main() {
 			fmt.Println(v)
 		}
 	}
+
 	if createFolder.ID != nil {
 		_, _ = uf.Update(*createFolder.ID, goboxer.FolderAllFields)
+
+		collaboration.SetItem(goboxer.TYPE_FOLDER, *createFolder.ID)
+		collaboration.SetCanViewPath(true)
+		collaboration.SetRole(goboxer.VIEWER)
+		collaboration.SetAccessibleByEmailForNewUser(goboxer.TYPE_USER, "goboxer00001@example.com")
+		createCollab, err := collaboration.Create(goboxer.CollaborationAllFields, false)
+		if err != nil {
+			fmt.Printf("%v", err)
+			os.Exit(1)
+		}
+		fmt.Printf("created collab: %s\n", createCollab)
+
+		updatedCollab, err := collaboration.Update(*createCollab.ID, goboxer.UPLOADER, nil, nil, goboxer.CollaborationAllFields)
+		if err != nil {
+			fmt.Printf("%v", err)
+			os.Exit(1)
+		}
+		fmt.Printf("updated collab: %s\n", updatedCollab)
 
 		_, _ = uf.Copy(*createFolder.ID, "69069008141", "COPY_"+*uf.Name, goboxer.FolderAllFields)
 
@@ -122,23 +141,23 @@ func (*Main) ResponseDumpf(format string, args ...interface{}) {
 }
 
 func (*Main) Debugf(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	fmt.Printf("[goboxer] "+format, args...)
 }
 
 func (*Main) Infof(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	fmt.Printf("[goboxer] "+format, args...)
 }
 
 func (*Main) Warnf(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	fmt.Printf("[goboxer] "+format, args...)
 }
 
 func (*Main) Errorf(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	fmt.Printf("[goboxer] "+format, args...)
 }
 
 func (*Main) Fatalf(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	fmt.Printf("[goboxer] "+format, args...)
 }
 
 func (*Main) Success(apiConn *goboxer.ApiConn) {

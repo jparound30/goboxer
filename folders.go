@@ -24,11 +24,11 @@ type ItemCollection struct {
 }
 
 type ItemMini struct {
-	Type       *string `json:"type"`
-	ID         *string `json:"id"`
-	SequenceId *string `json:"sequence_id"`
-	ETag       *string `json:"etag"`
-	Name       *string `json:"name"`
+	Type       *ItemType `json:"type"`
+	ID         *string   `json:"id"`
+	SequenceId *string   `json:"sequence_id,omitempty"`
+	ETag       *string   `json:"etag,omitempty"`
+	Name       *string   `json:"name,omitempty"`
 }
 
 func (m *ItemMini) String() string {
@@ -43,7 +43,7 @@ func (m *ItemMini) String() string {
 		}
 	}
 	return fmt.Sprintf("{Type:%s, ID:%s, SequenceId:%s, ETag:%s, Name:%s}",
-		toString(m.Type), toString(m.ID), toString(m.SequenceId), toString(m.ETag), toString(m.Name))
+		m.Type.String(), toString(m.ID), toString(m.SequenceId), toString(m.ETag), toString(m.Name))
 
 }
 
@@ -182,7 +182,7 @@ func (f *Folder) Create(parentFolderId string, name string, fields []string) (*F
 		return nil, err
 	}
 
-	if resp.ResponseCode != 201 {
+	if resp.ResponseCode != http.StatusCreated {
 		// TODO improve error handling...
 		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
 		err = errors.New(fmt.Sprintf("faild to create folder"))

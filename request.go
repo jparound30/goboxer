@@ -204,15 +204,19 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 
 	bodyCloser := request.Body
 	defer func() {
-		_ = bodyCloser.Close()
+		if bodyCloser != nil {
+			_ = bodyCloser.Close()
+		}
 	}()
 
 	b := time.Now()
 
 	for retryCount := 5; retryCount > 0; retryCount-- {
-		request.Body = bodyCloser
-		bodyNoClose, _ := request.GetBody()
-		request.Body = bodyNoClose
+		if bodyCloser != nil {
+			request.Body = bodyCloser
+			bodyNoClose, _ := request.GetBody()
+			request.Body = bodyNoClose
+		}
 
 		resp, err = client.Do(request)
 		a := time.Now()
