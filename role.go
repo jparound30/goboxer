@@ -2,12 +2,6 @@ package goboxer
 
 type Role string
 
-//func (r *Role) MarshalJSON() ([]byte, error) {
-//	if r != nil {
-//
-//	}
-//}
-
 func (r *Role) String() string {
 	if r == nil {
 		return "<nil>"
