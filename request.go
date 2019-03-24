@@ -222,7 +222,9 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 		a := time.Now()
 		rttInMillis = (a.UnixNano() - b.UnixNano()) / 1000000
 		if err != nil {
-			Log.Warnf("err: %s\n", err)
+			if Log != nil {
+				Log.Warnf("err: %s\n", err)
+			}
 			return nil, rttInMillis, err
 		}
 
@@ -230,7 +232,9 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 			break
 		}
 		if retryCount == 1 {
-			Log.Warnf("Retry count reached max count\n")
+			if Log != nil {
+				Log.Warnf("Retry count reached max count\n")
+			}
 			break
 		}
 		var retryAfter int
