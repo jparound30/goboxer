@@ -195,6 +195,7 @@ func (c *Collaboration) CreateReq(fields []string, notify bool) *Request {
 	url = fmt.Sprintf("%s%s?notify=%t&%s", c.apiInfo.api.BaseURL, "collaborations", notify, BuildFieldsQueryParams(fields))
 	bodyBytes, err := json.Marshal(c)
 	if err != nil {
+		// FIXME error handlingggggg....
 		fmt.Println(err)
 	}
 	return NewRequest(c.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))

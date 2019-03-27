@@ -40,6 +40,46 @@ func main() {
 
 	// API Usage Example
 
+	user := goboxer.NewUser(apiConn)
+	currentUser, err := user.GetCurrentUser(goboxer.UserAllFields)
+	if err != nil {
+		fmt.Printf("%+v\n", err)
+		os.Exit(1)
+
+	}
+	fmt.Printf("Current user:\n%+v\n", currentUser)
+
+	getuser, err := user.GetUser(*currentUser.ID, goboxer.UserAllFields)
+	if err != nil {
+		fmt.Printf("%+v\n", err)
+		os.Exit(1)
+
+	}
+	fmt.Printf("Get user:\n%+v\n", getuser)
+
+	var trackingCodes []map[string]string
+	trackingCodes = append(trackingCodes, map[string]string{"company": "some company,Inc."})
+	trackingCodes = append(trackingCodes, map[string]string{"division": "some division"})
+
+	//
+	// Create User as Managed User in Enterprise
+	//
+	//user.SetLogin("goboxer90001@example.com").SetName("goboxer90001").
+	//	SetRole(goboxer.UserRoleUser).SetLanguage("en").SetIsSyncEnabled(false).SetJobTitle("job").
+	//	SetPhone("000-123-456-789").SetAddress("address").SetSpaceAmount(-1).
+	//	//SetTrackingCodes(trackingCodes).
+	//	SetCanSeeManagedUsers(false).SetTimezone(`Asia/Tokyo`).
+	//	SetIsExemptFromDeviceLimits(false).SetIsExemptFromLoginVerification(false).
+	//	SetIsExternalCollabRestricted(true).SetStatus(goboxer.UserStatusActive)
+	//
+	//createdUser, err := user.CreateUser(goboxer.UserAllFields)
+	//if err != nil {
+	//	fmt.Printf("%+v\n", err)
+	//	os.Exit(1)
+	//
+	//}
+	//fmt.Printf("Created user:\n%+v\n", createdUser)
+
 	// 1. Get Folder Info.
 	folder := goboxer.NewFolder(apiConn)
 	folderInfo, err := folder.GetInfo("0", goboxer.FolderAllFields)
@@ -94,10 +134,10 @@ func main() {
 	if createFolder.ID != nil {
 		_, _ = uf.Update(*createFolder.ID, goboxer.FolderAllFields)
 
-		collaboration.SetItem(goboxer.TYPE_FOLDER, *createFolder.ID)
-		collaboration.SetCanViewPath(true)
-		collaboration.SetRole(goboxer.VIEWER)
-		collaboration.SetAccessibleByEmailForNewUser(goboxer.TYPE_USER, "goboxer00001@example.com")
+		collaboration.SetItem(goboxer.TYPE_FOLDER, *createFolder.ID).
+			SetCanViewPath(true).
+			SetRole(goboxer.VIEWER).
+			SetAccessibleByEmailForNewUser(goboxer.TYPE_USER, "goboxer00001@example.com")
 		createCollab, err := collaboration.Create(goboxer.CollaborationAllFields, false)
 		if err != nil {
 			fmt.Printf("%v", err)

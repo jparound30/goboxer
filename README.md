@@ -74,20 +74,20 @@ This library is Under development and its API will may change aggressively.
 |  | Create Web Link | not yet | no plan |
 |  | Update Web Link | not yet | no plan |
 |  | Delete Web Link | not yet | no plan |
-| Users | Get Current User | not yet | High |
-|  | Get User | not yet | High |
-|  | Get User Avatar | not yet | High |
-|  | Create User | not yet | High |
-|  | Update User | not yet | High |
-|  | Create App User | not yet | High |
-|  | Delete User | not yet | High |
-|  | Get Enterprise Users | not yet | High |
-|  | Invite User | not yet | High |
-|  | Move Owned Items | not yet | High |
-|  | Change User's Login | not yet | High |
-|  | Get Email Aliases | not yet | High |
-|  | Create Email Alias | not yet | High |
-|  | Delete Email Alias | not yet | High |
+| Users | Get Current User | supported | - |
+|  | Get User | supported | - |
+|  | Get User Avatar | not yet | no plan |
+|  | Create User | supported | - |
+|  | Update User | supported | - |
+|  | Create App User | supported | - |
+|  | Delete User | supported | - |
+|  | Get Enterprise Users | supported | - |
+|  | Invite User | not yet | no plan |
+|  | Move Owned Items | not yet | no plan |
+|  | Change User's Login | not yet | Low |
+|  | Get Email Aliases | not yet | Low |
+|  | Create Email Alias | not yet | Low |
+|  | Delete Email Alias | not yet | Low |
 | Groups | Get Group | not yet | High |
 |  | Create Group | not yet | High |
 |  | Update Group | not yet | High |
