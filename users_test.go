@@ -52,6 +52,7 @@ func TestUser_Unmarshal(t *testing.T) {
 					Name:  &name,
 					Login: &login,
 				},
+				nil,
 				&createdAt,
 				&modifiedAt,
 				&language,
@@ -75,7 +76,9 @@ func TestUser_Unmarshal(t *testing.T) {
 				&myTags,
 				nil,
 				nil,
-			}},
+				nil,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -134,6 +137,7 @@ func TestUser_UnmarshalMarshal(t *testing.T) {
 					Name:  &name,
 					Login: &login,
 				},
+				nil,
 				&createdAt,
 				&modifiedAt,
 				&language,
@@ -157,7 +161,9 @@ func TestUser_UnmarshalMarshal(t *testing.T) {
 				&myTags,
 				nil,
 				nil,
-			}},
+				nil,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

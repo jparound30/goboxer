@@ -30,6 +30,8 @@ func TestFolder_GetInfo(t *testing.T) {
 			switch folderId {
 			case "500":
 				w.WriteHeader(500)
+			case "404":
+				w.WriteHeader(404)
 			default:
 				w.Header().Set("content-Type", "application/json")
 				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
@@ -102,7 +104,7 @@ func TestFolder_GetInfo(t *testing.T) {
 		// TODO: Add test cases.
 		{"Normal", args{folderId: "11446498", fields: nil}, nil, false},
 		{"Normal/allFields", args{folderId: "11446498", fields: FolderAllFields}, nil, false},
-		{"HTTPERROR/500", args{folderId: "500", fields: FolderAllFields}, nil, true},
+		{"HTTPERROR/404", args{folderId: "404", fields: FolderAllFields}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

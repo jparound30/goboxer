@@ -1,18 +1,21 @@
 # goboxer
 _goboxer_ is **UNOFFICIAL** Box API(https://developer.box.com/reference) library for golang.  
 
-This library is Under development and its API will may change aggressively.
+_goboxer_ is UNDER DEVELOPMENT and its API may be destructively changed.
 
+## Features
 * Batch request supported.
 * Builtin retry process (HTTP Status Code 429 or 500+)
 * Auto refreshing access_token / refresh_token
-* JWT is not supported currently.
+
+### NOTICE
+JWT auth is not supported currently.
 
 **About features for enterprise (Retention policy, Whitelist, etc...), it will not be implemented. ( I have no environment that testing those api! )**
 
 ### Implementation status.
 
-| category | sub category | status | impl. priority | 
+| Category | SubCategory | STATUS | Priority | 
 ----|---- |----|----|
 | Files | Get File Info | not yet | High |
 |  | Download File | not yet | High |
@@ -88,18 +91,18 @@ This library is Under development and its API will may change aggressively.
 |  | Get Email Aliases | not yet | Low |
 |  | Create Email Alias | not yet | Low |
 |  | Delete Email Alias | not yet | Low |
-| Groups | Get Group | not yet | High |
-|  | Create Group | not yet | High |
-|  | Update Group | not yet | High |
-|  | Delete Group | not yet | High |
-|  | Get Enterprise Groups | not yet | High |
-| Groups - Membership | Get Membership | not yet | High |
-|  | Create Membership | not yet | High |
-|  | Update Membership | not yet | High |
-|  | Delete Membership | not yet | High |
-|  | Get Memberships for Group | not yet | High |
-|  | Get Memberships for User | not yet | High |
-|  | Get Collaborations for Group | not yet | High |
+| Groups | Get Group | supported | - |
+|  | Create Group | supported | - |
+|  | Update Group | supported | - |
+|  | Delete Group | supported | - |
+|  | Get Enterprise Groups | supported | - |
+| Groups - Membership | Get Membership | supported | - |
+|  | Create Membership | supported | - |
+|  | Update Membership | supported | - |
+|  | Delete Membership | supported | - |
+|  | Get Memberships for Group | supported | - |
+|  | Get Memberships for User | supported | - |
+|  | Get Collaborations for Group | supported | - |
 | Collaborations | Get Collaboration | supported | - |
 |  | Create Collaboration | supported | - |
 |  | Update Collaboration | supported | - |
