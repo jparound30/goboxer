@@ -17,15 +17,15 @@ JWT auth is not supported currently.
 
 | Category | SubCategory | STATUS | Priority | 
 ----|---- |----|----|
-| Files | Get File Info | not yet | High |
-|  | Download File | not yet | High |
-|  | Upload File | not yet | High |
-|  | Upload File Version | not yet | High |
+| Files | Get File Info | supported | - |
+|  | Download File | supported | - |
+|  | Upload File | supported | - |
+|  | Upload File Version | supported | - |
 |  | Chunked Upload | not yet | High |
-|  | Update File Info | not yet | High |
-|  | Preflight Check | not yet | High |
-|  | Delete File | not yet | High |
-|  | Copy File | not yet | High |
+|  | Update File Info | supported | - |
+|  | Preflight Check | supported | - |
+|  | Delete File | supported | - |
+|  | Copy File | supported | - |
 |  | Lock and Unlock | not yet | High |
 |  | Get Thumbnail | not yet | High |
 |  | Get Embed Link | not yet | High |

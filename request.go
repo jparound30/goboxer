@@ -22,6 +22,7 @@ const (
 	POST
 	PUT
 	DELETE
+	OPTION
 )
 
 var transport = &http.Transport{
@@ -147,15 +148,21 @@ func (req *Request) Send() (*Response, error) {
 
 	if Log != nil {
 		builder := strings.Builder{}
-		builder.WriteString(fmt.Sprintf("\tRequest URI: %s\n", req.Url))
+		builder.WriteString(fmt.Sprintf("\tRequest URI: %s %s\n", method, req.Url))
 		builder.WriteString("\tRequestHeader:\n")
 		for key, value := range newRequest.Header {
 			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
 		}
-		if req.body != nil {
-			readCloser, _ := newRequest.GetBody()
-			reqBody, _ := ioutil.ReadAll(readCloser)
-			builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
+		switch newRequest.Header.Get(httpHeaderContentType) {
+		case ContentTypeApplicationJson:
+			fallthrough
+		case ContentTypeFormUrlEncoded:
+			if req.body != nil {
+				readCloser, _ := newRequest.GetBody()
+				reqBody, _ := ioutil.ReadAll(readCloser)
+				builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
+			}
+		default:
 		}
 		Log.RequestDumpf("[goboxer Req]\n%s", builder.String())
 	}
@@ -182,7 +189,13 @@ func (req *Request) Send() (*Response, error) {
 		}
 		builder.WriteString(fmt.Sprintf("\tMaybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
 
-		builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
+		switch newRequest.Header.Get(httpHeaderContentType) {
+		case ContentTypeApplicationJson:
+			fallthrough
+		case ContentTypeFormUrlEncoded:
+			builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
+		default:
+		}
 		Log.ResponseDumpf("[goboxer Res]\n%s", builder.String())
 
 		Log.Debugf("Request turn around time: %d [ms]\n", rttInMillis)
@@ -374,7 +387,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	if Log != nil {
 		builder := strings.Builder{}
-		builder.WriteString(fmt.Sprintf("\tRequest URI: %s\n", req.Url))
+		builder.WriteString(fmt.Sprintf("\tRequest URI: %s %s\n", "POST", req.Url))
 		builder.WriteString("\tRequestHeader:\n")
 		for key, value := range newRequest.Header {
 			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))

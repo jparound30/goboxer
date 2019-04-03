@@ -113,7 +113,7 @@ func (ac *ApiConn) Refresh() error {
 	params.Add("client_secret", ac.ClientSecret)
 
 	header := http.Header{}
-	header.Add(httpHeaderContentType, "application/x-www-form-urlencoded")
+	header.Add(httpHeaderContentType, ContentTypeFormUrlEncoded)
 	request := NewRequest(ac, ac.TokenURL, POST, header, strings.NewReader(params.Encode()))
 	request.shouldAuthenticate = false
 
@@ -156,7 +156,7 @@ func (ac *ApiConn) Authenticate(authCode string) error {
 	params.Add("client_secret", ac.ClientSecret)
 
 	header := http.Header{}
-	header.Add(httpHeaderContentType, "application/x-www-form-urlencoded")
+	header.Add(httpHeaderContentType, ContentTypeFormUrlEncoded)
 
 	request := NewRequest(ac, ac.TokenURL, POST, header, strings.NewReader(params.Encode()))
 	request.shouldAuthenticate = false
