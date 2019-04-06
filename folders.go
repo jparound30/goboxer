@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -130,6 +132,10 @@ var FolderAllFields = []string{
 	"allowed_shared_link_access_levels", "allowed_invitee_roles", "watermark_info", "metadata",
 }
 
+func (f *Folder) Type() string {
+	return f.ItemMini.Type.String()
+}
+
 func NewFolder(api *ApiConn) *Folder {
 	return &Folder{
 		apiInfo: &apiInfo{api: api},
@@ -159,6 +165,126 @@ func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 	}
 	folder.apiInfo = f.apiInfo
 	return &folder, nil
+}
+
+// Get Folder Items
+func (f *Folder) FolderItemReq(folderId string, offset int, limit int, sort string, sortDir string, fields []string) *Request {
+	var url string
+	url = fmt.Sprintf("%s%s%s%s?offset=%d&limit=%d&sort=%s&%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/items",
+		offset, limit, sort, BuildFieldsQueryParams(fields))
+	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
+}
+
+// Get Folder Items
+func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string, sortDir string, fields []string) ([]BoxResource, error) {
+
+	req := f.FolderItemReq(folderId, offset, limit, sort, sortDir, fields)
+	resp, err := req.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.ResponseCode != http.StatusOK {
+		// TODO improve error handling...
+		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
+		err = errors.New(fmt.Sprintf("faild to get folder items"))
+		return nil, err
+	}
+	items := struct {
+		TotalCount int               `json:"total_count"`
+		Offset     int               `json:"offset"`
+		Limit      int               `json:"limit"`
+		Entries    []json.RawMessage `json:"entries"`
+	}{}
+	err = json.Unmarshal(resp.Body, &items)
+	if err != nil {
+		return nil, err
+	}
+	//var totalCount, offset, limit int
+	var entries []BoxResource
+
+	// TODO Refactoring...
+	for _, entity := range items.Entries {
+		decoder := json.NewDecoder(bytes.NewReader(entity))
+		outerStack := 0
+		for {
+			token, err := decoder.Token()
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				return nil, err
+			}
+			var typ string
+			switch token {
+			case json.Delim('{'):
+				outerStack++
+				if outerStack != 1 {
+					continue
+				}
+				stack := 0
+				var foundTypeField = false
+				newDecoder := json.NewDecoder(io.MultiReader(strings.NewReader("{"), decoder.Buffered()))
+			InnerLoop:
+				for newDecoder.More() {
+					token2, err := newDecoder.Token()
+					if err == io.EOF {
+						break
+					} else if err != nil {
+						return nil, err
+					}
+					switch token2 {
+					case json.Delim('{'):
+						stack++
+						continue
+					case json.Delim('}'):
+						stack--
+						if stack == 0 {
+							break
+						}
+						continue
+					case json.Delim('['), json.Delim(']'):
+						continue
+					default:
+						switch token2.(type) {
+						case string:
+							if foundTypeField {
+								typ = fmt.Sprint(token2)
+								break InnerLoop
+							}
+						default:
+							continue
+						}
+					}
+					if token2 == "type" {
+						foundTypeField = true
+					}
+				}
+			case json.Delim('}'):
+				outerStack--
+				continue
+			default:
+				continue
+			}
+			dec := json.NewDecoder(bytes.NewReader(entity))
+			var r BoxResource
+
+			switch typ {
+			case "folder":
+				folder := &Folder{apiInfo: f.apiInfo}
+				err = dec.Decode(folder)
+				r = folder
+			case "file":
+				file := &File{apiInfo: f.apiInfo}
+				err = dec.Decode(file)
+				r = file
+			}
+			if err != nil {
+				return nil, err
+			}
+			entries = append(entries, r)
+		}
+	}
+	return entries, err
 }
 
 // Create Folder.

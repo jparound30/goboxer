@@ -18,7 +18,7 @@ func TestFile_Unmarshal(t *testing.T) {
 	sha1 := "134b65991ed521fcfe4724b7d814ab8ded5185dc"
 	name := "tigers.jpeg"
 	description := "a picture of tigers"
-	size := int(629644)
+	size := float64(629644)
 
 	item1Type := TYPE_FOLDER
 	item1Id := "0"

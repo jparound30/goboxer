@@ -53,3 +53,7 @@ const (
 	TYPE_USER  UserGroupType = "user"
 	TYPE_GROUP UserGroupType = "group"
 )
+
+type BoxResource interface {
+	Type() string
+}

@@ -189,12 +189,14 @@ func (req *Request) Send() (*Response, error) {
 		}
 		builder.WriteString(fmt.Sprintf("\tMaybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
 
-		switch newRequest.Header.Get(httpHeaderContentType) {
-		case ContentTypeApplicationJson:
-			fallthrough
-		case ContentTypeFormUrlEncoded:
-			builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
-		default:
+		if Log.EnabledLoggingResponseBody() {
+			switch resp.Header.Get(httpHeaderContentType) {
+			case ContentTypeApplicationJson:
+				fallthrough
+			case ContentTypeFormUrlEncoded:
+				builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
+			default:
+			}
 		}
 		Log.ResponseDumpf("[goboxer Res]\n%s", builder.String())
 
@@ -417,7 +419,9 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		}
 		builder.WriteString(fmt.Sprintf("\tMaybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
 
-		builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
+		if Log.EnabledLoggingResponseBody() {
+			builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
+		}
 		Log.ResponseDumpf("[goboxer Res]\n%s", builder.String())
 
 		Log.Debugf("Request turn around time: %d [ms]\n", rttInMillis)

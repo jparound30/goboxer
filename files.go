@@ -63,6 +63,10 @@ type File struct {
 	Metadata           *Metadata       `json:"metadata,omitempty"`
 }
 
+func (f *File) Type() string {
+	return f.ItemMini.Type.String()
+}
+
 func (f *File) SetName(name string) *File {
 	f.Name = &name
 	return f

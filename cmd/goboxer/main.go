@@ -199,6 +199,12 @@ func (*Main) Errorf(format string, args ...interface{}) {
 func (*Main) Fatalf(format string, args ...interface{}) {
 	fmt.Printf("[goboxer] "+format, args...)
 }
+func (*Main) EnabledLoggingResponseBody() bool {
+	return false
+}
+func (*Main) EnabledLoggingRequestBody() bool {
+	return true
+}
 
 func (*Main) Success(apiConn *goboxer.ApiConn) {
 	fmt.Printf("access_token: %s\n", apiConn.AccessToken)
