@@ -30,13 +30,13 @@ JWT auth is not supported currently.
 |  | Get Thumbnail | not yet | Low |
 |  | Get Embed Link | not yet | Low |
 |  | Get File Collaborations | supported | - |
-|  | Get File Comments | not yet | High |
-|  | Get File Tasks | not yet | High |
+|  | Get File Comments | not yet | Low |
+|  | Get File Tasks | not yet | no plan |
 |  | Representations | not yet | Low |
-| File Versions | Get Versions | not yet | High |
-|  | Get File Version Info | not yet | High |
-|  | Promote Version | not yet | High |
-|  | Delete Old Version | not yet | High |
+| File Versions | Get Versions | not yet | Low |
+|  | Get File Version Info | not yet | Low |
+|  | Promote Version | not yet | Low |
+|  | Delete Old Version | not yet | Low |
 | Folders | Get Folder Info | supported | - |
 |  | Get Folder Items | supported | - |
 |  | Create Folder | supported | - |
