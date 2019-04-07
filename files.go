@@ -674,12 +674,15 @@ func (f *File) UnlockFile(fileId string, fields []string) (file *File, err error
 func (f *File) CollaborationsReq(fileId string, marker string, limit int, fields []string) *Request {
 	var query strings.Builder
 	if marker != "" {
-		query.WriteString("marker=" + marker)
+		query.WriteString("marker=" + marker + "&")
+	}
+	query.WriteString(fmt.Sprintf("limit=%d", limit))
+	if fields != nil {
+		query.WriteString("&" + BuildFieldsQueryParams(fields))
 	}
 
 	var url string
-	url = fmt.Sprintf("%s%s%s%s?limit=%d&%s", f.apiInfo.api.BaseURL, "files/", fileId, "/collaborations",
-		limit, BuildFieldsQueryParams(fields))
+	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "files/", fileId, "/collaborations", query.String())
 	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
 }
 
