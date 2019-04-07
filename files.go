@@ -33,7 +33,7 @@ type File struct {
 	FileVersion        *FileVersion    `json:"file_version,omitempty"`
 	Sha1               *string         `json:"sha1,omitempty"`
 	Description        *string         `json:"description,omitempty"`
-	Size               int             `json:"size,omitempty"`
+	Size               float64         `json:"size,omitempty"`
 	PathCollection     *PathCollection `json:"path_collection,omitempty"`
 	CreatedAt          *time.Time      `json:"created_at,omitempty"`
 	ModifiedAt         *time.Time      `json:"modified_at,omitempty"`
@@ -580,7 +580,83 @@ func (f *File) Copy(fileId string, parentFolderId string, name string, version s
 	if resp.ResponseCode != http.StatusCreated {
 		// TODO improve error handling...
 		// TODO for example, 409(conflict) - There is same name file in specified parent file id.
-		err = errors.New(fmt.Sprintf("faild to preflight check"))
+		err = errors.New(fmt.Sprintf("faild to copy file"))
+		return nil, err
+	}
+
+	file = &File{apiInfo: &apiInfo{api: f.apiInfo.api}}
+	err = json.Unmarshal(resp.Body, file)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+// Lock
+func (f *File) LockFileReq(fileId string, expiresAt *time.Time, isDownloadPrevented *bool, fields []string) *Request {
+	var url string
+	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "files/", fileId, BuildFieldsQueryParams(fields))
+
+	data := struct {
+		Lock Lock `json:"lock"`
+	}{}
+	lockType := "lock"
+	data.Lock.Type = &lockType
+	if expiresAt != nil {
+		data.Lock.ExpiresAt = expiresAt
+	}
+	if isDownloadPrevented != nil {
+		data.Lock.IsDownloadPrevented = isDownloadPrevented
+	}
+	bodyBytes, _ := json.Marshal(data)
+
+	return NewRequest(f.apiInfo.api, url, PUT, nil, bytes.NewReader(bodyBytes))
+}
+
+func (f *File) LockFile(fileId string, expiresAt *time.Time, isDownloadPrevented *bool, fields []string) (file *File, err error) {
+	req := f.LockFileReq(fileId, expiresAt, isDownloadPrevented, fields)
+	resp, err := req.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.ResponseCode != http.StatusOK {
+		// TODO improve error handling...
+		// TODO for example, 409(conflict) - There is same name file in specified parent file id.
+		err = errors.New(fmt.Sprintf("faild to lock/unlock file"))
+		return nil, err
+	}
+
+	file = &File{apiInfo: &apiInfo{api: f.apiInfo.api}}
+	err = json.Unmarshal(resp.Body, file)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+// Unlock
+func (f *File) UnlockFileReq(fileId string, fields []string) *Request {
+	var url string
+	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "files/", fileId, BuildFieldsQueryParams(fields))
+
+	data := map[string]interface{}{"lock": nil}
+	bodyBytes, _ := json.Marshal(data)
+
+	return NewRequest(f.apiInfo.api, url, PUT, nil, bytes.NewReader(bodyBytes))
+}
+
+func (f *File) UnlockFile(fileId string, fields []string) (file *File, err error) {
+	req := f.UnlockFileReq(fileId, fields)
+	resp, err := req.Send()
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.ResponseCode != http.StatusOK {
+		// TODO improve error handling...
+		// TODO for example, 409(conflict) - There is same name file in specified parent file id.
+		err = errors.New(fmt.Sprintf("faild to unlock file"))
 		return nil, err
 	}
 
