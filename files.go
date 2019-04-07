@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -666,4 +667,49 @@ func (f *File) UnlockFile(fileId string, fields []string) (file *File, err error
 		return nil, err
 	}
 	return file, nil
+}
+
+// Get File Collaborations
+// Get all of the collaborations on a file (i.e. all of the users that have access to that file).
+func (f *File) CollaborationsReq(fileId string, marker string, limit int, fields []string) *Request {
+	var query strings.Builder
+	if marker != "" {
+		query.WriteString("marker=" + marker)
+	}
+
+	var url string
+	url = fmt.Sprintf("%s%s%s%s?limit=%d&%s", f.apiInfo.api.BaseURL, "files/", fileId, "/collaborations",
+		limit, BuildFieldsQueryParams(fields))
+	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
+}
+
+// Get File Collaborations
+func (f *File) Collaborations(fileId string, marker string, limit int, fields []string) (outCollaborator []*Collaboration, nextMarker string, err error) {
+
+	req := f.CollaborationsReq(fileId, marker, limit, fields)
+	resp, err := req.Send()
+	if err != nil {
+		return nil, "", err
+	}
+
+	if resp.ResponseCode != http.StatusOK {
+		// TODO improve error handling...
+		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
+		err = errors.New(fmt.Sprintf("faild to get folder items"))
+		return nil, "", err
+	}
+	items := struct {
+		NextMarker string           `json:"next_marker,omitempty"`
+		Entries    []*Collaboration `json:"entries"`
+	}{}
+	err = json.Unmarshal(resp.Body, &items)
+	if err != nil {
+		return nil, "", err
+	}
+
+	for _, c := range items.Entries {
+		c.apiInfo = f.apiInfo
+	}
+
+	return items.Entries, items.NextMarker, nil
 }

@@ -26,10 +26,10 @@ JWT auth is not supported currently.
 |  | Preflight Check | supported | - |
 |  | Delete File | supported | - |
 |  | Copy File | supported | - |
-|  | Lock and Unlock | not yet | High |
-|  | Get Thumbnail | not yet | High |
-|  | Get Embed Link | not yet | High |
-|  | Get File Collaborations | not yet | High |
+|  | Lock and Unlock | supported | - |
+|  | Get Thumbnail | not yet | Low |
+|  | Get Embed Link | not yet | Low |
+|  | Get File Collaborations | supported | - |
 |  | Get File Comments | not yet | High |
 |  | Get File Tasks | not yet | High |
 |  | Representations | not yet | Low |

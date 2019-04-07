@@ -113,6 +113,10 @@ type User struct {
 	ExternalAppUserId             *string             `json:"external_app_user_id,omitempty"`
 }
 
+func (u *User) Type() string {
+	return u.UserGroupMini.Type.String()
+}
+
 func NewUser(api *ApiConn) *User {
 	return &User{
 		apiInfo: &apiInfo{api: api},
@@ -383,7 +387,7 @@ func (u *User) GetEnterpriseUsersReq(filterTerm string, offset int32, limit int3
 
 	return NewRequest(u.apiInfo.api, url, GET, nil, nil)
 }
-func (u *User) GetEnterpriseUsers(filterTerm string, offset int32, limit int32, fields []string) (outUsers []*User,  outOffset int, outLimit int, outTotalCount int, err error) {
+func (u *User) GetEnterpriseUsers(filterTerm string, offset int32, limit int32, fields []string) (outUsers []*User, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := u.GetEnterpriseUsersReq(filterTerm, offset, limit, fields)
 	resp, err := req.Send()

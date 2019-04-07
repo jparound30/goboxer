@@ -176,19 +176,19 @@ func (f *Folder) FolderItemReq(folderId string, offset int, limit int, sort stri
 }
 
 // Get Folder Items
-func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string, sortDir string, fields []string) ([]BoxResource, error) {
+func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string, sortDir string, fields []string) (outResources []BoxResource, outOffset, outLimit, outTotalCount int, err error) {
 
 	req := f.FolderItemReq(folderId, offset, limit, sort, sortDir, fields)
 	resp, err := req.Send()
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, 0, err
 	}
 
 	if resp.ResponseCode != http.StatusOK {
 		// TODO improve error handling...
 		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
 		err = errors.New(fmt.Sprintf("faild to get folder items"))
-		return nil, err
+		return nil, 0, 0, 0, err
 	}
 	items := struct {
 		TotalCount int               `json:"total_count"`
@@ -198,9 +198,8 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 	}{}
 	err = json.Unmarshal(resp.Body, &items)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, 0, err
 	}
-	//var totalCount, offset, limit int
 	var entries []BoxResource
 
 	// TODO Refactoring...
@@ -212,7 +211,7 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 			if err == io.EOF {
 				break
 			} else if err != nil {
-				return nil, err
+				return nil, 0, 0, 0, err
 			}
 			var typ string
 			switch token {
@@ -230,7 +229,7 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 					if err == io.EOF {
 						break
 					} else if err != nil {
-						return nil, err
+						return nil, 0, 0, 0, err
 					}
 					switch token2 {
 					case json.Delim('{'):
@@ -279,12 +278,12 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 				r = file
 			}
 			if err != nil {
-				return nil, err
+				return nil, 0, 0, 0, err
 			}
 			entries = append(entries, r)
 		}
 	}
-	return entries, err
+	return entries, items.Offset, items.Limit, items.TotalCount, nil
 }
 
 // Create Folder.

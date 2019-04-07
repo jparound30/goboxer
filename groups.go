@@ -67,6 +67,10 @@ type Group struct {
 	MemberViewabilityLevel *MemberViewabilityLevel `json:"member_viewability_level,omitempty"`
 }
 
+func (g *Group) Type() string {
+	return g.UserGroupMini.Type.String()
+}
+
 func NewGroup(api *ApiConn) *Group {
 	return &Group{
 		apiInfo: &apiInfo{api: api},

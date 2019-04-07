@@ -57,3 +57,7 @@ const (
 type BoxResource interface {
 	Type() string
 }
+
+type BoxCollaborator interface {
+	Type() string
+}
