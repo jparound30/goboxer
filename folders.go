@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -204,84 +202,84 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 
 	// TODO Refactoring...
 	for _, entity := range items.Entries {
-		decoder := json.NewDecoder(bytes.NewReader(entity))
-		outerStack := 0
-		for {
-			token, err := decoder.Token()
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				return nil, 0, 0, 0, err
-			}
-			var typ string
-			switch token {
-			case json.Delim('{'):
-				outerStack++
-				if outerStack != 1 {
-					continue
-				}
-				stack := 0
-				var foundTypeField = false
-				newDecoder := json.NewDecoder(io.MultiReader(strings.NewReader("{"), decoder.Buffered()))
-			InnerLoop:
-				for newDecoder.More() {
-					token2, err := newDecoder.Token()
-					if err == io.EOF {
-						break
-					} else if err != nil {
-						return nil, 0, 0, 0, err
-					}
-					switch token2 {
-					case json.Delim('{'):
-						stack++
-						continue
-					case json.Delim('}'):
-						stack--
-						if stack == 0 {
-							break
-						}
-						continue
-					case json.Delim('['), json.Delim(']'):
-						continue
-					default:
-						switch token2.(type) {
-						case string:
-							if foundTypeField {
-								typ = fmt.Sprint(token2)
-								break InnerLoop
-							}
-						default:
-							continue
-						}
-					}
-					if token2 == "type" {
-						foundTypeField = true
-					}
-				}
-			case json.Delim('}'):
-				outerStack--
-				continue
-			default:
-				continue
-			}
-			dec := json.NewDecoder(bytes.NewReader(entity))
-			var r BoxResource
-
-			switch typ {
-			case "folder":
-				folder := &Folder{apiInfo: f.apiInfo}
-				err = dec.Decode(folder)
-				r = folder
-			case "file":
-				file := &File{apiInfo: f.apiInfo}
-				err = dec.Decode(file)
-				r = file
-			}
-			if err != nil {
-				return nil, 0, 0, 0, err
-			}
-			entries = append(entries, r)
+		//decoder := json.NewDecoder(bytes.NewReader(entity))
+		//outerStack := 0
+		//for {
+		//	token, err := decoder.Token()
+		//	if err == io.EOF {
+		//		break
+		//	} else if err != nil {
+		//		return nil, 0, 0, 0, err
+		//	}
+		//	var typ string
+		//	switch token {
+		//	case json.Delim('{'):
+		//		outerStack++
+		//		if outerStack != 1 {
+		//			continue
+		//		}
+		//		stack := 0
+		//		var foundTypeField = false
+		//		newDecoder := json.NewDecoder(io.MultiReader(strings.NewReader("{"), decoder.Buffered()))
+		//	InnerLoop:
+		//		for newDecoder.More() {
+		//			token2, err := newDecoder.Token()
+		//			if err == io.EOF {
+		//				break
+		//			} else if err != nil {
+		//				return nil, 0, 0, 0, err
+		//			}
+		//			switch token2 {
+		//			case json.Delim('{'):
+		//				stack++
+		//				continue
+		//			case json.Delim('}'):
+		//				stack--
+		//				if stack == 0 {
+		//					break
+		//				}
+		//				continue
+		//			case json.Delim('['), json.Delim(']'):
+		//				continue
+		//			default:
+		//				switch token2.(type) {
+		//				case string:
+		//					if foundTypeField {
+		//						typ = fmt.Sprint(token2)
+		//						break InnerLoop
+		//					}
+		//				default:
+		//					continue
+		//				}
+		//			}
+		//			if token2 == "type" {
+		//				foundTypeField = true
+		//			}
+		//		}
+		//	case json.Delim('}'):
+		//		outerStack--
+		//		continue
+		//	default:
+		//		continue
+		//	}
+		//	dec := json.NewDecoder(bytes.NewReader(entity))
+		//	var r BoxResource
+		//
+		//	switch typ {
+		//	case "folder":
+		//		folder := &Folder{apiInfo: f.apiInfo}
+		//		err = dec.Decode(folder)
+		//		r = folder
+		//	case "file":
+		//		file := &File{apiInfo: f.apiInfo}
+		//		err = dec.Decode(file)
+		//		r = file
+		//	}
+		boxResource, err := ParseResource(entity)
+		if err != nil {
+			return nil, 0, 0, 0, err
 		}
+		entries = append(entries, boxResource)
 	}
 	return entries, items.Offset, items.Limit, items.TotalCount, nil
 }
