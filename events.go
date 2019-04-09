@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -191,11 +192,22 @@ func NewEvent(api *ApiConn) *Event {
 	}
 }
 
-func (e *Event) UserEvent(streamType string, streamPosition string, limit int) ([]*BoxEvent, string, error) {
+type StreamType string
+
+const (
+	All     StreamType = "all"
+	Changes StreamType = "changes"
+	Sync    StreamType = "sync"
+)
+
+// User Events
+//
+// Use this to get events for a given user.
+// A chunk of event objects is returned for the user based on the parameters passed in.
+// Parameters indicating how many chunks are left as well as the next stream_position are also returned.
+func (e *Event) UserEvent(streamType StreamType, streamPosition string, limit int) (events []*BoxEvent, nextStreamPosition string, err error) {
 	var query strings.Builder
-	if streamType != "" {
-		query.WriteString("stream_type=" + streamType + "&")
-	}
+	query.WriteString(fmt.Sprintf("stream_type=%s&", streamType))
 	if streamPosition != "" {
 		query.WriteString("stream_position=" + streamPosition + "&")
 	}
@@ -216,16 +228,80 @@ func (e *Event) UserEvent(streamType string, streamPosition string, limit int) (
 		err = errors.New(fmt.Sprintf("faild to get user event"))
 		return nil, "", err
 	}
-	events := &struct {
+	event := &struct {
 		ChunkSize          int         `json:"chunk_size"`
 		NextStreamPosition int64       `json:"next_stream_position"`
 		Entries            []*BoxEvent `json:"entries,omitempty"`
 	}{}
 
-	err = json.Unmarshal(resp.Body, &events)
+	err = json.Unmarshal(resp.Body, &event)
 	if err != nil {
 		return nil, "", err
 	}
 
-	return events.Entries, strconv.FormatInt(events.NextStreamPosition, 10), nil
+	return event.Entries, strconv.FormatInt(event.NextStreamPosition, 10), nil
+}
+
+// Enterprise Events
+//
+// Retrieves up to a year' events for all users in an enterprise.
+func (e *Event) EnterpriseEvent(streamPosition string, eventTypes []EventType, createdAfter *time.Time, createdBefore *time.Time, limit int) (events []*BoxEvent, nextStreamPosition string, err error) {
+	var query strings.Builder
+	query.WriteString("stream_type=admin_logs&")
+	if streamPosition != "" {
+		query.WriteString("stream_position=" + streamPosition + "&")
+	} else if createdAfter != nil && createdBefore != nil {
+		query.WriteString(fmt.Sprintf("created_after=%s&created_before=%s&", url.QueryEscape(createdAfter.Format(time.RFC3339)), url.QueryEscape(createdBefore.Format(time.RFC3339))))
+	}
+	if len(eventTypes) != 0 {
+		query.WriteString(buildEventTypesQueryParams(eventTypes) + "&")
+	}
+	if limit > 500 {
+		limit = 500
+	}
+	query.WriteString(fmt.Sprintf("limit=%d", limit))
+
+	var urlStr string
+	urlStr = fmt.Sprintf("%s%s?%s", e.apiInfo.api.BaseURL, "events", query.String())
+	req := NewRequest(e.apiInfo.api, urlStr, GET, nil, nil)
+
+	resp, err := req.Send()
+	if err != nil {
+		return nil, "", err
+	}
+
+	if resp.ResponseCode != http.StatusOK {
+		// TODO improve error handling...
+		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
+		err = errors.New(fmt.Sprintf("faild to get enterprise event"))
+		return nil, "", err
+	}
+	event := &struct {
+		ChunkSize          int         `json:"chunk_size"`
+		NextStreamPosition string      `json:"next_stream_position"`
+		Entries            []*BoxEvent `json:"entries,omitempty"`
+	}{}
+
+	err = json.Unmarshal(resp.Body, &event)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return event.Entries, event.NextStreamPosition, nil
+}
+
+func buildEventTypesQueryParams(eventTypes []EventType) string {
+	var params = ""
+	if fieldsLen := len(eventTypes); fieldsLen != 0 {
+		buffer := make([]byte, 0, 512)
+		buffer = append(buffer, "event_type="...)
+		for index, v := range eventTypes {
+			buffer = append(buffer, v...)
+			if index != fieldsLen-1 {
+				buffer = append(buffer, ',')
+			}
+		}
+		params = string(buffer)
+	}
+	return params
 }
