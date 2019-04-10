@@ -141,11 +141,15 @@ func NewFolder(api *ApiConn) *Folder {
 }
 
 // Get information about a folder.
-func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
+func (f *Folder) GetInfoReq(folderId string, fields []string) *Request {
 	var url string
 	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, BuildFieldsQueryParams(fields))
 
-	req := NewRequest(f.apiInfo.api, url, GET, nil, nil)
+	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
+}
+
+func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
+	req := f.GetInfoReq(folderId, fields)
 	resp, err := req.Send()
 	if err != nil {
 		return nil, err
@@ -200,81 +204,7 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 	}
 	var entries []BoxResource
 
-	// TODO Refactoring...
 	for _, entity := range items.Entries {
-		//decoder := json.NewDecoder(bytes.NewReader(entity))
-		//outerStack := 0
-		//for {
-		//	token, err := decoder.Token()
-		//	if err == io.EOF {
-		//		break
-		//	} else if err != nil {
-		//		return nil, 0, 0, 0, err
-		//	}
-		//	var typ string
-		//	switch token {
-		//	case json.Delim('{'):
-		//		outerStack++
-		//		if outerStack != 1 {
-		//			continue
-		//		}
-		//		stack := 0
-		//		var foundTypeField = false
-		//		newDecoder := json.NewDecoder(io.MultiReader(strings.NewReader("{"), decoder.Buffered()))
-		//	InnerLoop:
-		//		for newDecoder.More() {
-		//			token2, err := newDecoder.Token()
-		//			if err == io.EOF {
-		//				break
-		//			} else if err != nil {
-		//				return nil, 0, 0, 0, err
-		//			}
-		//			switch token2 {
-		//			case json.Delim('{'):
-		//				stack++
-		//				continue
-		//			case json.Delim('}'):
-		//				stack--
-		//				if stack == 0 {
-		//					break
-		//				}
-		//				continue
-		//			case json.Delim('['), json.Delim(']'):
-		//				continue
-		//			default:
-		//				switch token2.(type) {
-		//				case string:
-		//					if foundTypeField {
-		//						typ = fmt.Sprint(token2)
-		//						break InnerLoop
-		//					}
-		//				default:
-		//					continue
-		//				}
-		//			}
-		//			if token2 == "type" {
-		//				foundTypeField = true
-		//			}
-		//		}
-		//	case json.Delim('}'):
-		//		outerStack--
-		//		continue
-		//	default:
-		//		continue
-		//	}
-		//	dec := json.NewDecoder(bytes.NewReader(entity))
-		//	var r BoxResource
-		//
-		//	switch typ {
-		//	case "folder":
-		//		folder := &Folder{apiInfo: f.apiInfo}
-		//		err = dec.Decode(folder)
-		//		r = folder
-		//	case "file":
-		//		file := &File{apiInfo: f.apiInfo}
-		//		err = dec.Decode(file)
-		//		r = file
-		//	}
 		boxResource, err := ParseResource(entity)
 		if err != nil {
 			return nil, 0, 0, 0, err
@@ -285,7 +215,7 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 }
 
 // Create Folder.
-func (f *Folder) Create(parentFolderId string, name string, fields []string) (*Folder, error) {
+func (f *Folder) CreateReq(parentFolderId string, name string, fields []string) *Request {
 
 	var url string
 	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "folders?", BuildFieldsQueryParams(fields))
@@ -299,7 +229,13 @@ func (f *Folder) Create(parentFolderId string, name string, fields []string) (*F
 	}
 	bodyBytes, _ := json.Marshal(bodyMap)
 
-	req := NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+}
+
+// Create Folder.
+func (f *Folder) Create(parentFolderId string, name string, fields []string) (*Folder, error) {
+
+	req := f.CreateReq(parentFolderId, name, fields)
 	resp, err := req.Send()
 	if err != nil {
 		return nil, err
@@ -437,7 +373,7 @@ func (fue *FolderUploadEmail) SetAccess(access FolderUploadEmailAccess) {
 }
 
 //Update a Folder.
-func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
+func (f *Folder) UpdateReq(folderId string, fields []string) *Request {
 
 	var url string
 	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, BuildFieldsQueryParams(fields))
@@ -466,32 +402,33 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	}
 	// folder_upload_email
 	if f.FolderUploadEmail != nil {
-		//data["folder_upload_email"] = f.FolderUploadEmail
 		data.FolderUploadEmail = &FolderUploadEmail{
 			Access: f.FolderUploadEmail.Access,
 		}
 	}
 	// sync_state
 	if f.SyncState != nil {
-		//data["sync_state"] = f.SyncState
 		data.SyncState = f.SyncState
 	}
 	// tags
-	//data["tags"] = f.Tags
 	data.Tags = f.Tags
 	// can_non_owners_invite
 	if f.CanNonOwnersInvite != nil {
-		//data["can_non_owners_invite"] = f.CanNonOwnersInvite
-
+		data.CanNonOwnersInvite = f.CanNonOwnersInvite
 	}
 	// is_collaboration_restricted_to_enterprise
 	if f.IsCollaborationRestrictedToEnterprise != nil {
-		//data["is_collaboration_restricted_to_enterprise"] = f.IsCollaborationRestrictedToEnterprise
+		data.IsCollaborationRestrictedToEnterprise = f.IsCollaborationRestrictedToEnterprise
 	}
 
 	bodyBytes, _ := json.Marshal(data)
 
-	req := NewRequest(f.apiInfo.api, url, PUT, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(f.apiInfo.api, url, PUT, nil, bytes.NewReader(bodyBytes))
+}
+
+//Update a Folder.
+func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
+	req := f.UpdateReq(folderId, fields)
 	resp, err := req.Send()
 	if err != nil {
 		return nil, err
@@ -513,7 +450,7 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 }
 
 //Delete a Folder.
-func (f *Folder) Delete(folderId string, recursive bool) error {
+func (f *Folder) DeleteReq(folderId string, recursive bool) *Request {
 
 	var url string
 	var param string
@@ -524,7 +461,12 @@ func (f *Folder) Delete(folderId string, recursive bool) error {
 	}
 	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, param)
 
-	req := NewRequest(f.apiInfo.api, url, DELETE, nil, nil)
+	return NewRequest(f.apiInfo.api, url, DELETE, nil, nil)
+}
+
+//Delete a Folder.
+func (f *Folder) Delete(folderId string, recursive bool) error {
+	req := f.DeleteReq(folderId, recursive)
 	resp, err := req.Send()
 	if err != nil {
 		return err
@@ -540,7 +482,7 @@ func (f *Folder) Delete(folderId string, recursive bool) error {
 
 // Used to create a copy of a folder in another folder.
 // The original version of the folder will not be altered.
-func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fields []string) (*Folder, error) {
+func (f *Folder) CopyReq(folderId string, parentFolderId string, newName string, fields []string) *Request {
 
 	var url string
 	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/copy", BuildFieldsQueryParams(fields))
@@ -556,7 +498,13 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 	}
 	bodyBytes, _ := json.Marshal(bodyMap)
 
-	req := NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+}
+
+// Used to create a copy of a folder in another folder.
+// The original version of the folder will not be altered.
+func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fields []string) (*Folder, error) {
+	req := f.CopyReq(folderId, parentFolderId, newName, fields)
 	resp, err := req.Send()
 	if err != nil {
 		return nil, err
