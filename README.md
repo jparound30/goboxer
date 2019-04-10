@@ -65,14 +65,14 @@ JWT auth is not supported currently.
 |  | Create Metadata Cascade Policy | not yet | no plan |
 |  | Delete Metadata Cascade Policy | not yet | no plan |
 |  | Force Apply Metadata Cascade Policy | not yet | no plan |
-| Search | Searching for Content | not yet | High |
+| Search | Searching for Content | not yet | Normal |
 | Trash | Get Trashed Items | not yet | Low |
 |  | Get Trashed Item | not yet | Low |
 |  | Restore Item | not yet | Low |
 |  | Permanently Delete Item | not yet | Low |
-| Shared Links | Get Shared Link | not yet | High |
-|  | Create or Update Shared Link | not yet | High |
-|  | Get Shared Item | not yet | High |
+| Shared Links | Get Shared Link | not yet | Normal |
+|  | Create or Update Shared Link | not yet | Normal |
+|  | Get Shared Item | not yet | Normal |
 | Web Links | Get Web Link | not yet |  no plan |
 |  | Create Web Link | not yet | no plan |
 |  | Update Web Link | not yet | no plan |
@@ -136,9 +136,9 @@ JWT auth is not supported currently.
 |  | Update Webhook | not yet | no plan |
 |  | Delete Webhook | not yet | no plan |
 | Skills | Skill Invocation | not yet | no plan |
-| Events | User Events | not yet | High |
-|  | Enterprise Events | not yet | High |
-|  | Long polling | not yet | High |
+| Events | User Events | supported | - |
+|  | Enterprise Events | supported | - |
+|  | Long polling | not yet | no plan |
 | Collections | Get Collections | not yet | no plan |
 |  | Get Collection Items | not yet | no plan |
 |  | Add or Delete Items From a Collection | not yet | no plan |
