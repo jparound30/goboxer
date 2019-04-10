@@ -96,6 +96,8 @@ func convertMethodStr(method METHOD) string {
 		return http.MethodPut
 	case DELETE:
 		return http.MethodDelete
+	case OPTION:
+		return http.MethodOptions
 	default:
 		return ""
 	}
