@@ -3,6 +3,7 @@ package goboxer
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -433,36 +434,37 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	var responses []*Response
 
-	if resp.StatusCode == http.StatusOK {
-		// TODO need retry for retryable status code?
-		var r struct {
-			Responses []struct {
-				Status   int                    `json:"status"`
-				Headers  map[string]interface{} `json:"headers"`
-				Response json.RawMessage        `json:"response"`
-			} `json:"responses"`
+	if resp.StatusCode != http.StatusOK {
+		// TODO error handling...
+		return nil, errors.New("failed to execute batch request")
+	}
+	var r struct {
+		Responses []struct {
+			Status   int                    `json:"status"`
+			Headers  map[string]interface{} `json:"headers"`
+			Response json.RawMessage        `json:"response"`
+		} `json:"responses"`
+	}
+	err = json.Unmarshal(respBodyBytes, &r)
+	if err != nil {
+		return nil, err
+	}
+	rs := r.Responses
+	for i, v := range rs {
+		httpHeader := http.Header{}
+		for hi, hv := range v.Headers {
+			httpHeader.Add(hi, fmt.Sprintf("%s", hv))
 		}
-		err := json.Unmarshal(respBodyBytes, &r)
-		if err != nil {
-			return nil, err
+		bo := v.Response
+		indResp := &Response{
+			ResponseCode: v.Status,
+			Headers:      httpHeader,
+			Body:         []byte(bo),
+			Request:      requests[i],
+			ContentType:  resp.Header.Get(httpHeaderContentType),
+			RTTInMillis:  rttInMillis,
 		}
-		rs := r.Responses
-		for i, v := range rs {
-			httpHeader := http.Header{}
-			for hi, hv := range v.Headers {
-				httpHeader.Add(hi, fmt.Sprintf("%s", hv))
-			}
-			bo := v.Response
-			indResp := &Response{
-				ResponseCode: v.Status,
-				Headers:      httpHeader,
-				Body:         []byte(bo),
-				Request:      requests[i],
-				ContentType:  resp.Header.Get(httpHeaderContentType),
-				RTTInMillis:  rttInMillis,
-			}
-			responses = append(responses, indResp)
-		}
+		responses = append(responses, indResp)
 	}
 	result = &BatchResponse{
 		Response: Response{
