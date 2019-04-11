@@ -330,20 +330,30 @@ func (req *Request) MarshalJSON() ([]byte, error) {
 			return nil, err
 		}
 		buf.WriteString(`,`)
-		buf.WriteString(`"body":"`)
+		buf.WriteString(`"body":`)
 		buf.Write(all)
-		buf.WriteString(`"`)
 	}
 
 	if req.headers != nil && len(req.headers) != 0 {
 		buf.WriteString(`,`)
-		buf.WriteString(`"headers":"`)
+		buf.WriteString(`"headers":{`)
 
+		// FIXME json formatting...
+		for key, value := range req.headers {
+			buf.WriteString(`"` + key + `":"`)
+			for i, v := range value {
+				if i != 0 {
+					buf.WriteString(` `)
+				}
+				buf.WriteString(v)
+			}
+			buf.WriteString(`"`)
+		}
 		err := req.headers.Write(&buf)
 		if err != nil {
 			return nil, err
 		}
-		buf.WriteString(`"`)
+		buf.WriteString(`}`)
 	}
 
 	buf.WriteString("}")
