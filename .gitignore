@@ -138,3 +138,5 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+/cmd/sandbox/sandbox.go
+*.csv
