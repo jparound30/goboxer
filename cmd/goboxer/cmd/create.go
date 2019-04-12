@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"net/http"
 	"os"
+	"strings"
 )
 
 // createCmd represents the create command
@@ -36,9 +37,6 @@ var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "",
 	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("create folder ?")
-	},
 }
 
 var createFolderCmd = &cobra.Command{
@@ -46,8 +44,8 @@ var createFolderCmd = &cobra.Command{
 	Short: "create folders from file (UTF-8 only)",
 	Long:  "create folders from file (UTF-8 only)",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("folder called")
-		err := createGobxerApiConn()
+		// initialization
+		err := createGoboxerApiConn()
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -57,6 +55,7 @@ var createFolderCmd = &cobra.Command{
 		parent := cmd.Flag("parent").Value.String()
 		fmt.Printf("create under the folder (id= %s)\n", parent)
 
+		// read and analyze input file
 		file, err := os.Open(inf)
 		if err != nil {
 			fmt.Println(err)
@@ -78,6 +77,7 @@ var createFolderCmd = &cobra.Command{
 			lineBytes := scanner.Bytes()
 			lineBytes = bytes.TrimPrefix(lineBytes, UTF8_BOM)
 			line := string(lineBytes)
+			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
 			}
@@ -95,7 +95,7 @@ var createFolderCmd = &cobra.Command{
 
 		batchReq := goboxer.NewBatchRequest(apiConn)
 
-		reqs := []*goboxer.Request{}
+		var reqs []*goboxer.Request
 		for i, t := range folderNames {
 			if len(reqs) < 20 {
 				reqs = append(reqs, t.req)
@@ -103,8 +103,7 @@ var createFolderCmd = &cobra.Command{
 			if len(reqs) == 20 || len(folderNames)-1 == i {
 				response, err := batchReq.ExecuteBatch(reqs)
 				if err != nil {
-					fmt.Println("103")
-					fmt.Println(err)
+					fmt.Println(fmt.Errorf("failed to execute batch request [%s]", err.Error()))
 					os.Exit(1)
 				}
 
@@ -115,8 +114,7 @@ var createFolderCmd = &cobra.Command{
 								f := &goboxer.Folder{}
 								err = json.Unmarshal(resp.Body, f)
 								if err != nil {
-									fmt.Println("115")
-									fmt.Println(err)
+									fmt.Println(fmt.Errorf("failed to parse batch request [%s]", err.Error()))
 									os.Exit(1)
 								}
 								v.id = *f.ID
@@ -129,9 +127,9 @@ var createFolderCmd = &cobra.Command{
 				}
 				reqs = []*goboxer.Request{}
 			}
-
 		}
 
+		// output result
 		for _, v := range folderNames {
 			fmt.Printf("%s,%s\n", v.name, v.id)
 		}
@@ -152,7 +150,6 @@ func init() {
 	// is called directly, e.g.:
 	// createCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	createFolderCmd.Flags().StringP("infile", "i", "folder.csv", "input file path")
-	createFolderCmd.MarkFlagRequired("infile")
 	createFolderCmd.Flags().StringP("parent", "p", "", "parent folder id")
 	createFolderCmd.MarkFlagRequired("parent")
 }

@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -17,6 +17,7 @@ var clientId string
 var clientSecret string
 var accessToken string
 var refreshToken string
+var verbose bool
 
 var apiConn *goboxer.ApiConn
 
@@ -55,16 +56,17 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.goboxer.yaml)")
 
-	rootCmd.PersistentFlags().StringVar(&clientId, "clientId", "", "ClientID")
-	rootCmd.PersistentFlags().StringVar(&clientSecret, "clientSecret", "", "ClientSecret")
-	rootCmd.MarkPersistentFlagRequired("clientId")
-	rootCmd.MarkPersistentFlagRequired("clientSecret")
-	rootCmd.PersistentFlags().StringVar(&accessToken, "accessToken", "", "AccessToken")
-	rootCmd.PersistentFlags().StringVar(&refreshToken, "refreshToken", "", "RefreshToken")
+	rootCmd.PersistentFlags().StringVar(&clientId, "cid", "", "ClientID")
+	rootCmd.PersistentFlags().StringVar(&clientSecret, "secret", "", "ClientSecret")
+	rootCmd.PersistentFlags().StringVar(&accessToken, "access", "", "AccessToken")
+	rootCmd.PersistentFlags().StringVar(&refreshToken, "refresh", "", "RefreshToken")
+
+	rootCmd.PersistentFlags().StringVar(&StateFilename, "state", "./apiconnstate.json", "goboxer state file(json file that include credentials)")
+
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Verbose log output")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -97,7 +99,7 @@ var (
 	StateFilename = "apiconnstate.json"
 )
 
-func createGobxerApiConn() error {
+func createGoboxerApiConn() error {
 	apiConn = goboxer.NewApiConnWithRefreshToken(clientId, clientSecret, accessToken, refreshToken)
 
 	_, err := os.Stat(StateFilename)
@@ -115,6 +117,17 @@ func createGobxerApiConn() error {
 		apiConn.RefreshToken = refreshToken
 	}
 
+	// check
+	if apiConn.AccessToken == "" {
+		return InvalidAccessTokenError
+	}
+	if apiConn.ClientID == "" {
+		return InvalidClientIdError
+	}
+	if apiConn.ClientSecret == "" {
+		return InvalidClientSecretError
+	}
+
 	apiConn.SetApiConnRefreshNotifier(&mainState)
 	goboxer.Log = &mainState
 	return nil
@@ -124,19 +137,27 @@ type Main struct {
 }
 
 func (*Main) RequestDumpf(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	if verbose {
+		fmt.Printf(format, args...)
+	}
 }
 
 func (*Main) ResponseDumpf(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	if verbose {
+		fmt.Printf(format, args...)
+	}
 }
 
 func (*Main) Debugf(format string, args ...interface{}) {
-	fmt.Printf("[goboxer] "+format, args...)
+	if verbose {
+		fmt.Printf("[goboxer] "+format, args...)
+	}
 }
 
 func (*Main) Infof(format string, args ...interface{}) {
-	fmt.Printf("[goboxer] "+format, args...)
+	if verbose {
+		fmt.Printf("[goboxer] "+format, args...)
+	}
 }
 
 func (*Main) Warnf(format string, args ...interface{}) {
@@ -154,12 +175,10 @@ func (*Main) EnabledLoggingResponseBody() bool {
 	return true
 }
 func (*Main) EnabledLoggingRequestBody() bool {
-	return false
+	return true
 }
 
 func (*Main) Success(apiConn *goboxer.ApiConn) {
-	fmt.Printf("access_token: %s\n", apiConn.AccessToken)
-	fmt.Printf("refresh_token: %s\n", apiConn.RefreshToken)
 	bytes, err := apiConn.SaveState()
 	if err != nil {
 		fmt.Printf("%v\n", err)
