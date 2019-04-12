@@ -22,6 +22,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/jparound30/goboxer"
@@ -42,8 +43,8 @@ var createCmd = &cobra.Command{
 
 var createFolderCmd = &cobra.Command{
 	Use:   "folder",
-	Short: "create folders from csv",
-	Long:  "create folders from csv",
+	Short: "create folders from file (UTF-8 only)",
+	Long:  "create folders from file (UTF-8 only)",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("folder called")
 		err := createGobxerApiConn()
@@ -74,7 +75,9 @@ var createFolderCmd = &cobra.Command{
 		var folderNames []*Task
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
-			line := scanner.Text()
+			lineBytes := scanner.Bytes()
+			lineBytes = bytes.TrimPrefix(lineBytes, UTF8_BOM)
+			line := string(lineBytes)
 			if line == "" {
 				continue
 			}

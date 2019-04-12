@@ -59,8 +59,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&clientSecret, "clientSecret", "", "ClientSecret")
 	rootCmd.MarkPersistentFlagRequired("clientId")
 	rootCmd.MarkPersistentFlagRequired("clientSecret")
-	rootCmd.PersistentFlags().StringVar(&clientId, "accessToken", "", "AccessToken")
-	rootCmd.PersistentFlags().StringVar(&clientSecret, "refreshToken", "", "RefreshToken")
+	rootCmd.PersistentFlags().StringVar(&accessToken, "accessToken", "", "AccessToken")
+	rootCmd.PersistentFlags().StringVar(&refreshToken, "refreshToken", "", "RefreshToken")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -175,3 +175,5 @@ func (*Main) Success(apiConn *goboxer.ApiConn) {
 func (*Main) Fail(apiConn *goboxer.ApiConn, err error) {
 	fmt.Printf("%v\n", err)
 }
+
+var UTF8_BOM = []byte{0xEF, 0xBB, 0xBF}
