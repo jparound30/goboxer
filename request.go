@@ -3,8 +3,8 @@ package goboxer
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"golang.org/x/xerrors"
 	"io"
 	"io/ioutil"
 	"math"
@@ -121,12 +121,14 @@ func (req *Request) Send() (*Response, error) {
 
 	newRequest, err := http.NewRequest(method, url, req.body)
 	if err != nil {
-		return nil, err
+		err = xerrors.Errorf("failed to create request: %w", err)
+		return nil, newApiOtherError(err, "")
 	}
 	if req.shouldAuthenticate {
 		token, err := req.apiConn.lockAccessToken()
 		if err != nil {
-			return nil, err
+			err = xerrors.Errorf("failed to lock or refresh accessToken: %w", err)
+			return nil, newApiOtherError(err, "")
 		}
 		defer req.apiConn.unlockAccessToken()
 		newRequest.Header.Add(httpHeaderAuthorization, httpAuthType+" "+token)
@@ -172,7 +174,8 @@ func (req *Request) Send() (*Response, error) {
 
 	resp, rttInMillis, err := send(newRequest)
 	if err != nil {
-		return nil, err
+		err = xerrors.Errorf("failed to send request: %w", err)
+		return nil, newApiOtherError(err, "")
 	}
 
 	var respBodyBytes []byte
@@ -182,6 +185,10 @@ func (req *Request) Send() (*Response, error) {
 	}()
 
 	respBodyBytes, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		err = xerrors.Errorf("failed to read response: %w", err)
+		return nil, newApiOtherError(err, "")
+	}
 
 	if Log != nil {
 		builder := strings.Builder{}
@@ -240,10 +247,11 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 		a := time.Now()
 		rttInMillis = (a.UnixNano() - b.UnixNano()) / 1000000
 		if err != nil {
+			err = xerrors.Errorf("failed to request response: %w", err)
 			if Log != nil {
-				Log.Warnf("err: %s\n", err)
+				Log.Warnf("%v\n", err)
 			}
-			return nil, rttInMillis, err
+			return nil, rttInMillis, newApiOtherError(err, "")
 		}
 
 		if !isResponseRetryable(resp.StatusCode) {
@@ -374,7 +382,8 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		}
 		batchReqJson, err := json.Marshal(&r)
 		if err != nil {
-			return nil, err
+			err = xerrors.Errorf("json marshaling error: %w", err)
+			return nil, newApiOtherError(err, "")
 		}
 		buf.Write(batchReqJson)
 	}
@@ -382,12 +391,14 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	newRequest, err := http.NewRequest("POST", batchUrl, bytes.NewReader(buf.Bytes()))
 	if err != nil {
-		return nil, err
+		err = xerrors.Errorf("failed to generate request: %w", err)
+		return nil, newApiOtherError(err, "")
 	}
 	if req.shouldAuthenticate {
 		token, err := req.apiConn.lockAccessToken()
 		if err != nil {
-			return nil, err
+			err = xerrors.Errorf("failed to generate request: %w", err)
+			return nil, newApiOtherError(err, "")
 		}
 		defer req.apiConn.unlockAccessToken()
 		newRequest.Header.Add(httpHeaderAuthorization, httpAuthType+" "+token)
@@ -415,7 +426,8 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	resp, rttInMillis, err := send(newRequest)
 	if err != nil {
-		return nil, err
+		err = xerrors.Errorf("failed to send request: %w", err)
+		return nil, newApiOtherError(err, "")
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -445,8 +457,8 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 	var responses []*Response
 
 	if resp.StatusCode != http.StatusOK {
-		// TODO error handling...
-		return nil, errors.New("failed to execute batch request")
+		err = xerrors.Errorf("failed to send request: %w", err)
+		return nil, newApiStatusError(respBodyBytes)
 	}
 	var r struct {
 		Responses []struct {
@@ -457,7 +469,8 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 	}
 	err = json.Unmarshal(respBodyBytes, &r)
 	if err != nil {
-		return nil, err
+		err = xerrors.Errorf("failed to unmarshal response: %w", err)
+		return nil, newApiOtherError(err, "")
 	}
 	rs := r.Responses
 	for i, v := range rs {

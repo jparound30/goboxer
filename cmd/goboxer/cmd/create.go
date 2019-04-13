@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"github.com/jparound30/goboxer"
 	"github.com/spf13/cobra"
+	"golang.org/x/xerrors"
 	"net/http"
 	"os"
 	"strings"
@@ -103,7 +104,7 @@ var createFolderCmd = &cobra.Command{
 			if len(reqs) == 20 || len(folderNames)-1 == i {
 				response, err := batchReq.ExecuteBatch(reqs)
 				if err != nil {
-					fmt.Println(fmt.Errorf("failed to execute batch request [%s]", err.Error()))
+					fmt.Printf("%+v\n", xerrors.Errorf("failed to execute batch request\n%+v", err))
 					os.Exit(1)
 				}
 
@@ -114,12 +115,14 @@ var createFolderCmd = &cobra.Command{
 								f := &goboxer.Folder{}
 								err = json.Unmarshal(resp.Body, f)
 								if err != nil {
-									fmt.Println(fmt.Errorf("failed to parse batch request [%s]", err.Error()))
+									fmt.Printf("%+v\n", xerrors.Errorf("failed to parse batch request: %w", err))
 									os.Exit(1)
 								}
 								v.id = *f.ID
 								break
 							} else {
+								err := goboxer.NewApiStatusError(resp.Body)
+								fmt.Printf("%+v\n", xerrors.Errorf("failed to parse batch request: %w", err))
 								v.id = "failed"
 							}
 						}
