@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/jparound30/goboxer"
 	"github.com/spf13/cobra"
@@ -67,7 +68,13 @@ var getinfoFolderCmd = &cobra.Command{
 			}
 			os.Exit(1)
 		}
-		fmt.Printf("%+v\n", info)
+		j := cmd.Flag("json").Value.String()
+		if j == "true" {
+			b, _ := json.MarshalIndent(info, "", "  ")
+			fmt.Println(string(b))
+		} else {
+			fmt.Printf("%+v\n", info)
+		}
 	},
 }
 
@@ -86,4 +93,6 @@ func init() {
 	// getinfoCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	getinfoFolderCmd.Flags().StringP("id", "i", "", "folder id")
 	getinfoFolderCmd.MarkFlagRequired("id")
+
+	getinfoFolderCmd.Flags().BoolP("json", "j", false, "output with json format")
 }
