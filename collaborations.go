@@ -30,14 +30,7 @@ func (u *UserGroupMini) String() string {
 	if u == nil {
 		return "<nil>"
 	}
-	toString := func(s *string) string {
-		if s == nil {
-			return "<nil>"
-		} else {
-			return *s
-		}
-	}
-	return fmt.Sprintf("{Type:%s, ID:%s, Name:%s, Login:%s}", u.Type.String(), toString(u.ID), toString(u.Name), toString(u.Login))
+	return fmt.Sprintf("{ Type:%s, ID:%s, Name:%s, Login:%s }", u.Type.String(), toString(u.ID), toString(u.Name), toString(u.Login))
 }
 
 type CollaborationStatus string
@@ -88,41 +81,11 @@ func (c *Collaboration) String() string {
 	if c == nil {
 		return "<nil>"
 	}
-	toString := func(s *string) string {
-		if s == nil {
-			return "<nil>"
-		} else {
-			return *s
-		}
-	}
-	boolToString := func(s *bool) string {
-		if s == nil {
-			return "<nil>"
-		} else if !*s {
-			return "false"
-		} else {
-			return "true"
-		}
-	}
-	timeToString := func(s *time.Time) string {
-		if s == nil {
-			return "<nil>"
-		} else {
-			return s.String()
-		}
-	}
-	ugToString := func(s *UserGroupMini) string {
-		if s == nil {
-			return "<nil>"
-		} else {
-			return s.String()
-		}
-	}
-	return fmt.Sprintf("{Type:%s, ID:%s, CreatedBy:%s, CreatedAt:%s, Modified:%s, ExpiresAt:%s, Status:%s,"+
-		" AccessibleBy:%s, InviteEmail:%s, Role:%s, AcknowledgedAt:%s, Item:%s, CanViewPath:%s}",
-		toString(c.Type), toString(c.ID), ugToString(c.CreatedBy), timeToString(c.CreatedAt), timeToString(c.ModifiedAt),
-		timeToString(c.ExpiresAt), c.Status.String(), ugToString(c.AccessibleBy), toString(c.InviteEmail),
-		c.Role.String(), timeToString(c.AcknowledgedAt), c.Item.String(), boolToString(c.CanViewPath))
+	return fmt.Sprintf("{ Type:%s, ID:%s, CreatedBy:%s, CreatedAt:%s, Modified:%s, ExpiresAt:%s, Status:%s,"+
+		" AccessibleBy:%s, InviteEmail:%s, Role:%s, AcknowledgedAt:%s, Item:%s, CanViewPath:%s }",
+		toString(c.Type), toString(c.ID), c.CreatedBy, c.CreatedAt, c.ModifiedAt,
+		c.ExpiresAt, c.Status.String(), c.AccessibleBy, toString(c.InviteEmail),
+		c.Role.String(), c.AcknowledgedAt, c.Item.String(), boolToString(c.CanViewPath))
 }
 
 var CollaborationAllFields = []string{"type", "id", "item", "accessible_by", "role", "expires_at",

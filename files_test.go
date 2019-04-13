@@ -32,8 +32,8 @@ func TestFile_Unmarshal(t *testing.T) {
 	item2Etag := "1"
 	path2 := &ItemMini{Type: &item2Type, ID: &item2Id, SequenceId: &item2Seq, ETag: &item2Etag, Name: &item2Name}
 	pathCollection := PathCollection{
-		TotalCount:  2,
-		PathEntries: []*ItemMini{path1, path2},
+		TotalCount: 2,
+		Entries:    []*ItemMini{path1, path2},
 	}
 
 	createdAt, _ := time.Parse(time.RFC3339, "2012-12-12T10:55:30-08:00")

@@ -457,7 +457,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 	var responses []*Response
 
 	if resp.StatusCode != http.StatusOK {
-		err = xerrors.Errorf("failed to send request: %w", err)
+		err = xerrors.Errorf("got error response: %w", err)
 		return nil, newApiStatusError(respBodyBytes)
 	}
 	var r struct {

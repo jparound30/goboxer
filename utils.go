@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/xerrors"
 	"io"
 	"strings"
-	"time"
 )
 
 const (
@@ -46,21 +46,28 @@ func boolToString(b *bool) string {
 		return "true"
 	}
 }
-func timeToString(s *time.Time) string {
-	if s == nil {
+func intToString(i *int) string {
+	if i == nil {
 		return "<nil>"
-	} else {
-		return s.String()
 	}
+	return string(*i)
 }
 
-func ugToString(s *UserGroupMini) string {
-	if s == nil {
-		return "<nil>"
-	} else {
-		return s.String()
-	}
-}
+//func timeToString(s *time.Time) string {
+//	if s == nil {
+//		return "<nil>"
+//	} else {
+//		return s.String()
+//	}
+//}
+//
+//func ugToString(s *UserGroupMini) string {
+//	if s == nil {
+//		return "<nil>"
+//	} else {
+//		return s.String()
+//	}
+//}
 
 func ParseResource(jsonEntity []byte) (r BoxResource, err error) {
 	decoder := json.NewDecoder(bytes.NewReader(jsonEntity))
@@ -137,4 +144,13 @@ func ParseResource(jsonEntity []byte) (r BoxResource, err error) {
 		}
 	}
 	return r, err
+}
+
+func UnmarshalJsonWrapper(data []byte, v interface{}) error {
+	err := json.Unmarshal(data, v)
+	if err != nil {
+		err = xerrors.Errorf("failed to unmarshal response: %w", err)
+		return newApiOtherError(err, string(data))
+	}
+	return nil
 }

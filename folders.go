@@ -6,21 +6,44 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
 type PathCollection struct {
-	TotalCount  int         `json:"total_count"`
-	PathEntries []*ItemMini `json:"entries"`
+	TotalCount int         `json:"total_count"`
+	Entries    []*ItemMini `json:"entries"`
+}
+
+func (pc *PathCollection) String() string {
+	if pc == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("{ TotalCount:%d, Entries:%s }", pc.TotalCount, pc.Entries)
 }
 
 type FolderUploadEmail struct {
 	Access *FolderUploadEmailAccess `json:"access,omitempty"`
 	Email  *string                  `json:"email,omitempty"`
 }
+
+func (fue *FolderUploadEmail) String() string {
+	if fue == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("{ Access:%s, Email:%s }", fue.Access, toString(fue.Email))
+}
+
 type ItemCollection struct {
-	TotalCount  int         `json:"total_count"`
-	ItemEntries []*ItemMini `json:"entries,omitempty"`
+	TotalCount int         `json:"total_count"`
+	Entries    []*ItemMini `json:"entries,omitempty"`
+}
+
+func (ic *ItemCollection) String() string {
+	if ic == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("{ TotalCount:%d, Entries:%s }", ic.TotalCount, ic.Entries)
 }
 
 type ItemMini struct {
@@ -35,16 +58,8 @@ func (m *ItemMini) String() string {
 	if m == nil {
 		return "<nil>"
 	}
-	toString := func(s *string) string {
-		if s == nil {
-			return "<nil>"
-		} else {
-			return *s
-		}
-	}
-	return fmt.Sprintf("{Type:%s, ID:%s, SequenceId:%s, ETag:%s, Name:%s}",
-		m.Type.String(), toString(m.ID), toString(m.SequenceId), toString(m.ETag), toString(m.Name))
-
+	return fmt.Sprintf("{ Type:%s, ID:%s, Name:%s, SequenceId:%s, ETag:%s }",
+		m.Type.String(), toString(m.ID), toString(m.Name), toString(m.SequenceId), toString(m.ETag))
 }
 
 const (
@@ -66,6 +81,17 @@ type SharedLink struct {
 	Password          *string      `json:"password,omitempty"`
 }
 
+func (sl *SharedLink) String() string {
+	if sl == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("{ Url:%s, DownloadUrl:%s, VanityUrl:%s, IsPasswordEnabled:%s, UnsharedAt:%s,"+
+		" DownloadCount:%s, PreviewCount:%s, Access:%s, Permissions:%s, Password:%s}",
+		toString(sl.Url), toString(sl.DownloadUrl), toString(sl.VanityUrl), boolToString(sl.IsPasswordEnabled),
+		sl.UnsharedAt, intToString(sl.DownloadCount), intToString(sl.PreviewCount), toString(sl.Access),
+		sl.Permissions, toString(sl.Password))
+}
+
 type Permissions struct {
 	CanDownload           *bool `json:"can_download,omitempty"`
 	CanPreview            *bool `json:"can_preview,omitempty"`
@@ -79,12 +105,47 @@ type Permissions struct {
 	CanSetShareAccess     *bool `json:"can_set_share_access,omitempty"`
 }
 
+func (p *Permissions) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+
+	b := strings.Builder{}
+	b.WriteString("{")
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanDownload", boolToString(p.CanDownload)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanPreview", boolToString(p.CanPreview)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanUpload", boolToString(p.CanUpload)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanComment", boolToString(p.CanComment)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanAnnotate", boolToString(p.CanAnnotate)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanRename", boolToString(p.CanRename)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanDelete", boolToString(p.CanDelete)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanShare", boolToString(p.CanShare)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanInviteCollaborator", boolToString(p.CanInviteCollaborator)))
+	b.WriteString(fmt.Sprintf(" %s:%s ", "CanSetShareAccess", boolToString(p.CanSetShareAccess)))
+	b.WriteString("}")
+	return b.String()
+}
+
 type WatermarkInfo struct {
 	IsWatermarked bool `json:"is_watermarked"`
 }
 
+func (wi *WatermarkInfo) String() string {
+	if wi == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("{ %s:%t }", "IsWatermarked", wi.IsWatermarked)
+}
+
 type Metadata struct {
 	// TODO
+}
+
+func (m *Metadata) String() string {
+	if m == nil {
+		return "<nil>"
+	}
+	return "{ Not Implemented }"
 }
 
 type Folder struct {
@@ -119,6 +180,46 @@ type Folder struct {
 	AllowedInviteeRole                    []string           `json:"allowed_invitee_roles,omitempty"`
 	WatermarkInfo                         *WatermarkInfo     `json:"watermark_info,omitempty"`
 	Metadata                              *Metadata          `json:"metadata,omitempty"`
+}
+
+func (f *Folder) String() string {
+	if f == nil {
+		return "<nil>"
+	}
+	b := strings.Builder{}
+	b.WriteString("{")
+	b.WriteString(fmt.Sprintf(" %s,", f.ItemMini.String()))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CreatedAt", f.CreatedAt))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "ModifiedAt", f.ModifiedAt))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "Description", toString(f.Description)))
+	b.WriteString(fmt.Sprintf(" %s:%f,", "Size", f.Size))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "PathCollection", f.PathCollection))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CreatedBy", f.CreatedBy))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "ModifiedBy", f.ModifiedBy))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "TrashedAt", f.TrashedAt))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "PurgedAt", f.PurgedAt))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "ContentCreatedAt", f.ContentCreatedAt))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "ContentModifiedAt", f.ContentModifiedAt))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "ExpiresAt", f.ExpiresAt))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "OwnedBy", f.OwnedBy))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "SharedLink", f.SharedLink))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "FolderUploadEmail", f.FolderUploadEmail))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "Parent", f.Parent))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "ItemStatus", toString(f.ItemStatus)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "ItemCollection", f.ItemCollection))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "SyncState", toString(f.SyncState)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "HasCollaborations", boolToString(f.HasCollaborations)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "Permissions", f.Permissions))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "Tags", f.Tags))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "CanNonOwnersInvite", boolToString(f.CanNonOwnersInvite)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "IsExternallyOwned", boolToString(f.IsExternallyOwned)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "IsCollaborationRestrictedToEnterprise", boolToString(f.IsCollaborationRestrictedToEnterprise)))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "AllowedSharedLinkAccessLevels", f.AllowedSharedLinkAccessLevels))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "AllowedInviteeRole", f.AllowedInviteeRole))
+	b.WriteString(fmt.Sprintf(" %s:%s,", "WatermarkInfo", f.WatermarkInfo))
+	b.WriteString(fmt.Sprintf(" %s:%s ", "Metadata", f.Metadata))
+	b.WriteString("}")
+	return b.String()
 }
 
 var FolderAllFields = []string{
@@ -156,17 +257,16 @@ func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get folder info for id: %s", folderId))
-		return nil, err
+		// TODO Log.Warnf("failed to get folder info for id: %s", folderId)
+		return nil, newApiStatusError(resp.Body)
 	}
-	folder := Folder{}
-	err = json.Unmarshal(resp.Body, &folder)
+	folder := &Folder{}
+	err = UnmarshalJsonWrapper(resp.Body, folder)
 	if err != nil {
 		return nil, err
 	}
 	folder.apiInfo = f.apiInfo
-	return &folder, nil
+	return folder, nil
 }
 
 // Get Folder Items
@@ -339,6 +439,13 @@ func (f *Folder) SetSharedLinkCollaborators(unsharedAt time.Time) *Folder {
 }
 
 type FolderUploadEmailAccess string
+
+func (f *FolderUploadEmailAccess) String() string {
+	if f == nil {
+		return "<nil>"
+	}
+	return string(*f)
+}
 
 func (f *FolderUploadEmailAccess) UnmarshalJSON(byte []byte) error {
 	var um string
