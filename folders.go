@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/xerrors"
 	"net/http"
 	"strings"
 	"time"
@@ -35,8 +36,29 @@ func (fue *FolderUploadEmail) String() string {
 }
 
 type ItemCollection struct {
-	TotalCount int         `json:"total_count"`
-	Entries    []*ItemMini `json:"entries,omitempty"`
+	TotalCount int           `json:"total_count"`
+	Entries    []BoxResource `json:"entries,omitempty"`
+}
+
+func (ic *ItemCollection) UnmarshalJSON(data []byte) error {
+	type innerItemCollection struct {
+		TotalCount int               `json:"total_count"`
+		Entries    []json.RawMessage `json:"entries"`
+	}
+	var inner innerItemCollection
+	err := json.Unmarshal(data, &inner)
+	if err != nil {
+		return xerrors.Errorf("failed to unmarshal json: %w", err)
+	}
+	for _, v := range inner.Entries {
+		resource, err := ParseResource(v)
+		if err != nil {
+			return xerrors.Errorf("failed to unmarshal json: %w", err)
+		}
+		ic.Entries = append(ic.Entries, resource)
+	}
+	ic.TotalCount = inner.TotalCount
+	return nil
 }
 
 func (ic *ItemCollection) String() string {
@@ -231,8 +253,8 @@ var FolderAllFields = []string{
 	"allowed_shared_link_access_levels", "allowed_invitee_roles", "watermark_info", "metadata",
 }
 
-func (f *Folder) Type() string {
-	return f.ItemMini.Type.String()
+func (f *Folder) ResourceType() BoxResourceType {
+	return FolderResource
 }
 
 func NewFolder(api *ApiConn) *Folder {

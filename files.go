@@ -19,6 +19,10 @@ type FileVersion struct {
 	Sha1 string `json:"sha1,omitempty"`
 }
 
+func (fv *FileVersion) ResourceType() BoxResourceType {
+	return FileVersionResource
+}
+
 type Lock struct {
 	Type                *string        `json:"type,omitempty"`
 	ID                  *string        `json:"id,omitempty"`
@@ -64,8 +68,8 @@ type File struct {
 	Metadata           *Metadata       `json:"metadata,omitempty"`
 }
 
-func (f *File) Type() string {
-	return f.ItemMini.Type.String()
+func (f *File) ResourceType() BoxResourceType {
+	return FileResource
 }
 
 func (f *File) SetName(name string) *File {

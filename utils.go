@@ -141,12 +141,32 @@ func ParseResource(jsonEntity []byte) (r BoxResource, err error) {
 			file := &File{}
 			err = dec.Decode(file)
 			r = file
+		case "file_version":
+			fv := &FileVersion{}
+			err = dec.Decode(fv)
+			r = fv
+		case "user":
+			u := &User{}
+			err = dec.Decode(u)
+			r = u
+		case "group":
+			g := &Group{}
+			err = dec.Decode(g)
+			r = g
+		case "group_membership":
+			gm := &Membership{}
+			err = dec.Decode(gm)
+			r = gm
+		case "collaboration":
+			c := &Collaboration{}
+			err = dec.Decode(c)
+			r = c
 		}
 	}
 	return r, err
 }
 
-func UnmarshalJsonWrapper(data []byte, v interface{}) error {
+func UnmarshalJsonWrapper(data []byte, v BoxResource) error {
 	err := json.Unmarshal(data, v)
 	if err != nil {
 		err = xerrors.Errorf("failed to unmarshal response: %w", err)

@@ -73,6 +73,10 @@ type Collaboration struct {
 	CanViewPath    *bool                `json:"can_view_path,omitempty"`
 }
 
+func (c *Collaboration) ResourceType() BoxResourceType {
+	return CollaborationResource
+}
+
 func NewCollaboration(api *ApiConn) *Collaboration {
 	return &Collaboration{apiInfo: &apiInfo{api: api}}
 }

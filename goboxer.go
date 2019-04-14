@@ -54,10 +54,23 @@ const (
 	TYPE_GROUP UserGroupType = "group"
 )
 
-type BoxResource interface {
-	Type() string
-}
+type BoxResourceType int
 
-type BoxCollaborator interface {
-	Type() string
+const (
+	FileResource BoxResourceType = iota + 1
+	FileVersionResource
+	FolderResource
+	WebLinkResource
+	UserResource
+	GroupResource
+	MembershipResource
+	CollaborationResource
+	CommentResource
+	TaskResource
+	EventResource
+	CollectionResource
+)
+
+type BoxResource interface {
+	ResourceType() BoxResourceType
 }

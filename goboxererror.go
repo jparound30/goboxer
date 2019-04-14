@@ -6,10 +6,6 @@ import (
 	"golang.org/x/xerrors"
 )
 
-//type BoxApiError interface {
-//	error
-//}
-//
 type ApiOtherError struct {
 	err   error
 	msg   string

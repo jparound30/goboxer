@@ -113,8 +113,8 @@ type User struct {
 	ExternalAppUserId             *string             `json:"external_app_user_id,omitempty"`
 }
 
-func (u *User) Type() string {
-	return u.UserGroupMini.Type.String()
+func (u *User) ResourceType() BoxResourceType {
+	return UserResource
 }
 
 func NewUser(api *ApiConn) *User {

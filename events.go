@@ -156,6 +156,10 @@ type BoxEvent struct {
 	ActionBy          *UserGroupMini         `json:"action_by"`
 }
 
+func (be *BoxEvent) ResourceType() BoxResourceType {
+	return EventResource
+}
+
 func (be *BoxEvent) String() string {
 	builder := strings.Builder{}
 	builder.WriteString("{")

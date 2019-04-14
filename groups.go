@@ -67,8 +67,8 @@ type Group struct {
 	MemberViewabilityLevel *MemberViewabilityLevel `json:"member_viewability_level,omitempty"`
 }
 
-func (g *Group) Type() string {
-	return g.UserGroupMini.Type.String()
+func (g *Group) ResourceType() BoxResourceType {
+	return GroupResource
 }
 
 func NewGroup(api *ApiConn) *Group {

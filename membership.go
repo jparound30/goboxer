@@ -50,6 +50,10 @@ type Membership struct {
 	ConfigurablePermissions *ConfigurablePermissions `json:"configurable_permissions,omitempty"`
 }
 
+func (m *Membership) ResourceType() BoxResourceType {
+	return MembershipResource
+}
+
 func NewMembership(api *ApiConn) *Membership {
 	return &Membership{
 		apiInfo: &apiInfo{api: api},
