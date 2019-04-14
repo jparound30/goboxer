@@ -63,12 +63,12 @@ type Collaboration struct {
 	CreatedBy      *UserGroupMini       `json:"created_by,omitempty"`
 	CreatedAt      *time.Time           `json:"created_at,omitempty"`
 	ModifiedAt     *time.Time           `json:"modified_at,omitempty"`
-	ExpiresAt      *time.Time           `json:"modified_at,omitempty"`
+	ExpiresAt      *time.Time           `json:"expires_at,omitempty"`
 	Status         *CollaborationStatus `json:"status,omitempty"`
 	AccessibleBy   *UserGroupMini       `json:"accessible_by"`
 	InviteEmail    *string              `json:"invite_email,omitempty"`
 	Role           *Role                `json:"role,omitempty"`
-	AcknowledgedAt *time.Time           `json:"modified_at,omitempty"`
+	AcknowledgedAt *time.Time           `json:"acknowledged_at,omitempty"`
 	Item           *ItemMini            `json:"item,omitempty"`
 	CanViewPath    *bool                `json:"can_view_path,omitempty"`
 }
