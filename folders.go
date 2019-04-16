@@ -38,12 +38,16 @@ func (fue *FolderUploadEmail) String() string {
 type ItemCollection struct {
 	TotalCount int           `json:"total_count"`
 	Entries    []BoxResource `json:"entries,omitempty"`
+	Offset     int           `json:"offset"`
+	Limit      int           `json:"limit"`
 }
 
 func (ic *ItemCollection) UnmarshalJSON(data []byte) error {
 	type innerItemCollection struct {
 		TotalCount int               `json:"total_count"`
 		Entries    []json.RawMessage `json:"entries"`
+		Offset     int               `json:"offset"`
+		Limit      int               `json:"limit"`
 	}
 	var inner innerItemCollection
 	err := json.Unmarshal(data, &inner)
@@ -58,6 +62,8 @@ func (ic *ItemCollection) UnmarshalJSON(data []byte) error {
 		ic.Entries = append(ic.Entries, resource)
 	}
 	ic.TotalCount = inner.TotalCount
+	ic.Offset = inner.Offset
+	ic.Limit = inner.Limit
 	return nil
 }
 

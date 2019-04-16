@@ -1,37 +1,126 @@
 package goboxer
 
 import (
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestFolder_GetInfo(t *testing.T) {
+//
+// COMMON UTILITY FUNCTIONS FOR TESTS
+//
+func commonInit(url string) *ApiConn {
+	var apiConn = NewApiConnWithRefreshToken(
+		"CLIENT_ID",
+		"CLIENT_SECRET",
+		"ACCESS_TOKEN",
+		"REFRESH_TOKEN")
+	apiConn.LastRefresh = time.Now()
+	apiConn.Expires = 6000
+	apiConn.BaseURL = url + "/2.0/"
+	apiConn.TokenURL = url + "/oauth2/token"
 
-	// テストサーバを用意する
-	// サーバ側でアクセスする側のテストを行う
+	return apiConn
+}
+
+func setIntPtr(i int) *int {
+	return &i
+}
+func setStringPtr(s string) *string {
+	return &s
+}
+func setItemTypePtr(i ItemType) *ItemType {
+	return &i
+}
+func setTime(s string) *time.Time {
+	parse, e := time.Parse(time.RFC3339, s)
+	if e != nil {
+		panic(e)
+	}
+	return &parse
+}
+func setUserType(s UserGroupType) *UserGroupType {
+	return &s
+}
+func setBool(b bool) *bool {
+	return &b
+}
+func setFolderUploadEmailAccess(a FolderUploadEmailAccess) *FolderUploadEmailAccess {
+	return &a
+}
+
+//
+// COMMON UTILITY FUNCTIONS FOR TESTS
+//
+
+func TestFolder_GetInfoReq(t *testing.T) {
+
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	type args struct {
+		folderId string
+		fields   []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Request
+	}{
+		{"normal", args{"123", []string{"type", "id"}}, &Request{Url: url + "/2.0/folders/123?fields=type,id"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := NewFolder(apiConn)
+			if got := f.GetInfoReq(tt.args.folderId, tt.args.fields); got.Url != tt.want.Url {
+				t.Errorf("Folder.GetInfoReq() = %s, want %s", got.Url, tt.want.Url)
+			}
+		})
+	}
+}
+
+func TestFolder_GetInfo(t *testing.T) {
+	// test server (dummy box api)
 	ts := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			// URLのアクセスパスが誤っていないかチェック
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
 			if !strings.HasPrefix(r.URL.Path, "/2.0/folders/") {
-				t.Fatalf("誤ったアクセスパスでアクセス! %s : %s", r.URL.Path, "/2.0/folders/")
+				t.Errorf("invalid access url %s : %s", r.URL.Path, "/2.0/folders/")
 			}
+			// Method check
 			if r.Method != http.MethodGet {
-				t.Fatalf("GETメソッド以外でアクセス")
+				t.Fatalf("invalid http method")
 			}
+			// Header check
 			if r.Header.Get("Authorization") == "" {
-				t.Fatalf("アクセストークンなしでのリクエスト")
+				t.Fatalf("not exists access token")
 			}
-			// レスポンスを設定する
+			// ok, return some response
 			folderId := strings.TrimPrefix(r.URL.Path, "/2.0/folders/")
+
 			switch folderId {
 			case "500":
 				w.WriteHeader(500)
 			case "404":
+				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				_, _ = w.Write([]byte("invalid json"))
 			default:
 				w.Header().Set("content-Type", "application/json")
 				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
@@ -42,55 +131,34 @@ func TestFolder_GetInfo(t *testing.T) {
 	))
 	defer ts.Close()
 
-	apiConn := NewApiConnWithRefreshToken(
-		"CLIENT_ID",
-		"CLIENT_SECRET",
-		"ACCESS_TOKEN",
-		"REFRESH_TOKEN")
-	apiConn.LastRefresh = time.Now()
-	apiConn.Expires = 6000
-	apiConn.BaseURL = ts.URL + "/2.0/"
-	apiConn.TokenURL = ts.URL + "/oauth2/token"
+	apiConn := commonInit(ts.URL)
 
-	folder := NewFolder(apiConn)
-
-	type fields struct {
-		apiInfo                               *apiInfo
-		Type                                  string
-		ID                                    string
-		SequenceId                            *string
-		ETag                                  *string
-		Name                                  string
-		CreatedAt                             *time.Time
-		ModifiedAt                            *time.Time
-		Description                           *string
-		Size                                  float64
-		PathCollection                        *PathCollection
-		CreatedBy                             *UserGroupMini
-		ModifiedBy                            *UserGroupMini
-		TrashedAt                             *time.Time
-		PurgedAt                              *time.Time
-		ContentCreatedAt                      *time.Time
-		ContentModifiedAt                     *time.Time
-		ExpiresAt                             *time.Time
-		OwnedBy                               *UserGroupMini
-		SharedLink                            *SharedLink
-		FolderUploadEmail                     *FolderUploadEmail
-		Parent                                *ItemMini
-		ItemStatus                            *string
-		ItemCollection                        *ItemCollection
-		SyncState                             *string
-		HasCollaborations                     *bool
-		Permissions                           *Permissions
-		Tags                                  []string
-		CanNonOwnersInvite                    *bool
-		IsExternallyOwned                     *bool
-		IsCollaborationRestrictedToEnterprise *bool
-		AllowedSharedLinkAccessLevels         []string
-		AllowedInviteeRole                    []string
-		WatermarkInfo                         *WatermarkInfo
-		Metadata                              *Metadata
+	var f_Normal Folder
+	f_Normal.Type = setItemTypePtr(TYPE_FOLDER)
+	f_Normal.ID = setStringPtr("10000")
+	f_Normal.SequenceId = setStringPtr("1")
+	f_Normal.ETag = setStringPtr("1")
+	f_Normal.Name = setStringPtr("Pictures")
+	f_Normal.CreatedAt = setTime("2012-12-12T10:53:43-08:00")
+	f_Normal.ModifiedAt = setTime("2012-12-12T11:15:04-08:00")
+	f_Normal.Description = setStringPtr("Some pictures I took")
+	f_Normal.Size = 629644
+	f_Normal.PathCollection = &PathCollection{
+		TotalCount: 1,
+		Entries: []*ItemMini{
+			{Type: setItemTypePtr(TYPE_FOLDER), ID: setStringPtr("0"), SequenceId: nil, ETag: nil, Name: setStringPtr("All Files")},
+		},
 	}
+	f_Normal.CreatedBy = &UserGroupMini{Type: setUserType(TYPE_USER), ID: setStringPtr("17738362"), Name: setStringPtr("sean rose"), Login: setStringPtr("sean@box.com")}
+	f_Normal.ModifiedBy = &UserGroupMini{Type: setUserType(TYPE_USER), ID: setStringPtr("17738362"), Name: setStringPtr("sean rose"), Login: setStringPtr("sean@box.com")}
+	f_Normal.OwnedBy = &UserGroupMini{Type: setUserType(TYPE_USER), ID: setStringPtr("17738362"), Name: setStringPtr("sean rose"), Login: setStringPtr("sean@box.com")}
+	f_Normal.SharedLink = &SharedLink{Url: setStringPtr("https://www.box.com/s/vspke7y05sb214wjokpk"), DownloadUrl: nil, VanityUrl: nil, IsPasswordEnabled: setBool(false), UnsharedAt: nil, DownloadCount: setIntPtr(0), PreviewCount: setIntPtr(0), Access: setStringPtr("open"), Permissions: &Permissions{CanDownload: setBool(true), CanPreview: setBool(true)}}
+	f_Normal.FolderUploadEmail = &FolderUploadEmail{Access: setFolderUploadEmailAccess(FolderUploadEmailAccessOpen), Email: setStringPtr("upload.Picture.k13sdz1@u.box.com")}
+	f_Normal.Parent = &ItemMini{Type: setItemTypePtr(TYPE_FOLDER), ID: setStringPtr("0"), SequenceId: nil, ETag: nil, Name: setStringPtr("All Files")}
+	f_Normal.ItemStatus = setStringPtr("active")
+	f_Normal.ItemCollection = &ItemCollection{TotalCount: 1, Entries: []BoxResource{&File{ItemMini: ItemMini{Type: setItemTypePtr(TYPE_FILE), ID: setStringPtr("5000948880"), SequenceId: setStringPtr("3"), ETag: setStringPtr("3"), Name: setStringPtr("tigers.jpeg")}, Sha1: setStringPtr("134b65991ed521fcfe4724b7d814ab8ded5185dc")}}, Offset: 0, Limit: 100}
+	f_Normal.Tags = []string{"approved", "ready to publish"}
+
 	type args struct {
 		folderId string
 		fields   []string
@@ -100,32 +168,59 @@ func TestFolder_GetInfo(t *testing.T) {
 		args    args
 		want    *Folder
 		wantErr bool
+		errType interface{}
 	}{
-		// TODO: Add test cases.
-		{"Normal", args{folderId: "11446498", fields: nil}, nil, false},
-		{"Normal/allFields", args{folderId: "11446498", fields: FolderAllFields}, nil, false},
-		{"HTTPERROR/404", args{folderId: "404", fields: FolderAllFields}, nil, true},
+		{"normal/fields unspecified", args{folderId: "10001", fields: nil}, &f_Normal, false, nil},
+		{"normal/allFields", args{folderId: "10002", fields: FolderAllFields}, &f_Normal, false, nil},
+		{"http error/404", args{folderId: "404", fields: FolderAllFields}, nil, true, &ApiStatusError{}},
+		{"returned invalid json/999", args{folderId: "999", fields: nil}, nil, true, &ApiOtherError{}},
+		{"senderror", args{folderId: "999", fields: nil}, nil, true, &ApiOtherError{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := folder.GetInfo(tt.args.folderId, tt.args.fields)
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			}
+			f := NewFolder(apiConn)
+			got, err := f.GetInfo(tt.args.folderId, tt.args.fields)
+
+			// Error checks
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Folder.GetInfo() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if err != nil {
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %v, wanted errorType %v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					if status, err := strconv.Atoi(tt.args.folderId); err != nil || status != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
 				return
 			}
-			if got == nil {
-				t.Errorf("Folder.GetInfo() returned nil for folder info")
+
+			// If normal response
+			opt := cmpopts.IgnoreUnexported(*got, File{})
+			if diff := cmp.Diff(&got, &tt.want, opt); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
 				return
 			}
-			if got.ID == nil || (*got.ID) != "11446498" {
-				t.Errorf("ID = %v, want %v", got, "11446498")
+			// exists apiInfo
+			if got.apiInfo == nil {
+				t.Errorf("not exists `apiInfo` field\n")
+				return
 			}
-			//if !reflect.DeepEqual(got, tt.want) {
-			//	t.Errorf("Folder.GetInfo() = %v, want %v", got, tt.want)
-			//}
 		})
 	}
 }
