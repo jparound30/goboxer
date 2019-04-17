@@ -179,9 +179,10 @@ func (be *BoxEvent) String() string {
 }
 
 func (be *BoxEvent) Source() BoxResource {
-	if be.source == nil {
+	if be.source == nil && len(be.SourceRaw) != 0 {
 		resource, _ := ParseResource(be.SourceRaw)
 		be.source = resource
+		be.SourceRaw = nil // GC
 	}
 	return be.source
 }
@@ -241,6 +242,12 @@ func (e *Event) UserEvent(streamType StreamType, streamPosition string, limit in
 	err = json.Unmarshal(resp.Body, &event)
 	if err != nil {
 		return nil, "", err
+	}
+	for _, v := range event.Entries {
+		r := v.Source()
+		if r != nil {
+			setApiInfo(r, e.apiInfo)
+		}
 	}
 
 	return event.Entries, strconv.FormatInt(event.NextStreamPosition, 10), nil

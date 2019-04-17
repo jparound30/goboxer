@@ -53,22 +53,6 @@ func intToString(i *int) string {
 	return string(*i)
 }
 
-//func timeToString(s *time.Time) string {
-//	if s == nil {
-//		return "<nil>"
-//	} else {
-//		return s.String()
-//	}
-//}
-//
-//func ugToString(s *UserGroupMini) string {
-//	if s == nil {
-//		return "<nil>"
-//	} else {
-//		return s.String()
-//	}
-//}
-
 func ParseResource(jsonEntity []byte) (r BoxResource, err error) {
 	decoder := json.NewDecoder(bytes.NewReader(jsonEntity))
 	outerStack := 0
@@ -163,7 +147,38 @@ func ParseResource(jsonEntity []byte) (r BoxResource, err error) {
 			r = c
 		}
 	}
+	if r == nil {
+		return nil, xerrors.Errorf("failed to parse box resource ")
+	}
 	return r, err
+}
+
+func setApiInfo(r BoxResource, info *apiInfo) {
+	switch r.ResourceType() {
+	case FolderResource:
+		s := r.(*Folder)
+		s.apiInfo = info
+	case FileResource:
+		s := r.(*File)
+		s.apiInfo = info
+	case FileVersionResource:
+		s := r.(*FileVersion)
+		s.apiInfo = info
+	case UserResource:
+		s := r.(*User)
+		s.apiInfo = info
+	case GroupResource:
+		s := r.(*Group)
+		s.apiInfo = info
+	case MembershipResource:
+		s := r.(*Membership)
+		s.apiInfo = info
+	case CollaborationResource:
+		s := r.(*Collaboration)
+		s.apiInfo = info
+	default:
+		// nothing to do
+	}
 }
 
 func UnmarshalJsonWrapper(data []byte, v BoxResource) error {

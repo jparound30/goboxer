@@ -3,7 +3,6 @@ package goboxer
 import (
 	"encoding/json"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -179,8 +178,8 @@ func TestFile_Unmarshal(t *testing.T) {
 			if err != nil {
 				t.Errorf("File Unmarshal err %v", err)
 			}
-			opt := cmpopts.IgnoreUnexported(file)
-			if diff := cmp.Diff(&file, &tt.want, opt); diff != "" {
+			opts := diffCompOptions(file, FileVersion{})
+			if diff := cmp.Diff(&file, &tt.want, opts...); diff != "" {
 				t.Errorf("File Marshal/Unmarshal differs: (-got +want)\n%s", diff)
 			}
 		})

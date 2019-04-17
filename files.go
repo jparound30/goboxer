@@ -14,9 +14,10 @@ import (
 )
 
 type FileVersion struct {
-	Type string `json:"type,omitempty"`
-	ID   string `json:"id,omitempty"`
-	Sha1 string `json:"sha1,omitempty"`
+	apiInfo *apiInfo `json:"-"`
+	Type    string   `json:"type,omitempty"`
+	ID      string   `json:"id,omitempty"`
+	Sha1    string   `json:"sha1,omitempty"`
 }
 
 func (fv *FileVersion) ResourceType() BoxResourceType {

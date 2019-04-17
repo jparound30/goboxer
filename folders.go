@@ -309,15 +309,34 @@ func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 	return folder, nil
 }
 
-// Get Folder Items
+// Get Folder Items.
+//
+// Gets all of the files, folders, or web links contained within a folder.
+// https://developer.box.com/reference#get-a-folders-items
+//
+//  sort: "id", "name" or "date"
+//  sortDir: "ASC" or "DESC"
 func (f *Folder) FolderItemReq(folderId string, offset int, limit int, sort string, sortDir string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s%s?offset=%d&limit=%d&sort=%s&%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/items",
-		offset, limit, sort, BuildFieldsQueryParams(fields))
-	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
+	var query string
+
+	url = fmt.Sprintf("%s%s%s%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/items")
+	query = fmt.Sprintf("?offset=%d&limit=%d&sort=%s&direction=%s", offset, limit, sort, sortDir)
+
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = query + fmt.Sprintf("&%s", fieldsParam)
+	}
+
+	return NewRequest(f.apiInfo.api, url+query, GET, nil, nil)
 }
 
-// Get Folder Items
+// Get Folder Items.
+//
+// Gets all of the files, folders, or web links contained within a folder.
+// https://developer.box.com/reference#get-a-folders-items
+//
+//  sort: "id", "name" or "date"
+//  sortDir: "ASC" or "DESC"
 func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string, sortDir string, fields []string) (outResources []BoxResource, outOffset, outLimit, outTotalCount int, err error) {
 
 	req := f.FolderItemReq(folderId, offset, limit, sort, sortDir, fields)
@@ -327,10 +346,7 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to get folder items"))
-		return nil, 0, 0, 0, err
+		return nil, 0, 0, 0, newApiStatusError(resp.Body)
 	}
 	items := struct {
 		TotalCount int               `json:"total_count"`
@@ -340,8 +356,11 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 	}{}
 	err = json.Unmarshal(resp.Body, &items)
 	if err != nil {
+		err = xerrors.Errorf("failed to unmarshal response: %w", err)
+
 		return nil, 0, 0, 0, err
 	}
+
 	var entries []BoxResource
 
 	for _, entity := range items.Entries {
@@ -349,6 +368,7 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 		if err != nil {
 			return nil, 0, 0, 0, err
 		}
+		setApiInfo(boxResource, f.apiInfo)
 		entries = append(entries, boxResource)
 	}
 	return entries, items.Offset, items.Limit, items.TotalCount, nil
@@ -592,6 +612,9 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	if err != nil {
 		return nil, err
 	}
+	for _, v := range folder.ItemCollection.Entries {
+		setApiInfo(v, f.apiInfo)
+	}
 	folder.apiInfo = f.apiInfo
 	return &folder, nil
 }
@@ -667,6 +690,9 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 	err = json.Unmarshal(resp.Body, &folder)
 	if err != nil {
 		return nil, err
+	}
+	for _, v := range folder.ItemCollection.Entries {
+		setApiInfo(v, f.apiInfo)
 	}
 	folder.apiInfo = f.apiInfo
 	return &folder, nil
