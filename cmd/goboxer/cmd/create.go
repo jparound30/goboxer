@@ -67,6 +67,7 @@ var createFolderCmd = &cobra.Command{
 		type Task struct {
 			name string
 			id   string
+			path string
 			req  *goboxer.Request
 		}
 
@@ -119,6 +120,12 @@ var createFolderCmd = &cobra.Command{
 									os.Exit(1)
 								}
 								v.id = *f.ID
+								builder := strings.Builder{}
+								for _, p := range f.PathCollection.Entries {
+									builder.WriteString(*p.Name + "/")
+								}
+								builder.WriteString(v.name)
+								v.path = builder.String()
 								break
 							} else {
 								err := goboxer.NewApiStatusError(resp.Body)
@@ -133,8 +140,9 @@ var createFolderCmd = &cobra.Command{
 		}
 
 		// output result
+		fmt.Printf("%s,%s,%s\n", "folder name", "folder id", "folder path")
 		for _, v := range folderNames {
-			fmt.Printf("%s,%s\n", v.name, v.id)
+			fmt.Printf("%s,%s,%s\n", v.name, v.id, v.path)
 		}
 	},
 }
