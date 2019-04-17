@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -28,6 +29,15 @@ func commonInit(url string) *ApiConn {
 	apiConn.TokenURL = url + "/oauth2/token"
 
 	return apiConn
+}
+
+func diffCompOptions(types ...interface{}) []cmp.Option {
+	var opts []cmp.Option
+
+	opts = append(opts, cmp.AllowUnexported(types...))
+	opts = append(opts, cmpopts.IgnoreTypes(sync.RWMutex{}))
+	opts = append(opts, cmpopts.IgnoreInterfaces(struct{ ApiConnRefreshNotifier }{}))
+	return opts
 }
 
 func setIntPtr(i int) *int {
@@ -74,13 +84,43 @@ func TestFolder_GetInfoReq(t *testing.T) {
 		args args
 		want *Request
 	}{
-		{"normal", args{"123", []string{"type", "id"}}, &Request{Url: url + "/2.0/folders/123?fields=type,id"}},
+		{
+			name: "normal/fields=nil",
+			args: args{"123", nil},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/123",
+				Method:             GET,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+		{
+			name: "normal/fields",
+			args: args{"123", []string{"type", "id"}},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/123?fields=type,id",
+				Method:             GET,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := NewFolder(apiConn)
-			if got := f.GetInfoReq(tt.args.folderId, tt.args.fields); got.Url != tt.want.Url {
-				t.Errorf("Folder.GetInfoReq() = %s, want %s", got.Url, tt.want.Url)
+
+			got := f.GetInfoReq(tt.args.folderId, tt.args.fields)
+			// If normal response
+			opts := diffCompOptions(*got)
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("Folder.GetInfoReq() diff:  (-got +want)\n%s", diff)
+				return
 			}
 		})
 	}

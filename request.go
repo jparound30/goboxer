@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+const defaultNumRedirects = 3
+
 type METHOD int
 
 const (
@@ -82,7 +84,7 @@ func NewRequest(apiConn *ApiConn, url string, method METHOD, headers http.Header
 		headers:            h,
 		body:               body,
 		Method:             method,
-		numRedirects:       3,
+		numRedirects:       defaultNumRedirects,
 		shouldAuthenticate: true,
 	}
 }

@@ -269,14 +269,27 @@ func NewFolder(api *ApiConn) *Folder {
 	}
 }
 
+// Get Folder Info.
+//
 // Get information about a folder.
+// https://developer.box.com/reference#get-folder-info
 func (f *Folder) GetInfoReq(folderId string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, BuildFieldsQueryParams(fields))
+	var query string
 
-	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
+	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "folders/", folderId)
+
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = fmt.Sprintf("?%s", fieldsParam)
+	}
+
+	return NewRequest(f.apiInfo.api, url+query, GET, nil, nil)
 }
 
+// Get Folder Info.
+//
+// Get information about a folder.
+// https://developer.box.com/reference#get-folder-info
 func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 	req := f.GetInfoReq(folderId, fields)
 	resp, err := req.Send()
@@ -285,7 +298,6 @@ func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO Log.Warnf("failed to get folder info for id: %s", folderId)
 		return nil, newApiStatusError(resp.Body)
 	}
 	folder := &Folder{}
