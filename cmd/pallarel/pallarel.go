@@ -82,7 +82,7 @@ func main() {
 				fmt.Printf("\t[%d]: status:%d\n", i, status)
 				fmt.Printf("\t[%d]: header:%s\n", i, v.Headers)
 				if status == http.StatusTooManyRequests {
-					ra, _ := strconv.Atoi(v.Headers.Get("Retry-After"))
+					ra, _ := strconv.Atoi(v.Headers.Get(goboxer.HttpHeaderRetryAfter))
 					if raMax < ra {
 						raMax = ra
 					}
@@ -92,7 +92,7 @@ func main() {
 				time.Sleep(time.Duration(raMax) * time.Second)
 			}
 		} else if response.ResponseCode == http.StatusTooManyRequests {
-			t, _ := strconv.Atoi(response.Headers.Get("Retry-After"))
+			t, _ := strconv.Atoi(response.Headers.Get(goboxer.HttpHeaderRetryAfter))
 			time.Sleep(time.Duration(t) * time.Second)
 		} else {
 			fmt.Printf("ERRORRRRRRRRRRRaasdfsdfasdfasdfasd\t status:%d\n", response.ResponseCode)

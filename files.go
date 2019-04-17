@@ -236,7 +236,7 @@ func (f *File) DownloadFile(fileId string, fileVersion string, boxApiHeader stri
 		return nil, err
 	}
 
-	//if resp.Headers.Get("Retry-After") {
+	//if resp.Headers.Get(HttpHeaderRetryAfter) {
 	//
 	//}
 

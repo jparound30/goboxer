@@ -18,15 +18,32 @@ import (
 
 const defaultNumRedirects = 3
 
-type METHOD int
+type Method int
 
 const (
-	GET METHOD = iota + 1
+	GET Method = iota + 1
 	POST
 	PUT
 	DELETE
 	OPTION
 )
+
+func convertMethodStr(method Method) string {
+	switch method {
+	case GET:
+		return http.MethodGet
+	case POST:
+		return http.MethodPost
+	case PUT:
+		return http.MethodPut
+	case DELETE:
+		return http.MethodDelete
+	case OPTION:
+		return http.MethodOptions
+	default:
+		panic(fmt.Sprintf("undefined method: [%d]", method))
+	}
+}
 
 var transport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
@@ -49,6 +66,8 @@ const (
 	httpHeaderUserAgent     = "User-Agent"
 	httpHeaderContentType   = "Content-Type"
 	httpAuthType            = "Bearer"
+	httpHeaderAsUser        = "As-User"
+	HttpHeaderRetryAfter    = "Retry-After"
 )
 
 type Request struct {
@@ -56,7 +75,7 @@ type Request struct {
 	Url                string
 	headers            http.Header
 	body               io.Reader
-	Method             METHOD
+	Method             Method
 	numRedirects       int
 	shouldAuthenticate bool
 }
@@ -66,11 +85,11 @@ type Request struct {
 // This functionality required "Perform actions as users" permission.
 // See https://developer.box.com/reference#as-user-1
 func (req *Request) AsUser(userId string) *Request {
-	req.headers.Set("As-User", userId)
+	req.headers.Set(httpHeaderAsUser, userId)
 	return req
 }
 
-func NewRequest(apiConn *ApiConn, url string, method METHOD, headers http.Header, body io.Reader) *Request {
+func NewRequest(apiConn *ApiConn, url string, method Method, headers http.Header, body io.Reader) *Request {
 	h := make(http.Header, len(headers))
 	for k, v := range headers {
 		vv := make([]string, len(v))
@@ -86,23 +105,6 @@ func NewRequest(apiConn *ApiConn, url string, method METHOD, headers http.Header
 		Method:             method,
 		numRedirects:       defaultNumRedirects,
 		shouldAuthenticate: true,
-	}
-}
-
-func convertMethodStr(method METHOD) string {
-	switch method {
-	case GET:
-		return http.MethodGet
-	case POST:
-		return http.MethodPost
-	case PUT:
-		return http.MethodPut
-	case DELETE:
-		return http.MethodDelete
-	case OPTION:
-		return http.MethodOptions
-	default:
-		return ""
 	}
 }
 
@@ -267,7 +269,7 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 		}
 		var retryAfter int
 		if resp.StatusCode == http.StatusTooManyRequests {
-			retryAfter, _ = strconv.Atoi(resp.Header.Get("Retry-After"))
+			retryAfter, _ = strconv.Atoi(resp.Header.Get(HttpHeaderRetryAfter))
 		} else {
 			exponent := 5 - (retryCount - 1)
 			minWindow := 0.5
