@@ -1,0 +1,16 @@
+{
+  "type": "error",
+  "status": 409,
+  "code": "item_name_in_use",
+  "context_info": {
+    "conflicts": [
+      {
+        "type": "folder",
+        "id": "98765",
+        "sequence_id": "0",
+        "etag": "0",
+        "name": "ct"
+      }
+    ]
+  }
+}

@@ -466,7 +466,7 @@ func TestFolder_FolderItem(t *testing.T) {
 			}
 
 			// If normal response
-			//opts := diffCompOptions(File{}, Folder{})
+			// opts := diffCompOptions(File{}, Folder{})
 			opt := cmpopts.IgnoreUnexported(Folder{}, File{})
 			if diff := cmp.Diff(&got, &tt.want.entries, opt); diff != "" {
 				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
@@ -698,8 +698,8 @@ func TestFolder_Create(t *testing.T) {
 			}
 
 			// If normal response
-			//opts := diffCompOptions(File{}, Folder{})
-			//opt := cmpopts.IgnoreUnexported(Folder{}, File{})
+			// opts := diffCompOptions(File{}, Folder{})
+			// opt := cmpopts.IgnoreUnexported(Folder{}, File{})
 			opt := cmpopts.IgnoreUnexported(*got, File{})
 			if diff := cmp.Diff(&got, &tt.want.folder, opt); diff != "" {
 				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
@@ -770,6 +770,94 @@ func TestFolder_SetDescription(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := fn.SetDescription(tt.args.name)
+			opt := cmpopts.IgnoreUnexported(*got, File{})
+			if diff := cmp.Diff(got, tt.want, opt); diff != "" {
+				t.Errorf("differs: (-got +want)\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestFolder_ChangeSharedLinkOpen(t *testing.T) {
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	fn := buildFolderOfGetInfoNormalJson()
+	fn.apiInfo = &apiInfo{api: apiConn}
+
+	want1 := buildFolderOfGetInfoNormalJson()
+	want1.SharedLink = &SharedLink{Access: setStringPtr("open"), Permissions: &Permissions{}}
+	want1.SharedLink.Password = nil
+	want1.SharedLink.IsPasswordEnabled = setBool(false)
+	want1.SharedLink.UnsharedAt = nil
+	want1.SharedLink.Permissions.CanDownload = setBool(false)
+
+	want2 := buildFolderOfGetInfoNormalJson()
+	want2.SharedLink = &SharedLink{Access: setStringPtr("open"), Permissions: &Permissions{}}
+	want2.SharedLink.Password = setStringPtr("pass")
+	want2.SharedLink.IsPasswordEnabled = setBool(true)
+	want2.SharedLink.UnsharedAt = nil
+	want2.SharedLink.Permissions.CanDownload = setBool(false)
+
+	want3 := buildFolderOfGetInfoNormalJson()
+	want3.SharedLink = &SharedLink{Access: setStringPtr("open"), Permissions: &Permissions{}}
+	want3.SharedLink.Password = nil
+	want3.SharedLink.IsPasswordEnabled = setBool(false)
+	want3.SharedLink.UnsharedAt = setTime("2006-01-02T15:04:05-07:00")
+	want3.SharedLink.Permissions.CanDownload = setBool(false)
+
+	want4 := buildFolderOfGetInfoNormalJson()
+	want4.SharedLink = &SharedLink{Access: setStringPtr("open"), Permissions: &Permissions{}}
+	want4.SharedLink.Password = nil
+	want4.SharedLink.IsPasswordEnabled = nil
+	want4.SharedLink.UnsharedAt = nil
+	want4.SharedLink.Permissions.CanDownload = setBool(true)
+
+	ti, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05-07:00")
+	type args struct {
+		password        string
+		passwordEnabled bool
+		unsharedAt      time.Time
+		canDownload     *bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Folder
+	}{
+		// TODO: Add test cases.
+		{
+			"set password / disable",
+			args{
+				"pass", false, time.Time{}, setBool(false),
+			},
+			want1,
+		},
+		{
+			"set password / enable",
+			args{
+				"pass", false, time.Time{}, setBool(false),
+			},
+			want2,
+		},
+		{
+			"set unshared",
+			args{
+				"", false, ti, setBool(false),
+			},
+			want3,
+		},
+		{
+			"set unshared",
+			args{
+				"pass", false, time.Time{}, setBool(true),
+			},
+			want4,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fn.SetSharedLinkOpen(tt.args.password, tt.args.passwordEnabled, tt.args.unsharedAt, tt.args.canDownload)
 			opt := cmpopts.IgnoreUnexported(*got, File{})
 			if diff := cmp.Diff(got, tt.want, opt); diff != "" {
 				t.Errorf("differs: (-got +want)\n%s", diff)

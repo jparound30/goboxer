@@ -108,7 +108,20 @@ type SharedLink struct {
 	Access            *string      `json:"access,omitempty"`
 	Permissions       *Permissions `json:"permissions,omitempty"`
 	Password          *string      `json:"password,omitempty"`
+	// deletePassword    bool
 }
+
+// func (sl *SharedLink) MarshalJSON() ([]byte, error) {
+// 	if sl == nil {
+// 		return []byte("null"), nil
+// 	}
+// 	b := strings.Builder{}
+// 	b.WriteString(`{`)
+// 	if sl.DownloadUrl != nil {
+// 		b.WriteString(`"url":"` + strconv.Qsl.Url + `"`)
+// 	}
+// 	panic("implement me")
+// }
 
 func (sl *SharedLink) String() string {
 	if sl == nil {
@@ -422,25 +435,26 @@ func (f *Folder) Create(parentFolderId string, name string, fields []string) (*F
 	return &folder, nil
 }
 
+// Set folder name (for Update)
 func (f *Folder) SetName(name string) *Folder {
 	f.Name = &name
 	return f
 }
+
+// Set description (for Update)
 func (f *Folder) SetDescription(description string) *Folder {
 	f.Description = &description
 	return f
 }
-func (f *Folder) ChangeSharedLinkOpen(password string, passwordEnabled bool, unsharedAt time.Time, canDownload *bool) *Folder {
+
+// Set SharedLink access level Open (for Update)
+func (f *Folder) SetSharedLinkOpen(password string, passwordEnabled bool, unsharedAt time.Time, canDownload *bool) *Folder {
+	var pass string
 	var p *string
-	if passwordEnabled {
-		p = &password
-	} else {
-		p = nil
-	}
-	if password == "" {
-		p = nil
-	} else {
-		p = &password
+	// deletePass := !passwordEnabled
+	if passwordEnabled && password != "" {
+		pass = string(password)
+		p = &pass
 	}
 	slao := SharedLinkAccessOpen
 	ua := &unsharedAt
@@ -460,6 +474,7 @@ func (f *Folder) ChangeSharedLinkOpen(password string, passwordEnabled bool, uns
 		Password:    p,
 		UnsharedAt:  ua,
 		Permissions: perm,
+		// deletePassword: deletePass,
 	}
 	f.SharedLink = s
 
