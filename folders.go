@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/xerrors"
 	"net/http"
 	"strings"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 type PathCollection struct {
@@ -301,7 +302,7 @@ func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 		return nil, newApiStatusError(resp.Body)
 	}
 	folder := &Folder{}
-	err = UnmarshalJsonWrapper(resp.Body, folder)
+	err = UnmarshalJSONBoxResourceWrapper(resp.Body, folder)
 	if err != nil {
 		return nil, err
 	}
@@ -354,10 +355,8 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 		Limit      int               `json:"limit"`
 		Entries    []json.RawMessage `json:"entries"`
 	}{}
-	err = json.Unmarshal(resp.Body, &items)
+	err = UnmarshalJSONWrapper(resp.Body, &items)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal response: %w", err)
-
 		return nil, 0, 0, 0, err
 	}
 
@@ -374,11 +373,18 @@ func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string,
 	return entries, items.Offset, items.Limit, items.TotalCount, nil
 }
 
-// Create Folder.
+// Create Folder
+//
+// Create a new folder.
+// https://developer.box.com/reference#create-a-new-folder
 func (f *Folder) CreateReq(parentFolderId string, name string, fields []string) *Request {
-
 	var url string
-	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "folders?", BuildFieldsQueryParams(fields))
+	var query string
+
+	url = fmt.Sprintf("%s%s", f.apiInfo.api.BaseURL, "folders")
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = query + fmt.Sprintf("?%s", fieldsParam)
+	}
 
 	var parent = map[string]interface{}{
 		"id": parentFolderId,
@@ -389,10 +395,13 @@ func (f *Folder) CreateReq(parentFolderId string, name string, fields []string) 
 	}
 	bodyBytes, _ := json.Marshal(bodyMap)
 
-	return NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(f.apiInfo.api, url+query, POST, nil, bytes.NewReader(bodyBytes))
 }
 
-// Create Folder.
+// Create Folder
+//
+// Create a new folder.
+// https://developer.box.com/reference#create-a-new-folder
 func (f *Folder) Create(parentFolderId string, name string, fields []string) (*Folder, error) {
 
 	req := f.CreateReq(parentFolderId, name, fields)
@@ -402,13 +411,10 @@ func (f *Folder) Create(parentFolderId string, name string, fields []string) (*F
 	}
 
 	if resp.ResponseCode != http.StatusCreated {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to create folder"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 	folder := Folder{}
-	err = json.Unmarshal(resp.Body, &folder)
+	err = UnmarshalJSONBoxResourceWrapper(resp.Body, &folder)
 	if err != nil {
 		return nil, err
 	}
@@ -539,7 +545,7 @@ func (fue *FolderUploadEmail) SetAccess(access FolderUploadEmailAccess) {
 	}
 }
 
-//Update a Folder.
+// Update a Folder.
 func (f *Folder) UpdateReq(folderId string, fields []string) *Request {
 
 	var url string
@@ -593,7 +599,7 @@ func (f *Folder) UpdateReq(folderId string, fields []string) *Request {
 	return NewRequest(f.apiInfo.api, url, PUT, nil, bytes.NewReader(bodyBytes))
 }
 
-//Update a Folder.
+// Update a Folder.
 func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	req := f.UpdateReq(folderId, fields)
 	resp, err := req.Send()
@@ -619,7 +625,7 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	return &folder, nil
 }
 
-//Delete a Folder.
+// Delete a Folder.
 func (f *Folder) DeleteReq(folderId string, recursive bool) *Request {
 
 	var url string
@@ -634,7 +640,7 @@ func (f *Folder) DeleteReq(folderId string, recursive bool) *Request {
 	return NewRequest(f.apiInfo.api, url, DELETE, nil, nil)
 }
 
-//Delete a Folder.
+// Delete a Folder.
 func (f *Folder) Delete(folderId string, recursive bool) error {
 	req := f.DeleteReq(folderId, recursive)
 	resp, err := req.Send()

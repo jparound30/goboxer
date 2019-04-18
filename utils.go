@@ -181,7 +181,16 @@ func setApiInfo(r BoxResource, info *apiInfo) {
 	}
 }
 
-func UnmarshalJsonWrapper(data []byte, v BoxResource) error {
+func UnmarshalJSONBoxResourceWrapper(data []byte, v BoxResource) error {
+	err := json.Unmarshal(data, v)
+	if err != nil {
+		err = xerrors.Errorf("failed to unmarshal response: %w", err)
+		return newApiOtherError(err, string(data))
+	}
+	return nil
+}
+
+func UnmarshalJSONWrapper(data []byte, v interface{}) error {
 	err := json.Unmarshal(data, v)
 	if err != nil {
 		err = xerrors.Errorf("failed to unmarshal response: %w", err)

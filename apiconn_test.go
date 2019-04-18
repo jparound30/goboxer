@@ -57,7 +57,6 @@ func TestApiConn_Refresh(t *testing.T) {
 		if err != nil {
 			t.Fatalf("予期しないエラー:%v", err)
 		}
-		fmt.Printf("AccessToken: %s\nRefreshToken: %s\n", apiConn.AccessToken, apiConn.RefreshToken)
 		//if (err != nil) != tt.wantErr {
 		//	t.Errorf("GetConfiguration() error = %v, wantErr %v", err, tt.wantErr)
 		//	return
@@ -119,7 +118,6 @@ func TestApiConn_Authenticate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("予期しないエラー:%v", err)
 		}
-		fmt.Printf("AccessToken: %s\nRefreshToken: %s\n", apiConn.AccessToken, apiConn.RefreshToken)
 		//if (err != nil) != tt.wantErr {
 		//	t.Errorf("GetConfiguration() error = %v, wantErr %v", err, tt.wantErr)
 		//	return
