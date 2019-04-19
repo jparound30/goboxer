@@ -108,20 +108,67 @@ type SharedLink struct {
 	Access            *string      `json:"access,omitempty"`
 	Permissions       *Permissions `json:"permissions,omitempty"`
 	Password          *string      `json:"password,omitempty"`
-	// deletePassword    bool
+	deletePassword    bool
 }
 
-// func (sl *SharedLink) MarshalJSON() ([]byte, error) {
-// 	if sl == nil {
-// 		return []byte("null"), nil
-// 	}
-// 	b := strings.Builder{}
-// 	b.WriteString(`{`)
-// 	if sl.DownloadUrl != nil {
-// 		b.WriteString(`"url":"` + strconv.Qsl.Url + `"`)
-// 	}
-// 	panic("implement me")
-// }
+func (sl *SharedLink) MarshalJSON() (r []byte, err error) {
+	if sl == nil {
+		return []byte("null"), nil
+	}
+	b := bytes.Buffer{}
+	writeIfNotNil := func(name string, v interface{}) error {
+		if v != nil {
+			marshaled, e := json.Marshal(v)
+			if e != nil {
+				return e
+			}
+			b.WriteString(`"` + name + `":`)
+			b.Write(marshaled)
+			b.WriteString(`,`)
+		}
+		return nil
+	}
+	b.WriteString(`{`)
+	if e := writeIfNotNil("url", sl.Url); e != nil {
+		return nil, e
+	}
+	if e := writeIfNotNil("download_url", sl.DownloadUrl); e != nil {
+		return nil, e
+	}
+	if e := writeIfNotNil("vanity_url", sl.VanityUrl); e != nil {
+		return nil, e
+	}
+	if e := writeIfNotNil("is_password_enabled", sl.IsPasswordEnabled); e != nil {
+		return nil, e
+	}
+	if e := writeIfNotNil("unshared_at", sl.UnsharedAt); e != nil {
+		return nil, e
+	}
+	if e := writeIfNotNil("download_count", sl.DownloadCount); e != nil {
+		return nil, e
+	}
+	if e := writeIfNotNil("preview_count", sl.PreviewCount); e != nil {
+		return nil, e
+	}
+	if e := writeIfNotNil("access", sl.Access); e != nil {
+		return nil, e
+	}
+	if e := writeIfNotNil("permissions", sl.Permissions); e != nil {
+		return nil, e
+	}
+	if sl.deletePassword {
+		b.WriteString(`"password":null`)
+	} else {
+		if e := writeIfNotNil("password", sl.Url); e != nil {
+			return nil, e
+		}
+	}
+	if b.Bytes()[b.Len()-1] == ',' {
+		b.Truncate(b.Len() - 1)
+	}
+	b.WriteString(`}`)
+	return b.Bytes(), nil
+}
 
 func (sl *SharedLink) String() string {
 	if sl == nil {
@@ -451,7 +498,7 @@ func (f *Folder) SetDescription(description string) *Folder {
 func (f *Folder) SetSharedLinkOpen(password string, passwordEnabled bool, unsharedAt time.Time, canDownload *bool) *Folder {
 	var pass string
 	var p *string
-	// deletePass := !passwordEnabled
+	deletePass := !passwordEnabled
 	if passwordEnabled && password != "" {
 		pass = string(password)
 		p = &pass
@@ -470,11 +517,11 @@ func (f *Folder) SetSharedLinkOpen(password string, passwordEnabled bool, unshar
 		perm = nil
 	}
 	s := &SharedLink{
-		Access:      &slao,
-		Password:    p,
-		UnsharedAt:  ua,
-		Permissions: perm,
-		// deletePassword: deletePass,
+		Access:         &slao,
+		Password:       p,
+		UnsharedAt:     ua,
+		Permissions:    perm,
+		deletePassword: deletePass,
 	}
 	f.SharedLink = s
 
