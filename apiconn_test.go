@@ -215,16 +215,17 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 			}
 			got, err := ac.SaveState()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ApiConn.SaveState() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ApiConn.SaveState() error = %v, wantErr %v\n", err, tt.wantErr)
 				return
 			}
 			err = ac.RestoreApiConn(got)
 			if err != nil {
-				t.Errorf("ApiConn.RestoreApiConn() error = \n%v", err)
+				t.Errorf("ApiConn.RestoreApiConn() error = \n%v\n", err)
 				return
 			}
+			t.Errorf("ApiConn.SaveState() = \n%+v, want \n%+v\n", ac, &tt.want)
 			if !reflect.DeepEqual(ac, &tt.want) {
-				t.Errorf("ApiConn.SaveState() = \n%v, want \n%v", ac, &tt.want)
+				t.Errorf("ApiConn.SaveState() = \n%v, want \n%v\n", ac, &tt.want)
 			}
 		})
 	}
