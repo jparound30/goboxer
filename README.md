@@ -1,6 +1,6 @@
 # goboxer
-[![Build Status](https://travis-ci.com/jparound30/goboxer.svg?branch=testcase)](https://travis-ci.com/jparound30/goboxer)
-[![Coverage Status](https://coveralls.io/repos/github/jparound30/goboxer/badge.svg?branch=testcase)](https://coveralls.io/github/jparound30/goboxer?branch=testcase)
+[![Build Status](https://travis-ci.com/jparound30/goboxer.svg)](https://travis-ci.com/jparound30/goboxer)
+[![Coverage Status](https://coveralls.io/repos/github/jparound30/goboxer/badge.svg)](https://coveralls.io/github/jparound30/goboxer)
 
 _goboxer_ is **UNOFFICIAL** Box API(https://developer.box.com/reference) library for golang.  
 
