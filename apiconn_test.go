@@ -8,6 +8,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestApiConn_Refresh(t *testing.T) {
@@ -223,8 +226,9 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 				t.Errorf("ApiConn.RestoreApiConn() error = \n%v\n", err)
 				return
 			}
-			t.Errorf("ApiConn.SaveState() = \n%+v, want \n%+v\n", ac, &tt.want)
-			if !reflect.DeepEqual(ac, &tt.want) {
+			opt := cmp.AllowUnexported(ApiConn{})
+			opt1 := cmpopts.IgnoreUnexported(sync.RWMutex{})
+			if diff := cmp.Diff(ac, &tt.want, opt, opt1); diff != "" {
 				t.Errorf("ApiConn.SaveState() = \n%v, want \n%v\n", ac, &tt.want)
 			}
 		})
