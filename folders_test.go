@@ -778,7 +778,7 @@ func TestFolder_SetDescription(t *testing.T) {
 	}
 }
 
-func TestFolder_ChangeSharedLinkOpen(t *testing.T) {
+func TestFolder_SetSharedLinkOpen(t *testing.T) {
 	url := "https://example.com"
 	apiConn := commonInit(url)
 
@@ -849,7 +849,7 @@ func TestFolder_ChangeSharedLinkOpen(t *testing.T) {
 			want3,
 		},
 		{
-			"set canDownload false",
+			"set canDownload true",
 			args{
 				"pass", false, time.Time{}, setBool(true),
 			},
@@ -868,6 +868,179 @@ func TestFolder_ChangeSharedLinkOpen(t *testing.T) {
 			got := fn.SetSharedLinkOpen(tt.args.password, tt.args.passwordEnabled, tt.args.unsharedAt, tt.args.canDownload)
 			opt := cmpopts.IgnoreUnexported(*got, File{}, SharedLink{})
 			if diff := cmp.Diff(got, tt.want, opt); diff != "" {
+				t.Errorf("differs: (-got +want)\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestFolder_SetSharedLinkCompany(t *testing.T) {
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	fn := buildFolderOfGetInfoNormalJson()
+	fn.apiInfo = &apiInfo{api: apiConn}
+
+	want3 := buildFolderOfGetInfoNormalJson()
+	want3.SharedLink = &SharedLink{Access: setStringPtr("company"), Permissions: &Permissions{}}
+	want3.SharedLink.UnsharedAt = setTime("2006-01-02T15:04:05-07:00")
+	want3.SharedLink.Permissions.CanDownload = setBool(false)
+
+	want4 := buildFolderOfGetInfoNormalJson()
+	want4.SharedLink = &SharedLink{Access: setStringPtr("company"), Permissions: &Permissions{}}
+	want4.SharedLink.UnsharedAt = nil
+	want4.SharedLink.Permissions.CanDownload = setBool(true)
+
+	want5 := buildFolderOfGetInfoNormalJson()
+	want5.SharedLink = &SharedLink{Access: setStringPtr("company"), Permissions: &Permissions{}}
+	want5.SharedLink.UnsharedAt = nil
+	want5.SharedLink.Permissions = nil
+
+	want6 := buildFolderOfGetInfoNormalJson()
+	want6.SharedLink = &SharedLink{Access: setStringPtr("company"), Permissions: &Permissions{}}
+	want6.SharedLink.UnsharedAt = setTime("2006-01-02T15:04:05-07:00")
+	want6.SharedLink.Permissions.CanDownload = setBool(true)
+
+	ti, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05-07:00")
+	type args struct {
+		unsharedAt  time.Time
+		canDownload *bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Folder
+	}{
+		{
+			"set unshared",
+			args{
+				ti, setBool(false),
+			},
+			want3,
+		},
+		{
+			"set canDownload true",
+			args{
+				time.Time{}, setBool(true),
+			},
+			want4,
+		},
+		{
+			"set canDownload null",
+			args{
+				time.Time{}, nil,
+			},
+			want5,
+		},
+		{
+			"set all",
+			args{
+				ti, setBool(true),
+			},
+			want6,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fn.SetSharedLinkCompany(tt.args.unsharedAt, tt.args.canDownload)
+			opt := cmpopts.IgnoreUnexported(*got, File{}, SharedLink{})
+			if diff := cmp.Diff(got, tt.want, opt); diff != "" {
+				t.Errorf("differs: (-got +want)\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestFolder_SetSharedLinkCollaborators(t *testing.T) {
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	fn := buildFolderOfGetInfoNormalJson()
+	fn.apiInfo = &apiInfo{api: apiConn}
+
+	want3 := buildFolderOfGetInfoNormalJson()
+	want3.SharedLink = &SharedLink{Access: setStringPtr("collaborators")}
+	want3.SharedLink.UnsharedAt = setTime("2006-01-02T15:04:05-07:00")
+
+	want4 := buildFolderOfGetInfoNormalJson()
+	want4.SharedLink = &SharedLink{Access: setStringPtr("collaborators")}
+	want4.SharedLink.UnsharedAt = nil
+
+	ti, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05-07:00")
+	type args struct {
+		unsharedAt time.Time
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Folder
+	}{
+		{
+			"set unshared",
+			args{
+				ti,
+			},
+			want3,
+		},
+		{
+			"set unshared null",
+			args{
+				time.Time{},
+			},
+			want4,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fn.SetSharedLinkCollaborators(tt.args.unsharedAt)
+			opt := cmpopts.IgnoreUnexported(*got, File{}, SharedLink{})
+			if diff := cmp.Diff(got, tt.want, opt); diff != "" {
+				t.Errorf("differs: (-got +want)\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestFolder_SetSAccess(t *testing.T) {
+
+	want3 := &FolderUploadEmail{
+		Access: setFolderUploadEmailAccess(FolderUploadEmailAccessOpen),
+		Email:  nil,
+	}
+	want4 := &FolderUploadEmail{
+		Access: setFolderUploadEmailAccess(FolderUploadEmailAccessCollaborators),
+		Email:  nil,
+	}
+
+	type args struct {
+		access FolderUploadEmailAccess
+	}
+	tests := []struct {
+		name string
+		args args
+		want *FolderUploadEmail
+	}{
+		{
+			"set unshared",
+			args{
+				FolderUploadEmailAccessOpen,
+			},
+			want3,
+		},
+		{
+			"set unshared null",
+			args{
+				FolderUploadEmailAccessCollaborators,
+			},
+			want4,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			folderUploadEmail := &FolderUploadEmail{}
+			folderUploadEmail.SetAccess(tt.args.access)
+			opt := cmpopts.IgnoreUnexported(*folderUploadEmail)
+			if diff := cmp.Diff(folderUploadEmail, tt.want, opt); diff != "" {
 				t.Errorf("differs: (-got +want)\n%s", diff)
 			}
 		})

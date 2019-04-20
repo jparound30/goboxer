@@ -527,7 +527,7 @@ func (f *Folder) SetSharedLinkOpen(password string, passwordEnabled bool, unshar
 
 	return f
 }
-func (f *Folder) ChangeSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *Folder {
+func (f *Folder) SetSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *Folder {
 	slao := SharedLinkAccessCompany
 	ua := &unsharedAt
 	if ua.IsZero() {
