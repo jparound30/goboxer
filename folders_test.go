@@ -809,6 +809,12 @@ func TestFolder_ChangeSharedLinkOpen(t *testing.T) {
 	want4.SharedLink.UnsharedAt = nil
 	want4.SharedLink.Permissions.CanDownload = setBool(true)
 
+	want5 := buildFolderOfGetInfoNormalJson()
+	want5.SharedLink = &SharedLink{Access: setStringPtr("open"), Permissions: &Permissions{}}
+	want5.SharedLink.Password = nil
+	want5.SharedLink.UnsharedAt = nil
+	want5.SharedLink.Permissions = nil
+
 	ti, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05-07:00")
 	type args struct {
 		password        string
@@ -843,11 +849,18 @@ func TestFolder_ChangeSharedLinkOpen(t *testing.T) {
 			want3,
 		},
 		{
-			"set unshared",
+			"set canDownload false",
 			args{
 				"pass", false, time.Time{}, setBool(true),
 			},
 			want4,
+		},
+		{
+			"set canDownload null",
+			args{
+				"pass", false, time.Time{}, nil,
+			},
+			want5,
 		},
 	}
 	for _, tt := range tests {
