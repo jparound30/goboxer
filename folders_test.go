@@ -1437,3 +1437,166 @@ func TestFolder_UpdateReq(t *testing.T) {
 		})
 	}
 }
+
+func TestFolder_Update(t *testing.T) {
+	ti, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05-07:00")
+
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/folders/") {
+				t.Errorf("invalid access url %s : %s", r.URL.Path, "/2.0/folders/")
+			}
+			// Method check
+			if r.Method != http.MethodPut {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			folderId := strings.TrimPrefix(r.URL.Path, "/2.0/folders/")
+
+			switch folderId {
+			case "500":
+				w.WriteHeader(500)
+			case "409":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(409)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				_, _ = w.Write([]byte("invalid json"))
+			default:
+				decoder := json.NewDecoder(r.Body)
+				var got Folder
+				err := decoder.Decode(&got)
+				if err != nil {
+					t.Errorf("send body can not unmarshal %+v", err)
+					return
+				}
+				var exp Folder
+				var expJson = `
+{
+	"name": "NAME1",
+	"description": "DESC1",
+	"shared_link": {
+		"access": "open",
+		"password": "password1",
+		"unshared_at": "2006-01-02T15:04:05-07:00",
+		"permissions": {
+			"can_download": true
+		}
+	},
+	"folder_upload_email": {
+		"access": "collaborators"
+	},
+	"sync_state": "synced",
+	"tags": ["tag001", "tag002"],
+	"can_non_owners_invite": true,
+	"is_collaboration_restricted_to_enterprise": true
+}`
+				err = json.Unmarshal([]byte(expJson), &exp)
+				if err != nil {
+					t.Errorf("send body can not unmarshal %+v", err)
+					return
+				}
+				opts := diffCompOptions(apiInfo{}, Folder{}, SharedLink{})
+				if diff := cmp.Diff(&got, &exp, opts...); diff != "" {
+					t.Errorf("body differs: (-got +want)\n%s", diff)
+					return
+				}
+				w.Header().Set("content-Type", "application/json")
+				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	normal := buildFolderOfGetInfoNormalJson()
+
+	type args struct {
+		folderId string
+		fields   []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *Folder
+		wantErr bool
+		errType interface{}
+	}{
+		{"normal/fields unspecified", args{folderId: "10001", fields: nil}, normal, false, nil},
+		{"normal/allFields", args{folderId: "10002", fields: FolderAllFields}, normal, false, nil},
+		{"http error/409", args{folderId: "409", fields: FolderAllFields}, nil, true, &ApiStatusError{}},
+		{"returned invalid json/999", args{folderId: "999", fields: nil}, nil, true, &ApiOtherError{}},
+		{"senderror", args{folderId: "999", fields: nil}, nil, true, &ApiOtherError{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			}
+			f := NewFolder(apiConn)
+			f.SetName("NAME1")
+			f.SetDescription("DESC1")
+			f.SetSharedLinkOpen("password1", true, ti, setBool(true))
+			f.SetSyncState("synced")
+			f.SetTags([]string{"tag001", "tag002"})
+			f.SetCanNonOwnersInvite(true)
+			f.SetIsCollaborationRestrictedToEnterprise(true)
+			f.SetFolderUploadEmailAccess(FolderUploadEmailAccessCollaborators)
+			got, err := f.Update(tt.args.folderId, tt.args.fields)
+
+			// Error checks
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %v, wanted errorType %v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					if status, err := strconv.Atoi(tt.args.folderId); err != nil || status != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			// If normal response
+			opt := cmpopts.IgnoreUnexported(*got, File{}, SharedLink{})
+			if diff := cmp.Diff(&got, &tt.want, opt); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
+				return
+			}
+			// exists apiInfo
+			if got.apiInfo == nil {
+				t.Errorf("not exists `apiInfo` field\n")
+				return
+			}
+		})
+	}
+}

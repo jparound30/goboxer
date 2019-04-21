@@ -381,6 +381,9 @@ func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 	if err != nil {
 		return nil, err
 	}
+	for _, v := range folder.ItemCollection.Entries {
+		setApiInfo(v, f.apiInfo)
+	}
 	folder.apiInfo = f.apiInfo
 	return folder, nil
 }
@@ -600,6 +603,7 @@ func (f *Folder) SetSyncState(s string) *Folder {
 // Set Tags (for Update)
 // Replace current tags to new ones
 func (f *Folder) SetTags(tags []string) *Folder {
+	f.Tags = make([]string, len(tags))
 	copy(f.Tags, tags)
 	f.changedFlag |= cFolderTags
 	return f
@@ -738,13 +742,10 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to update folder"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
-	folder := Folder{}
-	err = json.Unmarshal(resp.Body, &folder)
+	folder := &Folder{}
+	err = UnmarshalJSONBoxResourceWrapper(resp.Body, folder)
 	if err != nil {
 		return nil, err
 	}
@@ -752,7 +753,7 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 		setApiInfo(v, f.apiInfo)
 	}
 	folder.apiInfo = f.apiInfo
-	return &folder, nil
+	return folder, nil
 }
 
 // Delete a Folder.
