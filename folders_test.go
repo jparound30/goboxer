@@ -68,6 +68,12 @@ func setBool(b bool) *bool {
 func setFolderUploadEmailAccess(a FolderUploadEmailAccess) *FolderUploadEmailAccess {
 	return &a
 }
+func setCollaborationStatus(a CollaborationStatus) *CollaborationStatus {
+	return &a
+}
+func setRole(a Role) *Role {
+	return &a
+}
 
 //
 // COMMON UTILITY FUNCTIONS FOR TESTS
@@ -1596,6 +1602,653 @@ func TestFolder_Update(t *testing.T) {
 			if got.apiInfo == nil {
 				t.Errorf("not exists `apiInfo` field\n")
 				return
+			}
+		})
+	}
+}
+
+func TestFolder_DeleteReq(t *testing.T) {
+
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	type args struct {
+		folderId  string
+		recursive bool
+		ifMatch   string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Request
+	}{
+		{
+			name: "normal/recursive false",
+			args: args{"123", false, ""},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/123?recursive=false",
+				Method:             DELETE,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+		{
+			name: "normal/recursive true",
+			args: args{"456", true, ""},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/456?recursive=true",
+				Method:             DELETE,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+		{
+			name: "normal/set If-Match",
+			args: args{"789", true, "3"},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/789?recursive=true",
+				Method:             DELETE,
+				headers:            http.Header{"If-Match": []string{"3"}},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := NewFolder(apiConn)
+
+			got := f.DeleteReq(tt.args.folderId, tt.args.recursive, tt.args.ifMatch)
+			// If normal response
+			opts := diffCompOptions(*got, Request{})
+			opts = append(opts, cmpopts.IgnoreInterfaces(struct{ io.Reader }{}))
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("differ:  (-got +want)\n%s", diff)
+				return
+			}
+		})
+	}
+}
+
+func TestFolder_Delete(t *testing.T) {
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/folders") {
+				t.Errorf("invalid access url %s", r.URL.Path)
+			}
+			// Method check
+			if r.Method != http.MethodDelete {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+
+			folderId := strings.Split(r.URL.Path, "/")[3]
+			switch folderId {
+			case "500":
+				w.WriteHeader(500)
+			case "400":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(400)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/400_notempty.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				_, _ = w.Write([]byte("invalid json"))
+			default:
+				if r.Header.Get("If-Match") != "1" {
+					t.Fatalf("http header [If-Match] not set")
+				}
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(204)
+				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	type args struct {
+		folderId  string
+		recursive bool
+		ifMatch   string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errType interface{}
+	}{
+		{
+			"normal",
+			args{"10001", false, "1"},
+			false,
+			nil,
+		},
+		{"http error/400", args{"400", false, ""}, true, &ApiStatusError{}},
+		{"senderror", args{"999", false, ""}, true, &ApiOtherError{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			}
+			f := NewFolder(apiConn)
+			err := f.Delete(tt.args.folderId, tt.args.recursive, tt.args.ifMatch)
+
+			// Error checks
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %+v, wantErr %+v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %+v, wanted errorType %+v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					if status, err := strconv.Atoi(tt.args.folderId); err != nil || status != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+		})
+	}
+}
+
+func TestFolder_CopyReq(t *testing.T) {
+
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	type args struct {
+		folderId       string
+		parentFolderId string
+		name           string
+		fields         []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Request
+	}{
+		{
+			name: "normal/fields=nil",
+			args: args{"10001", "p10001", "", nil},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10001/copy",
+				Method:             POST,
+				headers:            http.Header{},
+				body:               strings.NewReader(`{"parent": {"id": "p10001"}}`),
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+		{
+			name: "normal/fields",
+			args: args{"10002", "p10002", "", []string{"type", "id"}},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10002/copy?fields=type,id",
+				Method:             POST,
+				headers:            http.Header{},
+				body:               strings.NewReader(`{"parent": {"id": "p10002"}}`),
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+		{
+			name: "normal/name",
+			args: args{"10003", "p10003", "NEWNAME3", nil},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10003/copy",
+				Method:             POST,
+				headers:            http.Header{},
+				body:               strings.NewReader(`{"parent": {"id": "p10003"}, "name":"NEWNAME3"}`),
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := NewFolder(apiConn)
+
+			got := f.CopyReq(tt.args.folderId, tt.args.parentFolderId, tt.args.name, tt.args.fields)
+			// If normal response
+			opts := diffCompOptions(*got, Request{})
+			opts = append(opts, cmpopts.IgnoreInterfaces(struct{ io.Reader }{}))
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("Folder.CreateReq() diff:  (-got +want)\n%s", diff)
+				return
+			}
+			// compare body
+			b1, _ := ioutil.ReadAll(got.body)
+			b2, _ := ioutil.ReadAll(tt.want.body)
+
+			var m1 map[string]interface{}
+			_ = json.Unmarshal(b1, &m1)
+			var m2 map[string]interface{}
+			_ = json.Unmarshal(b2, &m2)
+
+			if diff := cmp.Diff(m1, m2); diff != "" {
+				t.Errorf("Folder.CreateReq() diff:  (-got +want)\n%s", diff)
+				return
+			}
+		})
+	}
+}
+
+func TestFolder_Copy(t *testing.T) {
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/folders") {
+				t.Errorf("invalid access url %s", r.URL.Path)
+			}
+			// Method check
+			if r.Method != http.MethodPost {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			if r.Header.Get(httpHeaderContentType) != ContentTypeApplicationJson {
+				t.Fatalf("invalid content-type [%s]", r.Header.Get(httpHeaderContentType))
+			}
+
+			folderId := strings.Split(r.URL.Path, "/")[3]
+
+			switch folderId {
+			case "500":
+				w.WriteHeader(500)
+			case "409":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(409)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				_, _ = w.Write([]byte("invalid json"))
+			default:
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	normal := buildFolderOfGetInfoNormalJson()
+
+	type args struct {
+		folderId       string
+		parentFolderId string
+		name           string
+		fields         []string
+	}
+	type want struct {
+		folder *Folder
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *want
+		wantErr bool
+		errType interface{}
+	}{
+		{
+			"normal/fields unspecified",
+			args{"10001", "p10001", "", nil},
+			&want{
+				normal,
+			},
+			false,
+			nil,
+		},
+		{
+			"normal/allFields",
+			args{"10002", "p10002", "NEWFOLDER2", FolderAllFields},
+			&want{
+				normal,
+			},
+			false,
+			nil,
+		},
+		{"http error/409", args{"409", "p409", "NEWFOLDER", FolderAllFields}, nil, true, &ApiStatusError{}},
+		{"returned invalid json/999", args{"999", "p999", "NEWFOLDER", FolderAllFields}, nil, true, &ApiOtherError{}},
+		{"senderror", args{"999", "p999", "NEWFOLDER", FolderAllFields}, nil, true, &ApiOtherError{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			}
+			f := NewFolder(apiConn)
+			got, err := f.Copy(tt.args.folderId, tt.args.parentFolderId, tt.args.name, tt.args.fields)
+
+			// Error checks
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %+v, wantErr %+v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %+v, wanted errorType %+v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					if status, err := strconv.Atoi(tt.args.folderId); err != nil || status != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			// If normal response
+			// opts := diffCompOptions(File{}, Folder{})
+			// opt := cmpopts.IgnoreUnexported(Folder{}, File{})
+			opt := cmpopts.IgnoreUnexported(*got, File{}, SharedLink{})
+			if diff := cmp.Diff(&got, &tt.want.folder, opt); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
+				return
+			}
+			// exists apiInfo
+			if got.apiInfo == nil {
+				t.Errorf("not exists File.`apiInfo` field\n")
+			}
+		})
+	}
+}
+
+func TestFolder_CollaborationsReq(t *testing.T) {
+
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	type args struct {
+		folderId string
+		fields   []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Request
+	}{
+		{
+			name: "normal/fields=nil",
+			args: args{"123", nil},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/123/collaborations",
+				Method:             GET,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+		{
+			name: "normal/fields",
+			args: args{"123", []string{"type", "id"}},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/123/collaborations?fields=type,id",
+				Method:             GET,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := NewFolder(apiConn)
+
+			got := f.CollaborationsReq(tt.args.folderId, tt.args.fields)
+			// If normal response
+			opts := diffCompOptions(*got)
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("differ:  (-got +want)\n%s", diff)
+				return
+			}
+		})
+	}
+}
+
+func TestFolder_Collaborations(t *testing.T) {
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/folders/") || !strings.HasSuffix(r.URL.Path, "/collaborations") {
+				t.Errorf("invalid access url %s", r.URL.Path)
+			}
+			// Method check
+			if r.Method != http.MethodGet {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			folderId := strings.Split(r.URL.Path, "/")[3]
+			switch folderId {
+			case "500":
+				w.WriteHeader(500)
+			case "404":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(404)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				_, _ = w.Write([]byte("invalid json"))
+			default:
+				w.Header().Set("content-Type", "application/json")
+				resp, _ := ioutil.ReadFile("testdata/folders/collaborations_normal.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	type args struct {
+		folderId string
+		fields   []string
+	}
+	type want struct {
+		entries    []*Collaboration
+		totalCount int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *want
+		wantErr bool
+		errType interface{}
+	}{
+		{
+			"normal/fields unspecified",
+			args{"10001", nil},
+			&want{
+				[]*Collaboration{
+					{
+						Type: setStringPtr("collaboration"),
+						ID:   setStringPtr("14176246"),
+						CreatedBy: &UserGroupMini{
+							Type:  setUserType(TYPE_USER),
+							ID:    setStringPtr("4276790"),
+							Name:  setStringPtr("David Lee"),
+							Login: setStringPtr("david@box.com"),
+						},
+						CreatedAt:  setTime("2011-11-29T12:56:35-08:00"),
+						ModifiedAt: setTime("2012-09-11T15:12:32-07:00"),
+						ExpiresAt:  nil,
+						Status:     setCollaborationStatus(COLLABORATION_STATUS_ACCEPTED),
+						AccessibleBy: &UserGroupMini{
+							Type:  setUserType(TYPE_USER),
+							ID:    setStringPtr("755492"),
+							Name:  setStringPtr("Simon Tan"),
+							Login: setStringPtr("simon@box.net"),
+						},
+						Role:           setRole(EDITOR),
+						AcknowledgedAt: setTime("2011-11-29T12:59:40-08:00"),
+						Item:           nil,
+					},
+				},
+				1,
+			},
+			false,
+			nil,
+		},
+		{
+			"normal/allFields",
+			args{"10002", FolderAllFields},
+			&want{
+				[]*Collaboration{
+					{
+						Type: setStringPtr("collaboration"),
+						ID:   setStringPtr("14176246"),
+						CreatedBy: &UserGroupMini{
+							Type:  setUserType(TYPE_USER),
+							ID:    setStringPtr("4276790"),
+							Name:  setStringPtr("David Lee"),
+							Login: setStringPtr("david@box.com"),
+						},
+						CreatedAt:  setTime("2011-11-29T12:56:35-08:00"),
+						ModifiedAt: setTime("2012-09-11T15:12:32-07:00"),
+						ExpiresAt:  nil,
+						Status:     setCollaborationStatus(COLLABORATION_STATUS_ACCEPTED),
+						AccessibleBy: &UserGroupMini{
+							Type:  setUserType(TYPE_USER),
+							ID:    setStringPtr("755492"),
+							Name:  setStringPtr("Simon Tan"),
+							Login: setStringPtr("simon@box.net"),
+						},
+						Role:           setRole(EDITOR),
+						AcknowledgedAt: setTime("2011-11-29T12:59:40-08:00"),
+						Item:           nil,
+					},
+				},
+				1,
+			},
+			false,
+			nil,
+		},
+		{"http error/404", args{"404", FolderAllFields}, nil, true, &ApiStatusError{}},
+		{"returned invalid json/999", args{"999", FolderAllFields}, nil, true, &ApiOtherError{}},
+		{"senderror", args{"999", FolderAllFields}, nil, true, &ApiOtherError{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			}
+			f := NewFolder(apiConn)
+			got, err := f.Collaborations(tt.args.folderId, tt.args.fields)
+
+			// Error checks
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %+v, wantErr %+v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %+v, wanted errorType %+v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					if status, err := strconv.Atoi(tt.args.folderId); err != nil || status != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			// If normal response
+			// opts := diffCompOptions(File{}, Folder{})
+			opt := cmpopts.IgnoreUnexported(Folder{}, apiInfo{}, Collaboration{})
+			if diff := cmp.Diff(&got, &tt.want.entries, opt); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
+				return
+			}
+			// exists apiInfo
+			for _, v := range got {
+				if v.apiInfo == nil {
+					t.Errorf("not exists File.`apiInfo` field\n")
+				}
 			}
 		})
 	}

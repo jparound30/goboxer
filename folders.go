@@ -3,7 +3,6 @@ package goboxer
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -672,7 +671,10 @@ func (f *Folder) SetFolderUploadEmailAccess(fuea FolderUploadEmailAccess) *Folde
 	return f
 }
 
-// Update a Folder.
+// Update Folder
+//
+// Update a folder.
+// https://developer.box.com/reference#update-information-about-a-folder
 func (f *Folder) UpdateReq(folderId string, fields []string) *Request {
 	var url string
 	var query string
@@ -733,7 +735,10 @@ func (f *Folder) UpdateReq(folderId string, fields []string) *Request {
 	return NewRequest(f.apiInfo.api, url+query, PUT, nil, bytes.NewReader(bodyBytes))
 }
 
-// Update a Folder.
+// Update Folder
+//
+// Update a folder.
+// https://developer.box.com/reference#update-information-about-a-folder
 func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	req := f.UpdateReq(folderId, fields)
 	resp, err := req.Send()
@@ -756,9 +761,12 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	return folder, nil
 }
 
-// Delete a Folder.
-func (f *Folder) DeleteReq(folderId string, recursive bool) *Request {
-
+// Delete Folder
+//
+// Move a folder to the trash.
+// The recursive parameter must be included in order to delete folders that aren't empty.
+// https://developer.box.com/reference#delete-a-folder
+func (f *Folder) DeleteReq(folderId string, recursive bool, ifMatch string) *Request {
 	var url string
 	var param string
 	if recursive {
@@ -766,33 +774,48 @@ func (f *Folder) DeleteReq(folderId string, recursive bool) *Request {
 	} else {
 		param = "recursive=false"
 	}
+	var h http.Header
+	if ifMatch != "" {
+		h = http.Header{}
+		h.Add("If-Match", ifMatch)
+
+	}
 	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, param)
 
-	return NewRequest(f.apiInfo.api, url, DELETE, nil, nil)
+	return NewRequest(f.apiInfo.api, url, DELETE, h, nil)
 }
 
-// Delete a Folder.
-func (f *Folder) Delete(folderId string, recursive bool) error {
-	req := f.DeleteReq(folderId, recursive)
+// Delete Folder
+//
+// Move a folder to the trash.
+// The recursive parameter must be included in order to delete folders that aren't empty.
+// https://developer.box.com/reference#delete-a-folder
+func (f *Folder) Delete(folderId string, recursive bool, ifMatch string) error {
+	req := f.DeleteReq(folderId, recursive, ifMatch)
 	resp, err := req.Send()
 	if err != nil {
 		return err
 	}
 
-	if resp.ResponseCode != 204 {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to delete folder"))
-		return err
+	if resp.ResponseCode != http.StatusNoContent {
+		return newApiStatusError(resp.Body)
 	}
 	return nil
 }
 
+// Copy Folder
+//
 // Used to create a copy of a folder in another folder.
 // The original version of the folder will not be altered.
+// https://developer.box.com/reference#copy-a-folder
 func (f *Folder) CopyReq(folderId string, parentFolderId string, newName string, fields []string) *Request {
-
 	var url string
-	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/copy", BuildFieldsQueryParams(fields))
+	var query string
+
+	url = fmt.Sprintf("%s%s%s%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/copy")
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = query + fmt.Sprintf("?%s", fieldsParam)
+	}
 
 	var parent = map[string]interface{}{
 		"id": parentFolderId,
@@ -805,11 +828,14 @@ func (f *Folder) CopyReq(folderId string, parentFolderId string, newName string,
 	}
 	bodyBytes, _ := json.Marshal(bodyMap)
 
-	return NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(f.apiInfo.api, url+query, POST, nil, bytes.NewReader(bodyBytes))
 }
 
+// Copy Folder
+//
 // Used to create a copy of a folder in another folder.
 // The original version of the folder will not be altered.
+// https://developer.box.com/reference#copy-a-folder
 func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fields []string) (*Folder, error) {
 	req := f.CopyReq(folderId, parentFolderId, newName, fields)
 	resp, err := req.Send()
@@ -817,14 +843,11 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 		return nil, err
 	}
 
-	if resp.ResponseCode != 201 {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to copy folder"))
-		return nil, err
+	if resp.ResponseCode != http.StatusCreated {
+		return nil, newApiStatusError(resp.Body)
 	}
-	folder := Folder{}
-	err = json.Unmarshal(resp.Body, &folder)
+	folder := &Folder{}
+	err = UnmarshalJSONBoxResourceWrapper(resp.Body, folder)
 	if err != nil {
 		return nil, err
 	}
@@ -832,16 +855,28 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 		setApiInfo(v, f.apiInfo)
 	}
 	folder.apiInfo = f.apiInfo
-	return &folder, nil
-}
-
-func (f *Folder) CollaborationsReq(folderId string, fields []string) *Request {
-	var url string
-	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/collaborations", BuildFieldsQueryParams(fields))
-	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
+	return folder, nil
 }
 
 // Get Folder Collaborations
+//
+// Use this to get a list of all the collaborations on a folder i.e. all of the users that have access to that folder.
+// https://developer.box.com/reference#view-a-folders-collaborations
+func (f *Folder) CollaborationsReq(folderId string, fields []string) *Request {
+	var url string
+	var query string
+
+	url = fmt.Sprintf("%s%s%s%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/collaborations")
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = query + fmt.Sprintf("?%s", fieldsParam)
+	}
+	return NewRequest(f.apiInfo.api, url+query, GET, nil, nil)
+}
+
+// Get Folder Collaborations
+//
+// Use this to get a list of all the collaborations on a folder i.e. all of the users that have access to that folder.
+// https://developer.box.com/reference#view-a-folders-collaborations
 func (f *Folder) Collaborations(folderId string, fields []string) ([]*Collaboration, error) {
 
 	req := f.CollaborationsReq(folderId, fields)
@@ -851,16 +886,13 @@ func (f *Folder) Collaborations(folderId string, fields []string) ([]*Collaborat
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to get folder collaborations"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 	collabs := struct {
 		TotalCount int              `json:"total_count"`
 		Entries    []*Collaboration `json:"entries"`
 	}{}
-	err = json.Unmarshal(resp.Body, &collabs)
+	err = UnmarshalJSONWrapper(resp.Body, &collabs)
 	if err != nil {
 		return nil, err
 	}
