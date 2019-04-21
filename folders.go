@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -76,8 +77,8 @@ func (ic *ItemCollection) String() string {
 }
 
 type ItemMini struct {
-	Type       *ItemType `json:"type"`
-	ID         *string   `json:"id"`
+	Type       *ItemType `json:"type,omitempty"`
+	ID         *string   `json:"id,omitempty"`
 	SequenceId *string   `json:"sequence_id,omitempty"`
 	ETag       *string   `json:"etag,omitempty"`
 	Name       *string   `json:"name,omitempty"`
@@ -117,7 +118,7 @@ func (sl *SharedLink) MarshalJSON() (r []byte, err error) {
 	}
 	b := bytes.Buffer{}
 	writeIfNotNil := func(name string, v interface{}) error {
-		if v != nil {
+		if v != nil && !reflect.ValueOf(v).IsNil() {
 			marshaled, e := json.Marshal(v)
 			if e != nil {
 				return e
@@ -159,7 +160,7 @@ func (sl *SharedLink) MarshalJSON() (r []byte, err error) {
 	if sl.deletePassword {
 		b.WriteString(`"password":null`)
 	} else {
-		if e := writeIfNotNil("password", sl.Url); e != nil {
+		if e := writeIfNotNil("password", sl.Password); e != nil {
 			return nil, e
 		}
 	}
@@ -269,7 +270,21 @@ type Folder struct {
 	AllowedInviteeRole                    []string           `json:"allowed_invitee_roles,omitempty"`
 	WatermarkInfo                         *WatermarkInfo     `json:"watermark_info,omitempty"`
 	Metadata                              *Metadata          `json:"metadata,omitempty"`
+
+	changedFlag uint64
 }
+
+const (
+	cFolderName uint64 = 1 << (iota)
+	cFolderDescription
+	cFolderSharedLink
+	cFolderFolderUploadEmail
+	cFolderSyncState
+	cFolderPermissions
+	cFolderTags
+	cFolderCanNonOwnersInvite
+	cFolderIsCollaborationRestrictedToEnterprise
+)
 
 func (f *Folder) String() string {
 	if f == nil {
@@ -485,12 +500,14 @@ func (f *Folder) Create(parentFolderId string, name string, fields []string) (*F
 // Set folder name (for Update)
 func (f *Folder) SetName(name string) *Folder {
 	f.Name = &name
+	f.changedFlag |= cFolderName
 	return f
 }
 
 // Set description (for Update)
 func (f *Folder) SetDescription(description string) *Folder {
 	f.Description = &description
+	f.changedFlag |= cFolderDescription
 	return f
 }
 
@@ -513,6 +530,7 @@ func (f *Folder) SetSharedLinkOpen(password string, passwordEnabled bool, unshar
 	if canDownload != nil {
 		cd = canDownload
 		perm = &Permissions{CanDownload: cd}
+		f.changedFlag |= cFolderPermissions
 	} else {
 		perm = nil
 	}
@@ -525,8 +543,11 @@ func (f *Folder) SetSharedLinkOpen(password string, passwordEnabled bool, unshar
 	}
 	f.SharedLink = s
 
+	f.changedFlag |= cFolderSharedLink
 	return f
 }
+
+// Set SharedLink access level Company (for Update)
 func (f *Folder) SetSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *Folder {
 	slao := SharedLinkAccessCompany
 	ua := &unsharedAt
@@ -538,6 +559,7 @@ func (f *Folder) SetSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *
 	if canDownload != nil {
 		cd = canDownload
 		perm = &Permissions{CanDownload: cd}
+		f.changedFlag |= cFolderPermissions
 	} else {
 		perm = nil
 	}
@@ -547,9 +569,11 @@ func (f *Folder) SetSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *
 		Permissions: perm,
 	}
 	f.SharedLink = s
-
+	f.changedFlag |= cFolderSharedLink
 	return f
 }
+
+// Set SharedLink access level Collaborators (for Update)
 func (f *Folder) SetSharedLinkCollaborators(unsharedAt time.Time) *Folder {
 	slao := SharedLinkAccessCollaborators
 	ua := &unsharedAt
@@ -562,7 +586,36 @@ func (f *Folder) SetSharedLinkCollaborators(unsharedAt time.Time) *Folder {
 		Permissions: nil,
 	}
 	f.SharedLink = s
+	f.changedFlag |= cFolderSharedLink
+	return f
+}
 
+// Set SyncState (for Update)
+func (f *Folder) SetSyncState(s string) *Folder {
+	f.SyncState = &s
+	f.changedFlag |= cFolderSyncState
+	return f
+}
+
+// Set Tags (for Update)
+// Replace current tags to new ones
+func (f *Folder) SetTags(tags []string) *Folder {
+	copy(f.Tags, tags)
+	f.changedFlag |= cFolderTags
+	return f
+}
+
+// Set CanNonOwnersInvite (for Update)
+func (f *Folder) SetCanNonOwnersInvite(b bool) *Folder {
+	f.CanNonOwnersInvite = &b
+	f.changedFlag |= cFolderCanNonOwnersInvite
+	return f
+}
+
+// Set IsCollaborationRestrictedToEnterprise (for Update)
+func (f *Folder) SetIsCollaborationRestrictedToEnterprise(b bool) *Folder {
+	f.IsCollaborationRestrictedToEnterprise = &b
+	f.changedFlag |= cFolderIsCollaborationRestrictedToEnterprise
 	return f
 }
 
@@ -607,58 +660,73 @@ func (fue *FolderUploadEmail) SetAccess(access FolderUploadEmailAccess) {
 	}
 }
 
+func (f *Folder) SetFolderUploadEmailAccess(fuea FolderUploadEmailAccess) *Folder {
+	fue := &FolderUploadEmail{}
+	fue.SetAccess(fuea)
+	f.FolderUploadEmail = fue
+	f.changedFlag |= cFolderFolderUploadEmail
+	return f
+}
+
 // Update a Folder.
 func (f *Folder) UpdateReq(folderId string, fields []string) *Request {
-
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, BuildFieldsQueryParams(fields))
+	var query string
+
+	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "folders/", folderId)
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = query + fmt.Sprintf("?%s", fieldsParam)
+	}
 
 	data := &Folder{}
 
 	// name
-	if f.Name != nil {
+	if f.changedFlag&cFolderName == cFolderName {
 		data.Name = f.Name
 	}
 	// description
-	if f.Description != nil {
+	if f.changedFlag&cFolderDescription == cFolderDescription {
 		data.Description = f.Description
 	}
 	// shared_link
-	if f.SharedLink != nil {
+	if f.changedFlag&cFolderSharedLink == cFolderSharedLink {
 		data.SharedLink = &SharedLink{}
 		data.SharedLink.Access = f.SharedLink.Access
 
 		data.SharedLink.Password = f.SharedLink.Password
 		data.SharedLink.UnsharedAt = f.SharedLink.UnsharedAt
-		if f.SharedLink.Permissions != nil {
+
+		if f.changedFlag&cFolderPermissions == cFolderPermissions {
 			data.SharedLink.Permissions = &Permissions{}
 			data.SharedLink.Permissions.CanDownload = f.SharedLink.Permissions.CanDownload
 		}
 	}
 	// folder_upload_email
-	if f.FolderUploadEmail != nil {
+	if f.changedFlag&cFolderFolderUploadEmail == cFolderFolderUploadEmail {
 		data.FolderUploadEmail = &FolderUploadEmail{
 			Access: f.FolderUploadEmail.Access,
 		}
 	}
 	// sync_state
-	if f.SyncState != nil {
+	if f.changedFlag&cFolderSyncState == cFolderSyncState {
 		data.SyncState = f.SyncState
 	}
 	// tags
-	data.Tags = f.Tags
+	if f.changedFlag&cFolderTags == cFolderTags {
+		data.Tags = f.Tags
+	}
 	// can_non_owners_invite
-	if f.CanNonOwnersInvite != nil {
+	if f.changedFlag&cFolderCanNonOwnersInvite == cFolderCanNonOwnersInvite {
 		data.CanNonOwnersInvite = f.CanNonOwnersInvite
 	}
 	// is_collaboration_restricted_to_enterprise
-	if f.IsCollaborationRestrictedToEnterprise != nil {
+	if f.changedFlag&cFolderIsCollaborationRestrictedToEnterprise == cFolderIsCollaborationRestrictedToEnterprise {
 		data.IsCollaborationRestrictedToEnterprise = f.IsCollaborationRestrictedToEnterprise
 	}
 
 	bodyBytes, _ := json.Marshal(data)
 
-	return NewRequest(f.apiInfo.api, url, PUT, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(f.apiInfo.api, url+query, PUT, nil, bytes.NewReader(bodyBytes))
 }
 
 // Update a Folder.

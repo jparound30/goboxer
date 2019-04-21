@@ -1046,3 +1046,394 @@ func TestFolder_SetSAccess(t *testing.T) {
 		})
 	}
 }
+
+func TestFolder_UpdateReq(t *testing.T) {
+	url := "https://example.com"
+	apiConn := commonInit(url)
+	ti, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05-07:00")
+
+	f1 := buildFolderOfGetInfoNormalJson()
+	f1.apiInfo = &apiInfo{api: apiConn}
+	f1.SetName("name1")
+
+	f2 := buildFolderOfGetInfoNormalJson()
+	f2.apiInfo = &apiInfo{api: apiConn}
+	f2.SetDescription("desc1")
+
+	f3 := buildFolderOfGetInfoNormalJson()
+	f3.apiInfo = &apiInfo{api: apiConn}
+	f3.SetSharedLinkOpen("pass", true, time.Time{}, nil)
+	f4 := buildFolderOfGetInfoNormalJson()
+	f4.apiInfo = &apiInfo{api: apiConn}
+	f4.SetSharedLinkOpen("pass", false, ti, nil)
+	f5 := buildFolderOfGetInfoNormalJson()
+	f5.apiInfo = &apiInfo{api: apiConn}
+	f5.SetSharedLinkOpen("pass", false, time.Time{}, setBool(true))
+	f6 := buildFolderOfGetInfoNormalJson()
+	f6.apiInfo = &apiInfo{api: apiConn}
+	f6.SetSharedLinkOpen("pass", false, time.Time{}, setBool(false))
+
+	f7 := buildFolderOfGetInfoNormalJson()
+	f7.apiInfo = &apiInfo{api: apiConn}
+	f7.SetSharedLinkCompany(ti, nil)
+	f8 := buildFolderOfGetInfoNormalJson()
+	f8.apiInfo = &apiInfo{api: apiConn}
+	f8.SetSharedLinkCompany(time.Time{}, setBool(true))
+	f9 := buildFolderOfGetInfoNormalJson()
+	f9.apiInfo = &apiInfo{api: apiConn}
+	f9.SetSharedLinkCompany(time.Time{}, setBool(false))
+
+	f10 := buildFolderOfGetInfoNormalJson()
+	f10.apiInfo = &apiInfo{api: apiConn}
+	f10.SetSharedLinkCollaborators(ti)
+
+	f11 := buildFolderOfGetInfoNormalJson()
+	f11.apiInfo = &apiInfo{api: apiConn}
+	f11.SetFolderUploadEmailAccess(FolderUploadEmailAccessOpen)
+
+	f12 := buildFolderOfGetInfoNormalJson()
+	f12.apiInfo = &apiInfo{api: apiConn}
+	f12.SetSyncState("synced")
+
+	f13 := buildFolderOfGetInfoNormalJson()
+	f13.apiInfo = &apiInfo{api: apiConn}
+	f13.SetTags([]string{"tag1", "tag2"})
+
+	f14 := buildFolderOfGetInfoNormalJson()
+	f14.apiInfo = &apiInfo{api: apiConn}
+	f14.SetCanNonOwnersInvite(true)
+
+	f15 := buildFolderOfGetInfoNormalJson()
+	f15.apiInfo = &apiInfo{api: apiConn}
+	f15.SetIsCollaborationRestrictedToEnterprise(true)
+
+	type args struct {
+		folderId string
+		fields   []string
+	}
+	tests := []struct {
+		name   string
+		folder *Folder
+		args   args
+		want   *Request
+	}{
+		{"name",
+			f1,
+			args{"10001", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10001",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"name": "name1"
+}
+`),
+			},
+		},
+		{"desc",
+			f2,
+			args{"10002", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10002",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"description": "desc1"
+}
+`),
+			},
+		},
+		{"sharedlink open pass",
+			f3,
+			args{"10003", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10003",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "open",
+		"password": "pass"
+	}
+}
+`),
+			},
+		},
+		{"sharedlink open usharedat",
+			f4,
+			args{"10004", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10004",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "open",
+		"unshared_at": "2006-01-02T15:04:05-07:00"
+	}
+}
+`),
+			},
+		},
+		{"sharedlink open candownload true",
+			f5,
+			args{"10005", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10005",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "open",
+		"permissions": {
+			"can_download": true
+		}
+	}
+}
+`),
+			},
+		},
+		{"sharedlink open candownload false",
+			f6,
+			args{"10006", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10006",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "open",
+		"permissions": {
+			"can_download": false
+		}
+	}
+}
+`),
+			},
+		},
+		{"sharedlink company usharedat",
+			f7,
+			args{"10007", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10007",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "company",
+		"unshared_at": "2006-01-02T15:04:05-07:00"
+	}
+}
+`),
+			},
+		},
+		{"sharedlink company candownload true",
+			f8,
+			args{"10008", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10008",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "company",
+		"permissions": {
+			"can_download": true
+		}
+	}
+}
+`),
+			},
+		},
+		{"sharedlink company candownload true",
+			f9,
+			args{"10009", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10009",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "company",
+		"permissions": {
+			"can_download": false
+		}
+	}
+}
+`),
+			},
+		},
+		{"sharedlink company usharedat",
+			f10,
+			args{"10010", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10010",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "collaborators",
+		"unshared_at": "2006-01-02T15:04:05-07:00"
+	}
+}
+`),
+			},
+		},
+		{"upload email access open",
+			f11,
+			args{"10011", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10011",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"folder_upload_email": {
+		"access": "open"
+	}
+}
+`),
+			},
+		},
+		{"syncState",
+			f12,
+			args{"10012", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10012",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"sync_state": "synced"
+}
+`),
+			},
+		},
+		{"tags",
+			f13,
+			args{"10013", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10013",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"tags": ["tag1","tag2"]
+}
+`),
+			},
+		},
+		{"CanNonOwnersInvite",
+			f14,
+			args{"10014", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10014",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"can_non_owners_invite":true
+}
+`),
+			},
+		},
+		{"IsCollaborationRestrictedToEnterprise",
+			f15,
+			args{"10015", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/folders/10015",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"is_collaboration_restricted_to_enterprise":true
+}
+`),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.folder.UpdateReq(tt.args.folderId, tt.args.fields)
+
+			opts := diffCompOptions(Folder{}, ApiConn{})
+			opt := cmpopts.IgnoreUnexported(Request{})
+			opts = append(opts, opt)
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("differs: (-got +want)\n%s", diff)
+			}
+			gotBodyDec := json.NewDecoder(got.body)
+			var gotBody map[string]interface{}
+			err := gotBodyDec.Decode(&gotBody)
+			if err != nil {
+				t.Fatalf("body json doesnt unmarshal")
+			}
+
+			expBodyDec := json.NewDecoder(tt.want.body)
+			var expBody map[string]interface{}
+			err = expBodyDec.Decode(&expBody)
+			if err != nil {
+				t.Fatalf("body json doesnt unmarshal")
+			}
+
+			if diff := cmp.Diff(gotBody, expBody); diff != "" {
+				t.Errorf("body differs: (-got +want)\n%s", diff)
+			}
+		})
+	}
+}
