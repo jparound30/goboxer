@@ -1,0 +1,8 @@
+{
+  "type": "error",
+  "status": 400,
+  "code": "folder_not_empty",
+  "help_url": "http:\/\/developers.box.com\/docs\/#errors",
+  "message": "Cannot delete - folder not empty",
+  "request_id": "XXXXXXXXXX"
+}

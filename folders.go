@@ -3,9 +3,9 @@ package goboxer
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -76,8 +76,8 @@ func (ic *ItemCollection) String() string {
 }
 
 type ItemMini struct {
-	Type       *ItemType `json:"type"`
-	ID         *string   `json:"id"`
+	Type       *ItemType `json:"type,omitempty"`
+	ID         *string   `json:"id,omitempty"`
 	SequenceId *string   `json:"sequence_id,omitempty"`
 	ETag       *string   `json:"etag,omitempty"`
 	Name       *string   `json:"name,omitempty"`
@@ -117,7 +117,7 @@ func (sl *SharedLink) MarshalJSON() (r []byte, err error) {
 	}
 	b := bytes.Buffer{}
 	writeIfNotNil := func(name string, v interface{}) error {
-		if v != nil {
+		if v != nil && !reflect.ValueOf(v).IsNil() {
 			marshaled, e := json.Marshal(v)
 			if e != nil {
 				return e
@@ -159,7 +159,7 @@ func (sl *SharedLink) MarshalJSON() (r []byte, err error) {
 	if sl.deletePassword {
 		b.WriteString(`"password":null`)
 	} else {
-		if e := writeIfNotNil("password", sl.Url); e != nil {
+		if e := writeIfNotNil("password", sl.Password); e != nil {
 			return nil, e
 		}
 	}
@@ -269,7 +269,21 @@ type Folder struct {
 	AllowedInviteeRole                    []string           `json:"allowed_invitee_roles,omitempty"`
 	WatermarkInfo                         *WatermarkInfo     `json:"watermark_info,omitempty"`
 	Metadata                              *Metadata          `json:"metadata,omitempty"`
+
+	changedFlag uint64
 }
+
+const (
+	cFolderName uint64 = 1 << (iota)
+	cFolderDescription
+	cFolderSharedLink
+	cFolderFolderUploadEmail
+	cFolderSyncState
+	cFolderPermissions
+	cFolderTags
+	cFolderCanNonOwnersInvite
+	cFolderIsCollaborationRestrictedToEnterprise
+)
 
 func (f *Folder) String() string {
 	if f == nil {
@@ -365,6 +379,9 @@ func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 	err = UnmarshalJSONBoxResourceWrapper(resp.Body, folder)
 	if err != nil {
 		return nil, err
+	}
+	for _, v := range folder.ItemCollection.Entries {
+		setApiInfo(v, f.apiInfo)
 	}
 	folder.apiInfo = f.apiInfo
 	return folder, nil
@@ -485,12 +502,14 @@ func (f *Folder) Create(parentFolderId string, name string, fields []string) (*F
 // Set folder name (for Update)
 func (f *Folder) SetName(name string) *Folder {
 	f.Name = &name
+	f.changedFlag |= cFolderName
 	return f
 }
 
 // Set description (for Update)
 func (f *Folder) SetDescription(description string) *Folder {
 	f.Description = &description
+	f.changedFlag |= cFolderDescription
 	return f
 }
 
@@ -513,6 +532,7 @@ func (f *Folder) SetSharedLinkOpen(password string, passwordEnabled bool, unshar
 	if canDownload != nil {
 		cd = canDownload
 		perm = &Permissions{CanDownload: cd}
+		f.changedFlag |= cFolderPermissions
 	} else {
 		perm = nil
 	}
@@ -525,8 +545,11 @@ func (f *Folder) SetSharedLinkOpen(password string, passwordEnabled bool, unshar
 	}
 	f.SharedLink = s
 
+	f.changedFlag |= cFolderSharedLink
 	return f
 }
+
+// Set SharedLink access level Company (for Update)
 func (f *Folder) SetSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *Folder {
 	slao := SharedLinkAccessCompany
 	ua := &unsharedAt
@@ -538,6 +561,7 @@ func (f *Folder) SetSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *
 	if canDownload != nil {
 		cd = canDownload
 		perm = &Permissions{CanDownload: cd}
+		f.changedFlag |= cFolderPermissions
 	} else {
 		perm = nil
 	}
@@ -547,9 +571,11 @@ func (f *Folder) SetSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *
 		Permissions: perm,
 	}
 	f.SharedLink = s
-
+	f.changedFlag |= cFolderSharedLink
 	return f
 }
+
+// Set SharedLink access level Collaborators (for Update)
 func (f *Folder) SetSharedLinkCollaborators(unsharedAt time.Time) *Folder {
 	slao := SharedLinkAccessCollaborators
 	ua := &unsharedAt
@@ -562,7 +588,37 @@ func (f *Folder) SetSharedLinkCollaborators(unsharedAt time.Time) *Folder {
 		Permissions: nil,
 	}
 	f.SharedLink = s
+	f.changedFlag |= cFolderSharedLink
+	return f
+}
 
+// Set SyncState (for Update)
+func (f *Folder) SetSyncState(s string) *Folder {
+	f.SyncState = &s
+	f.changedFlag |= cFolderSyncState
+	return f
+}
+
+// Set Tags (for Update)
+// Replace current tags to new ones
+func (f *Folder) SetTags(tags []string) *Folder {
+	f.Tags = make([]string, len(tags))
+	copy(f.Tags, tags)
+	f.changedFlag |= cFolderTags
+	return f
+}
+
+// Set CanNonOwnersInvite (for Update)
+func (f *Folder) SetCanNonOwnersInvite(b bool) *Folder {
+	f.CanNonOwnersInvite = &b
+	f.changedFlag |= cFolderCanNonOwnersInvite
+	return f
+}
+
+// Set IsCollaborationRestrictedToEnterprise (for Update)
+func (f *Folder) SetIsCollaborationRestrictedToEnterprise(b bool) *Folder {
+	f.IsCollaborationRestrictedToEnterprise = &b
+	f.changedFlag |= cFolderIsCollaborationRestrictedToEnterprise
 	return f
 }
 
@@ -607,61 +663,82 @@ func (fue *FolderUploadEmail) SetAccess(access FolderUploadEmailAccess) {
 	}
 }
 
-// Update a Folder.
-func (f *Folder) UpdateReq(folderId string, fields []string) *Request {
+func (f *Folder) SetFolderUploadEmailAccess(fuea FolderUploadEmailAccess) *Folder {
+	fue := &FolderUploadEmail{}
+	fue.SetAccess(fuea)
+	f.FolderUploadEmail = fue
+	f.changedFlag |= cFolderFolderUploadEmail
+	return f
+}
 
+// Update Folder
+//
+// Update a folder.
+// https://developer.box.com/reference#update-information-about-a-folder
+func (f *Folder) UpdateReq(folderId string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, BuildFieldsQueryParams(fields))
+	var query string
+
+	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "folders/", folderId)
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = query + fmt.Sprintf("?%s", fieldsParam)
+	}
 
 	data := &Folder{}
 
 	// name
-	if f.Name != nil {
+	if f.changedFlag&cFolderName == cFolderName {
 		data.Name = f.Name
 	}
 	// description
-	if f.Description != nil {
+	if f.changedFlag&cFolderDescription == cFolderDescription {
 		data.Description = f.Description
 	}
 	// shared_link
-	if f.SharedLink != nil {
+	if f.changedFlag&cFolderSharedLink == cFolderSharedLink {
 		data.SharedLink = &SharedLink{}
 		data.SharedLink.Access = f.SharedLink.Access
 
 		data.SharedLink.Password = f.SharedLink.Password
 		data.SharedLink.UnsharedAt = f.SharedLink.UnsharedAt
-		if f.SharedLink.Permissions != nil {
+
+		if f.changedFlag&cFolderPermissions == cFolderPermissions {
 			data.SharedLink.Permissions = &Permissions{}
 			data.SharedLink.Permissions.CanDownload = f.SharedLink.Permissions.CanDownload
 		}
 	}
 	// folder_upload_email
-	if f.FolderUploadEmail != nil {
+	if f.changedFlag&cFolderFolderUploadEmail == cFolderFolderUploadEmail {
 		data.FolderUploadEmail = &FolderUploadEmail{
 			Access: f.FolderUploadEmail.Access,
 		}
 	}
 	// sync_state
-	if f.SyncState != nil {
+	if f.changedFlag&cFolderSyncState == cFolderSyncState {
 		data.SyncState = f.SyncState
 	}
 	// tags
-	data.Tags = f.Tags
+	if f.changedFlag&cFolderTags == cFolderTags {
+		data.Tags = f.Tags
+	}
 	// can_non_owners_invite
-	if f.CanNonOwnersInvite != nil {
+	if f.changedFlag&cFolderCanNonOwnersInvite == cFolderCanNonOwnersInvite {
 		data.CanNonOwnersInvite = f.CanNonOwnersInvite
 	}
 	// is_collaboration_restricted_to_enterprise
-	if f.IsCollaborationRestrictedToEnterprise != nil {
+	if f.changedFlag&cFolderIsCollaborationRestrictedToEnterprise == cFolderIsCollaborationRestrictedToEnterprise {
 		data.IsCollaborationRestrictedToEnterprise = f.IsCollaborationRestrictedToEnterprise
 	}
 
 	bodyBytes, _ := json.Marshal(data)
 
-	return NewRequest(f.apiInfo.api, url, PUT, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(f.apiInfo.api, url+query, PUT, nil, bytes.NewReader(bodyBytes))
 }
 
-// Update a Folder.
+// Update Folder
+//
+// Update a folder.
+// https://developer.box.com/reference#update-information-about-a-folder
 func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	req := f.UpdateReq(folderId, fields)
 	resp, err := req.Send()
@@ -670,13 +747,10 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to update folder"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
-	folder := Folder{}
-	err = json.Unmarshal(resp.Body, &folder)
+	folder := &Folder{}
+	err = UnmarshalJSONBoxResourceWrapper(resp.Body, folder)
 	if err != nil {
 		return nil, err
 	}
@@ -684,12 +758,15 @@ func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 		setApiInfo(v, f.apiInfo)
 	}
 	folder.apiInfo = f.apiInfo
-	return &folder, nil
+	return folder, nil
 }
 
-// Delete a Folder.
-func (f *Folder) DeleteReq(folderId string, recursive bool) *Request {
-
+// Delete Folder
+//
+// Move a folder to the trash.
+// The recursive parameter must be included in order to delete folders that aren't empty.
+// https://developer.box.com/reference#delete-a-folder
+func (f *Folder) DeleteReq(folderId string, recursive bool, ifMatch string) *Request {
 	var url string
 	var param string
 	if recursive {
@@ -697,33 +774,48 @@ func (f *Folder) DeleteReq(folderId string, recursive bool) *Request {
 	} else {
 		param = "recursive=false"
 	}
+	var h http.Header
+	if ifMatch != "" {
+		h = http.Header{}
+		h.Add("If-Match", ifMatch)
+
+	}
 	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, param)
 
-	return NewRequest(f.apiInfo.api, url, DELETE, nil, nil)
+	return NewRequest(f.apiInfo.api, url, DELETE, h, nil)
 }
 
-// Delete a Folder.
-func (f *Folder) Delete(folderId string, recursive bool) error {
-	req := f.DeleteReq(folderId, recursive)
+// Delete Folder
+//
+// Move a folder to the trash.
+// The recursive parameter must be included in order to delete folders that aren't empty.
+// https://developer.box.com/reference#delete-a-folder
+func (f *Folder) Delete(folderId string, recursive bool, ifMatch string) error {
+	req := f.DeleteReq(folderId, recursive, ifMatch)
 	resp, err := req.Send()
 	if err != nil {
 		return err
 	}
 
-	if resp.ResponseCode != 204 {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to delete folder"))
-		return err
+	if resp.ResponseCode != http.StatusNoContent {
+		return newApiStatusError(resp.Body)
 	}
 	return nil
 }
 
+// Copy Folder
+//
 // Used to create a copy of a folder in another folder.
 // The original version of the folder will not be altered.
+// https://developer.box.com/reference#copy-a-folder
 func (f *Folder) CopyReq(folderId string, parentFolderId string, newName string, fields []string) *Request {
-
 	var url string
-	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/copy", BuildFieldsQueryParams(fields))
+	var query string
+
+	url = fmt.Sprintf("%s%s%s%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/copy")
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = query + fmt.Sprintf("?%s", fieldsParam)
+	}
 
 	var parent = map[string]interface{}{
 		"id": parentFolderId,
@@ -736,11 +828,14 @@ func (f *Folder) CopyReq(folderId string, parentFolderId string, newName string,
 	}
 	bodyBytes, _ := json.Marshal(bodyMap)
 
-	return NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(f.apiInfo.api, url+query, POST, nil, bytes.NewReader(bodyBytes))
 }
 
+// Copy Folder
+//
 // Used to create a copy of a folder in another folder.
 // The original version of the folder will not be altered.
+// https://developer.box.com/reference#copy-a-folder
 func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fields []string) (*Folder, error) {
 	req := f.CopyReq(folderId, parentFolderId, newName, fields)
 	resp, err := req.Send()
@@ -748,14 +843,11 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 		return nil, err
 	}
 
-	if resp.ResponseCode != 201 {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to copy folder"))
-		return nil, err
+	if resp.ResponseCode != http.StatusCreated {
+		return nil, newApiStatusError(resp.Body)
 	}
-	folder := Folder{}
-	err = json.Unmarshal(resp.Body, &folder)
+	folder := &Folder{}
+	err = UnmarshalJSONBoxResourceWrapper(resp.Body, folder)
 	if err != nil {
 		return nil, err
 	}
@@ -763,16 +855,28 @@ func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fi
 		setApiInfo(v, f.apiInfo)
 	}
 	folder.apiInfo = f.apiInfo
-	return &folder, nil
-}
-
-func (f *Folder) CollaborationsReq(folderId string, fields []string) *Request {
-	var url string
-	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/collaborations", BuildFieldsQueryParams(fields))
-	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
+	return folder, nil
 }
 
 // Get Folder Collaborations
+//
+// Use this to get a list of all the collaborations on a folder i.e. all of the users that have access to that folder.
+// https://developer.box.com/reference#view-a-folders-collaborations
+func (f *Folder) CollaborationsReq(folderId string, fields []string) *Request {
+	var url string
+	var query string
+
+	url = fmt.Sprintf("%s%s%s%s", f.apiInfo.api.BaseURL, "folders/", folderId, "/collaborations")
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = query + fmt.Sprintf("?%s", fieldsParam)
+	}
+	return NewRequest(f.apiInfo.api, url+query, GET, nil, nil)
+}
+
+// Get Folder Collaborations
+//
+// Use this to get a list of all the collaborations on a folder i.e. all of the users that have access to that folder.
+// https://developer.box.com/reference#view-a-folders-collaborations
 func (f *Folder) Collaborations(folderId string, fields []string) ([]*Collaboration, error) {
 
 	req := f.CollaborationsReq(folderId, fields)
@@ -782,16 +886,13 @@ func (f *Folder) Collaborations(folderId string, fields []string) ([]*Collaborat
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to get folder collaborations"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 	collabs := struct {
 		TotalCount int              `json:"total_count"`
 		Entries    []*Collaboration `json:"entries"`
 	}{}
-	err = json.Unmarshal(resp.Body, &collabs)
+	err = UnmarshalJSONWrapper(resp.Body, &collabs)
 	if err != nil {
 		return nil, err
 	}
