@@ -73,8 +73,8 @@ JWT auth is not supported currently.
 |  | Get Trashed Item | not yet | Low |
 |  | Restore Item | not yet | Low |
 |  | Permanently Delete Item | not yet | Low |
-| Shared Links | Get Shared Link | not yet | Normal |
-|  | Create or Update Shared Link | not yet | Normal |
+| Shared Links | Get Shared Link | supported | - |
+|  | Create or Update Shared Link | supported | - |
 |  | Get Shared Item | not yet | Normal |
 | Web Links | Get Web Link | not yet |  no plan |
 |  | Create Web Link | not yet | no plan |

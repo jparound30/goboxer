@@ -2,7 +2,6 @@ package goboxer
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -147,12 +146,12 @@ type BoxEvent struct {
 	EventID           string          `json:"event_id"`
 	CreatedBy         *UserGroupMini  `json:"created_by"`
 	EventType         EventType       `json:"event_type"`
-	SessionID         string          `json:"session_id,omitempty"`
+	SessionID         *string         `json:"session_id,omitempty"`
 	SourceRaw         json.RawMessage `json:"source,omitempty"`
 	source            BoxResource
 	AdditionalDetails map[string]interface{} `json:"additional_details,omitempty"`
 	CreatedAt         time.Time              `json:"created_at"`
-	RecordedAt        time.Time              `json:"recorded_at"`
+	RecordedAt        *time.Time             `json:"recorded_at,omitempty"`
 	ActionBy          *UserGroupMini         `json:"action_by"`
 }
 
@@ -161,13 +160,21 @@ func (be *BoxEvent) ResourceType() BoxResourceType {
 }
 
 func (be *BoxEvent) String() string {
+	if be == nil {
+		return "<nil>"
+	}
 	builder := strings.Builder{}
 	builder.WriteString("{")
 	builder.WriteString("Type:" + be.Type)
 	builder.WriteString("EventID:" + be.EventID)
 	builder.WriteString("CreatedBy:" + be.CreatedBy.String())
 	builder.WriteString(fmt.Sprintf("EventType:%s", be.EventType))
-	builder.WriteString("SessionID:" + be.SessionID)
+	builder.WriteString("SessionID:")
+	if be.SessionID != nil {
+		builder.WriteString(*be.SessionID)
+	} else {
+		builder.WriteString("<nil>")
+	}
 	source := be.Source()
 	builder.WriteString(fmt.Sprintf("Source:%+v", source))
 	builder.WriteString(fmt.Sprintf("AdditionalDetails:%+v", be.AdditionalDetails))
@@ -210,11 +217,15 @@ const (
 // Use this to get events for a given user.
 // A chunk of event objects is returned for the user based on the parameters passed in.
 // Parameters indicating how many chunks are left as well as the next stream_position are also returned.
+// https://developer.box.com/reference#get-events-for-a-user
 func (e *Event) UserEvent(streamType StreamType, streamPosition string, limit int) (events []*BoxEvent, nextStreamPosition string, err error) {
 	var query strings.Builder
 	query.WriteString(fmt.Sprintf("stream_type=%s&", streamType))
 	if streamPosition != "" {
 		query.WriteString("stream_position=" + streamPosition + "&")
+	}
+	if limit > 500 {
+		limit = 500
 	}
 	query.WriteString(fmt.Sprintf("limit=%d", limit))
 
@@ -228,10 +239,7 @@ func (e *Event) UserEvent(streamType StreamType, streamPosition string, limit in
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to get user event"))
-		return nil, "", err
+		return nil, "", newApiStatusError(resp.Body)
 	}
 	event := &struct {
 		ChunkSize          int         `json:"chunk_size"`
@@ -239,7 +247,7 @@ func (e *Event) UserEvent(streamType StreamType, streamPosition string, limit in
 		Entries            []*BoxEvent `json:"entries,omitempty"`
 	}{}
 
-	err = json.Unmarshal(resp.Body, &event)
+	err = UnmarshalJSONWrapper(resp.Body, &event)
 	if err != nil {
 		return nil, "", err
 	}
@@ -256,13 +264,19 @@ func (e *Event) UserEvent(streamType StreamType, streamPosition string, limit in
 // Enterprise Events
 //
 // Retrieves up to a year' events for all users in an enterprise.
+// https://developer.box.com/reference#get-events-in-an-enterprise
 func (e *Event) EnterpriseEvent(streamPosition string, eventTypes []EventType, createdAfter *time.Time, createdBefore *time.Time, limit int) (events []*BoxEvent, nextStreamPosition string, err error) {
 	var query strings.Builder
 	query.WriteString("stream_type=admin_logs&")
 	if streamPosition != "" {
 		query.WriteString("stream_position=" + streamPosition + "&")
-	} else if createdAfter != nil && createdBefore != nil {
-		query.WriteString(fmt.Sprintf("created_after=%s&created_before=%s&", url.QueryEscape(createdAfter.Format(time.RFC3339)), url.QueryEscape(createdBefore.Format(time.RFC3339))))
+	} else {
+		if createdAfter != nil {
+			query.WriteString(fmt.Sprintf("created_after=%s&", url.QueryEscape(createdAfter.Format(time.RFC3339))))
+		}
+		if createdBefore != nil {
+			query.WriteString(fmt.Sprintf("created_before=%s&", url.QueryEscape(createdBefore.Format(time.RFC3339))))
+		}
 	}
 	if len(eventTypes) != 0 {
 		query.WriteString(buildEventTypesQueryParams(eventTypes) + "&")
@@ -282,10 +296,7 @@ func (e *Event) EnterpriseEvent(streamPosition string, eventTypes []EventType, c
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to get enterprise event"))
-		return nil, "", err
+		return nil, "", newApiStatusError(resp.Body)
 	}
 	event := &struct {
 		ChunkSize          int         `json:"chunk_size"`
@@ -293,9 +304,15 @@ func (e *Event) EnterpriseEvent(streamPosition string, eventTypes []EventType, c
 		Entries            []*BoxEvent `json:"entries,omitempty"`
 	}{}
 
-	err = json.Unmarshal(resp.Body, &event)
+	err = UnmarshalJSONWrapper(resp.Body, &event)
 	if err != nil {
 		return nil, "", err
+	}
+	for _, v := range event.Entries {
+		r := v.Source()
+		if r != nil {
+			setApiInfo(r, e.apiInfo)
+		}
 	}
 
 	return event.Entries, event.NextStreamPosition, nil
