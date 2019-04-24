@@ -63,9 +63,9 @@ func (c *Collaboration) String() string {
 	}
 	return fmt.Sprintf("{ Type:%s, ID:%s, CreatedBy:%s, CreatedAt:%s, Modified:%s, ExpiresAt:%s, Status:%s,"+
 		" AccessibleBy:%s, InviteEmail:%s, Role:%s, AcknowledgedAt:%s, Item:%s, CanViewPath:%s }",
-		toString(c.Type), toString(c.ID), c.CreatedBy, c.CreatedAt, c.ModifiedAt,
-		c.ExpiresAt, c.Status.String(), c.AccessibleBy, toString(c.InviteEmail),
-		c.Role.String(), c.AcknowledgedAt, c.Item.String(), boolToString(c.CanViewPath))
+		toString(c.Type), toString(c.ID), c.CreatedBy, timeToString(c.CreatedAt), timeToString(c.ModifiedAt),
+		timeToString(c.ExpiresAt), c.Status.String(), c.AccessibleBy, toString(c.InviteEmail),
+		c.Role.String(), timeToString(c.AcknowledgedAt), c.Item.String(), boolToString(c.CanViewPath))
 }
 
 var CollaborationAllFields = []string{"type", "id", "item", "accessible_by", "role", "expires_at",

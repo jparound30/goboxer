@@ -7,6 +7,7 @@ import (
 	"golang.org/x/xerrors"
 	"io"
 	"strings"
+	"time"
 )
 
 const (
@@ -36,6 +37,12 @@ func toString(s *string) string {
 	} else {
 		return *s
 	}
+}
+func timeToString(t *time.Time) string {
+	if t == nil {
+		return "<nil>"
+	}
+	return t.Format(time.RFC3339)
 }
 func boolToString(b *bool) string {
 	if b == nil {
