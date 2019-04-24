@@ -33,27 +33,6 @@ const (
 	TYPE_FOLDER ItemType = "folder"
 )
 
-type UserGroupType string
-
-func (u *UserGroupType) String() string {
-	if u == nil {
-		return "<nil>"
-	}
-	return string(*u)
-}
-func (u *UserGroupType) MarshalJSON() ([]byte, error) {
-	if u == nil {
-		return []byte("null"), nil
-	} else {
-		return []byte(`"` + u.String() + `"`), nil
-	}
-}
-
-const (
-	TYPE_USER  UserGroupType = "user"
-	TYPE_GROUP UserGroupType = "group"
-)
-
 type BoxResourceType int
 
 const (
