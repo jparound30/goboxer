@@ -72,13 +72,26 @@ var CollaborationAllFields = []string{"type", "id", "item", "accessible_by", "ro
 	"can_view_path", "status", "acknowledged_at", "created_by",
 	"created_at", "modified_at", "invite_email"}
 
+// Get Collaboration
+//
+// Get information about a collaboration.
+// https://developer.box.com/reference#get-collabs
 func (c *Collaboration) GetInfoReq(collaborationId string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", c.apiInfo.api.BaseURL, "collaborations/", collaborationId, BuildFieldsQueryParams(fields))
+	var query string
 
-	return NewRequest(c.apiInfo.api, url, GET, nil, nil)
+	url = fmt.Sprintf("%s%s%s", c.apiInfo.api.BaseURL, "collaborations/", collaborationId)
+	if fieldsParam := BuildFieldsQueryParams(fields); fieldsParam != "" {
+		query = fmt.Sprintf("?%s", fieldsParam)
+	}
+
+	return NewRequest(c.apiInfo.api, url+query, GET, nil, nil)
 }
 
+// Get Collaboration
+//
+// Get information about a collaboration.
+// https://developer.box.com/reference#get-collabs
 func (c *Collaboration) GetInfo(collaborationId string, fields []string) (*Collaboration, error) {
 
 	req := c.GetInfoReq(collaborationId, fields)
@@ -88,19 +101,18 @@ func (c *Collaboration) GetInfo(collaborationId string, fields []string) (*Colla
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get collaboration info"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &Collaboration{apiInfo: &apiInfo{api: c.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
+// Set target Item(file or folder) (for Create)
 func (c *Collaboration) SetItem(typ ItemType, id string) *Collaboration {
 	c.Item = &ItemMini{
 		ID:   &id,
@@ -109,6 +121,7 @@ func (c *Collaboration) SetItem(typ ItemType, id string) *Collaboration {
 	return c
 }
 
+// Set Accessible for box user (for Create)
 func (c *Collaboration) SetAccessibleById(typ UserGroupType, id string) *Collaboration {
 	c.AccessibleBy = &UserGroupMini{
 		Type: &typ,
@@ -117,17 +130,23 @@ func (c *Collaboration) SetAccessibleById(typ UserGroupType, id string) *Collabo
 	return c
 }
 
-func (c *Collaboration) SetAccessibleByEmailForNewUser(typ UserGroupType, login string) *Collaboration {
+// Set Accessible with email address (for Create)
+func (c *Collaboration) SetAccessibleByEmailForNewUser(login string) *Collaboration {
+	typ := TYPE_USER
 	c.AccessibleBy = &UserGroupMini{
 		Type:  &typ,
 		Login: &login,
 	}
 	return c
 }
+
+// Set Role of collaboration (for Create/Update)
 func (c *Collaboration) SetRole(role Role) *Collaboration {
 	c.Role = &role
 	return c
 }
+
+// Set CanViewPath (for Create/Update)
 func (c *Collaboration) SetCanViewPath(canViewPath bool) *Collaboration {
 	c.CanViewPath = &canViewPath
 	return c
