@@ -112,6 +112,7 @@ func (c *Collaboration) GetInfo(collaborationId string, fields []string) (*Colla
 }
 
 // Set target Item(file or folder) (for Create)
+// TODO Refactoring.　Is this necessary?
 func (c *Collaboration) SetItem(typ ItemType, id string) *Collaboration {
 	c.Item = &ItemMini{
 		ID:   &id,
@@ -121,6 +122,7 @@ func (c *Collaboration) SetItem(typ ItemType, id string) *Collaboration {
 }
 
 // Set Accessible for box user (for Create)
+// TODO Refactoring.　Is this necessary?
 func (c *Collaboration) SetAccessibleById(typ UserGroupType, id string) *Collaboration {
 	c.AccessibleBy = &UserGroupMini{
 		Type: &typ,
@@ -130,6 +132,7 @@ func (c *Collaboration) SetAccessibleById(typ UserGroupType, id string) *Collabo
 }
 
 // Set Accessible with email address (for Create)
+// TODO Refactoring.　Is this necessary?
 func (c *Collaboration) SetAccessibleByEmailForNewUser(login string) *Collaboration {
 	typ := TYPE_USER
 	c.AccessibleBy = &UserGroupMini{
@@ -140,12 +143,14 @@ func (c *Collaboration) SetAccessibleByEmailForNewUser(login string) *Collaborat
 }
 
 // Set Role of collaboration (for Create/Update)
+// TODO Refactoring.　Is this necessary?
 func (c *Collaboration) SetRole(role Role) *Collaboration {
 	c.Role = &role
 	return c
 }
 
 // Set CanViewPath (for Create)
+// TODO Refactoring.　Is this necessary?
 func (c *Collaboration) SetCanViewPath(canViewPath bool) *Collaboration {
 	c.CanViewPath = &canViewPath
 	return c
