@@ -1709,10 +1709,6 @@ func TestFolder_Delete(t *testing.T) {
 				w.WriteHeader(400)
 				resp, _ := ioutil.ReadFile("testdata/genericerror/400_notempty.json")
 				_, _ = w.Write(resp)
-			case "999":
-				w.Header().Set("content-Type", "application/json")
-				w.WriteHeader(201)
-				_, _ = w.Write([]byte("invalid json"))
 			default:
 				if r.Header.Get("If-Match") != "1" {
 					t.Fatalf("http header [If-Match] not set")

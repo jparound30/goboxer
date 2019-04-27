@@ -3,6 +3,7 @@ package goboxer
 import (
 	"encoding/json"
 	"fmt"
+
 	"golang.org/x/xerrors"
 )
 
@@ -72,6 +73,8 @@ func (e *ApiStatusError) Unwrap() error {
 func (e *ApiStatusError) Error() string {
 	return e.errorMsg()
 }
+
+// for internal use
 func newApiStatusError(errBody []byte) error {
 	e := &ApiStatusError{frame: xerrors.Caller(1)}
 	err := json.Unmarshal(errBody, e)
