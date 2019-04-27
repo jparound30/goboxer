@@ -157,12 +157,16 @@ var FilesAllFields = []string{
 // Get information about a file.
 func (f *File) GetFileInfoReq(fileId string, needExpiringEmbedLink bool, fields []string) *Request {
 	var url string
+	var query string
+
 	if needExpiringEmbedLink {
 		fields = append(fields, "expiring_embed_link")
 	}
-	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "files/", fileId, BuildFieldsQueryParams(fields))
-
-	return NewRequest(f.apiInfo.api, url, GET, nil, nil)
+	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "files/", fileId)
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
+	}
+	return NewRequest(f.apiInfo.api, url+query, GET, nil, nil)
 }
 func (f *File) GetFileInfo(fileId string, needExpiringEmbedLink bool, fields []string) (*File, error) {
 
@@ -173,13 +177,11 @@ func (f *File) GetFileInfo(fileId string, needExpiringEmbedLink bool, fields []s
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get file info"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &File{apiInfo: &apiInfo{api: f.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
