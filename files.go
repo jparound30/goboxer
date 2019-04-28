@@ -193,7 +193,7 @@ func (f *File) GetFileInfo(fileId string, needExpiringEmbedLink bool, fields []s
 // TODO add support for byte-range operation.
 // TODO receive io.Writer ?
 // TODO AS-USER support.
-func (f *File) DownloadFile(fileId string, fileVersion string, boxApiHeader string) (io.Reader, error) {
+func (f *File) DownloadFile(fileId string, fileVersion string, boxApiHeader string) (*Response, error) {
 	var url string
 
 	url = fmt.Sprintf("%s%s%s%s", f.apiInfo.api.BaseURL, "files/", fileId, "/content")
@@ -206,24 +206,22 @@ func (f *File) DownloadFile(fileId string, fileVersion string, boxApiHeader stri
 		headers.Set("BoxApi", boxApiHeader)
 	}
 
-	req := NewRequest(f.apiInfo.api, url, GET, nil, nil)
+	req := NewRequest(f.apiInfo.api, url, GET, headers, nil)
 
 	resp, err := req.Send()
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get file info"))
-		return nil, err
+	switch resp.ResponseCode {
+	case http.StatusOK:
+		fallthrough
+	case http.StatusAccepted:
+		return resp, nil
+
+	default:
+		return nil, newApiStatusError(resp.Body)
 	}
-
-	//if resp.Headers.Get(HttpHeaderRetryAfter) {
-	//
-	//}
-
-	return bytes.NewReader(resp.Body), nil
 }
 
 // Upload File
@@ -539,11 +537,15 @@ func (f *File) Delete(fileId string, ifMatch *string) error {
 // Copy File
 //
 // Used to create a copy of a file in another folder. The original version of the file will not be altered.
-// Preflight Check
+// https://developer.box.com/reference#copy-a-file
 func (f *File) CopyReq(fileId string, parentFolderId string, name string, version string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s%s?%s", f.apiInfo.api.BaseURL, "files/", fileId, "/copy", BuildFieldsQueryParams(fields))
+	var query string
+	url = fmt.Sprintf("%s%s%s%s", f.apiInfo.api.BaseURL, "files/", fileId, "/copy")
 
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
+	}
 	data := map[string]interface{}{}
 
 	data["parent"] = map[string]string{"id": parentFolderId}
@@ -555,9 +557,13 @@ func (f *File) CopyReq(fileId string, parentFolderId string, name string, versio
 	}
 	bodyBytes, _ := json.Marshal(data)
 
-	return NewRequest(f.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(f.apiInfo.api, url+query, POST, nil, bytes.NewReader(bodyBytes))
 }
 
+// Copy File
+//
+// Used to create a copy of a file in another folder. The original version of the file will not be altered.
+// https://developer.box.com/reference#copy-a-file
 func (f *File) Copy(fileId string, parentFolderId string, name string, version string, fields []string) (file *File, err error) {
 	req := f.CopyReq(fileId, parentFolderId, name, version, fields)
 	resp, err := req.Send()
@@ -566,14 +572,11 @@ func (f *File) Copy(fileId string, parentFolderId string, name string, version s
 	}
 
 	if resp.ResponseCode != http.StatusCreated {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name file in specified parent file id.
-		err = errors.New(fmt.Sprintf("faild to copy file"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	file = &File{apiInfo: &apiInfo{api: f.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, file)
+	err = UnmarshalJSONWrapper(resp.Body, file)
 	if err != nil {
 		return nil, err
 	}
@@ -581,11 +584,16 @@ func (f *File) Copy(fileId string, parentFolderId string, name string, version s
 }
 
 // Get File Collaborations
+//
 // Get all of the collaborations on a file (i.e. all of the users that have access to that file).
+// https://developer.box.com/reference#get-file-collaborations
 func (f *File) CollaborationsReq(fileId string, marker string, limit int, fields []string) *Request {
 	var query strings.Builder
 	if marker != "" {
 		query.WriteString("marker=" + marker + "&")
+	}
+	if limit > 1000 {
+		limit = 1000
 	}
 	query.WriteString(fmt.Sprintf("limit=%d", limit))
 	if fields != nil {
@@ -598,6 +606,9 @@ func (f *File) CollaborationsReq(fileId string, marker string, limit int, fields
 }
 
 // Get File Collaborations
+//
+// Get all of the collaborations on a file (i.e. all of the users that have access to that file).
+// https://developer.box.com/reference#get-file-collaborations
 func (f *File) Collaborations(fileId string, marker string, limit int, fields []string) (outCollaborator []*Collaboration, nextMarker string, err error) {
 
 	req := f.CollaborationsReq(fileId, marker, limit, fields)
@@ -607,16 +618,13 @@ func (f *File) Collaborations(fileId string, marker string, limit int, fields []
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name folder in specified parent folder id.
-		err = errors.New(fmt.Sprintf("faild to get folder items"))
-		return nil, "", err
+		return nil, "", newApiStatusError(resp.Body)
 	}
 	items := struct {
 		NextMarker string           `json:"next_marker,omitempty"`
 		Entries    []*Collaboration `json:"entries"`
 	}{}
-	err = json.Unmarshal(resp.Body, &items)
+	err = UnmarshalJSONWrapper(resp.Body, &items)
 	if err != nil {
 		return nil, "", err
 	}
