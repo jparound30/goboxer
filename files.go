@@ -47,7 +47,18 @@ type File struct {
 	IsExternallyOwned  *bool           `json:"is_externally_owned,omitempty"`
 	HasCollaborations  *bool           `json:"has_collaborations,omitempty"`
 	Metadata           *Metadata       `json:"metadata,omitempty"`
+
+	changedFlag uint64
 }
+
+const (
+	cFileName uint64 = 1 << (iota)
+	cFileDescription
+	cFileSharedLink
+	cFilePermissions
+	cFileTags
+	cFileParent
+)
 
 func (f *File) ResourceType() BoxResourceType {
 	return FileResource
@@ -55,23 +66,21 @@ func (f *File) ResourceType() BoxResourceType {
 
 func (f *File) SetName(name string) *File {
 	f.Name = &name
+	f.changedFlag |= cFileName
 	return f
 }
 func (f *File) SetDescription(description string) *File {
 	f.Description = &description
+	f.changedFlag |= cFileDescription
 	return f
 }
-func (f *File) ChangeSharedLinkOpen(password string, passwordEnabled bool, unsharedAt time.Time, canDownload *bool) *File {
+func (f *File) SetSharedLinkOpen(password string, passwordEnabled bool, unsharedAt time.Time, canDownload *bool) *File {
+	var pass string
 	var p *string
-	if passwordEnabled {
-		p = &password
-	} else {
-		p = nil
-	}
-	if password == "" {
-		p = nil
-	} else {
-		p = &password
+	deletePass := !passwordEnabled
+	if passwordEnabled && password != "" {
+		pass = string(password)
+		p = &pass
 	}
 	slao := SharedLinkAccessOpen
 	ua := &unsharedAt
@@ -83,20 +92,22 @@ func (f *File) ChangeSharedLinkOpen(password string, passwordEnabled bool, unsha
 	if canDownload != nil {
 		cd = canDownload
 		perm = &Permissions{CanDownload: cd}
+		f.changedFlag |= cFilePermissions
 	} else {
 		perm = nil
 	}
 	s := &SharedLink{
-		Access:      &slao,
-		Password:    p,
-		UnsharedAt:  ua,
-		Permissions: perm,
+		Access:         &slao,
+		Password:       p,
+		UnsharedAt:     ua,
+		Permissions:    perm,
+		deletePassword: deletePass,
 	}
 	f.SharedLink = s
-
+	f.changedFlag |= cFileSharedLink
 	return f
 }
-func (f *File) ChangeSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *File {
+func (f *File) SetSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *File {
 	slao := SharedLinkAccessCompany
 	ua := &unsharedAt
 	if ua.IsZero() {
@@ -107,6 +118,7 @@ func (f *File) ChangeSharedLinkCompany(unsharedAt time.Time, canDownload *bool) 
 	if canDownload != nil {
 		cd = canDownload
 		perm = &Permissions{CanDownload: cd}
+		f.changedFlag |= cFilePermissions
 	} else {
 		perm = nil
 	}
@@ -116,6 +128,7 @@ func (f *File) ChangeSharedLinkCompany(unsharedAt time.Time, canDownload *bool) 
 		Permissions: perm,
 	}
 	f.SharedLink = s
+	f.changedFlag |= cFileSharedLink
 
 	return f
 }
@@ -131,7 +144,21 @@ func (f *File) SetSharedLinkCollaborators(unsharedAt time.Time) *File {
 		Permissions: nil,
 	}
 	f.SharedLink = s
+	f.changedFlag |= cFileSharedLink
 
+	return f
+}
+func (f *File) SetTags(tags []string) *File {
+	f.Tags = make([]string, len(tags))
+	copy(f.Tags, tags)
+	f.changedFlag |= cFileTags
+	return f
+}
+func (f *File) SetParent(parentFolderId string) *File {
+	f.Parent = &ItemMini{
+		ID: &parentFolderId,
+	}
+	f.changedFlag |= cFileParent
 	return f
 }
 
@@ -313,11 +340,12 @@ func (f *File) UploadFile(filename string, reader io.Reader, parentFolderId stri
 }
 
 // Upload File Version
+//
 // Uploading a new file version is performed in the same way as uploading a file.
 // This method is used to upload a new version of an existing file in a user’s account.
-//
+// https://developer.box.com/reference#upload-a-new-version-of-a-file-1
 // TODO AS-USER support.
-// TODO Refactoring
+// TODO Refactoring (memory inefficiency, and more)
 func (f *File) UploadFileVersion(fileId string, reader io.Reader, filename *string, contentModifiedAt *time.Time, ifMatch *string, contentMD5 *string) (*File, error) {
 	var url string
 
@@ -404,51 +432,56 @@ func (f *File) UploadFileVersion(fileId string, reader io.Reader, filename *stri
 // Update File Info
 //
 // Update the information about a file, including renaming or moving the file.
+// https://developer.box.com/reference#update-a-files-information
 // TODO Editing passwords is not supported for shared links.(from API Reference)
-func (f *File) UpdateReq(fileId string, ifMatch *string, fields []string) *Request {
-
+func (f *File) UpdateReq(fileId string, ifMatch string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", f.apiInfo.api.BaseURL, "files/", fileId, BuildFieldsQueryParams(fields))
-
+	var query string
+	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "files/", fileId)
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
+	}
 	data := &File{}
 
 	// name
-	if f.Name != nil {
+	if f.changedFlag&cFileName == cFileName {
 		data.Name = f.Name
 	}
 	// description
-	if f.Description != nil {
+	if f.changedFlag&cFileDescription == cFileDescription {
 		data.Description = f.Description
 	}
-	if f.Parent != nil && f.Parent.ID != nil {
+	if f.changedFlag&cFileParent == cFileParent {
 		data.Parent = &ItemMini{ID: f.Parent.ID}
 	}
 	// shared_link
-	if f.SharedLink != nil {
+	if f.changedFlag&cFileSharedLink == cFileSharedLink || f.changedFlag&cFilePermissions == cFilePermissions {
 		data.SharedLink = &SharedLink{}
 		data.SharedLink.Access = f.SharedLink.Access
 
 		data.SharedLink.Password = f.SharedLink.Password
 		data.SharedLink.UnsharedAt = f.SharedLink.UnsharedAt
-		if f.SharedLink.Permissions != nil {
+		if f.changedFlag&cFilePermissions == cFilePermissions {
 			data.SharedLink.Permissions = &Permissions{}
 			data.SharedLink.Permissions.CanDownload = f.SharedLink.Permissions.CanDownload
 		}
 	}
 	// tags
-	data.Tags = f.Tags
+	if f.changedFlag&cFileTags == cFileTags {
+		data.Tags = f.Tags
+	}
 
 	bodyBytes, _ := json.Marshal(data)
 
 	headers := http.Header{}
-	if ifMatch != nil {
-		headers.Set("If-Match", *ifMatch)
+	if ifMatch != "" {
+		headers.Set("If-Match", ifMatch)
 	}
 
-	req := NewRequest(f.apiInfo.api, url, PUT, headers, bytes.NewReader(bodyBytes))
+	req := NewRequest(f.apiInfo.api, url+query, PUT, headers, bytes.NewReader(bodyBytes))
 	return req
 }
-func (f *File) Update(fileId string, ifMatch *string, fields []string) (*File, error) {
+func (f *File) Update(fileId string, ifMatch string, fields []string) (*File, error) {
 
 	req := f.UpdateReq(fileId, ifMatch, fields)
 	resp, err := req.Send()
@@ -457,18 +490,14 @@ func (f *File) Update(fileId string, ifMatch *string, fields []string) (*File, e
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name file in specified parent file id.
-		err = errors.New(fmt.Sprintf("faild to update file"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
-	file := File{}
-	err = json.Unmarshal(resp.Body, &file)
+	file := &File{apiInfo: f.apiInfo}
+	err = UnmarshalJSONWrapper(resp.Body, &file)
 	if err != nil {
 		return nil, err
 	}
-	file.apiInfo = f.apiInfo
-	return &file, nil
+	return file, nil
 }
 
 // Preflight Check
@@ -492,10 +521,7 @@ func (f *File) PreflightCheck(name string, parentFolderId string, size *int) (ok
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name file in specified parent file id.
-		err = errors.New(fmt.Sprintf("faild to preflight check"))
-		return false, err
+		return false, newApiStatusError(resp.Body)
 	}
 	return true, nil
 }
@@ -503,20 +529,26 @@ func (f *File) PreflightCheck(name string, parentFolderId string, size *int) (ok
 // Delete File
 //
 // Discards a file to the trash. The etag of the file can be included as an ‘If-Match’ header to prevent race conditions.
-func (f *File) DeleteReq(fileId string, ifMatch *string) *Request {
+// https://developer.box.com/reference#delete-a-file
+func (f *File) DeleteReq(fileId string, ifMatch string) *Request {
 
 	var url string
 	url = fmt.Sprintf("%s%s%s", f.apiInfo.api.BaseURL, "files/", fileId)
 
 	headers := http.Header{}
-	if ifMatch != nil {
-		headers.Set("If-Match", *ifMatch)
+	if ifMatch != "" {
+		headers.Set("If-Match", ifMatch)
 	}
 
 	req := NewRequest(f.apiInfo.api, url, DELETE, headers, nil)
 	return req
 }
-func (f *File) Delete(fileId string, ifMatch *string) error {
+
+// Delete File
+//
+// Discards a file to the trash. The etag of the file can be included as an ‘If-Match’ header to prevent race conditions.
+// https://developer.box.com/reference#delete-a-file
+func (f *File) Delete(fileId string, ifMatch string) error {
 
 	req := f.DeleteReq(fileId, ifMatch)
 	resp, err := req.Send()
@@ -525,10 +557,7 @@ func (f *File) Delete(fileId string, ifMatch *string) error {
 	}
 
 	if resp.ResponseCode != http.StatusNoContent {
-		// TODO improve error handling...
-		// TODO for example, 409(conflict) - There is same name file in specified parent file id.
-		err = errors.New(fmt.Sprintf("faild to delete file"))
-		return err
+		return newApiStatusError(resp.Body)
 	}
 
 	return nil

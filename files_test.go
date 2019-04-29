@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -459,6 +461,828 @@ func TestFile_DownloadFile(t *testing.T) {
 }
 
 // TODO TESTCASE
+
+func TestFile_UpdateReq(t *testing.T) {
+	url := "https://example.com"
+	apiConn := commonInit(url)
+	ti, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05-07:00")
+
+	f1 := buildFileOfGetInfoNormalJson()
+	f1.apiInfo = &apiInfo{api: apiConn}
+	f1.SetName("name1")
+
+	f2 := buildFileOfGetInfoNormalJson()
+	f2.apiInfo = &apiInfo{api: apiConn}
+	f2.SetDescription("desc1")
+
+	f3 := buildFileOfGetInfoNormalJson()
+	f3.apiInfo = &apiInfo{api: apiConn}
+	f3.SetSharedLinkOpen("pass", true, time.Time{}, nil)
+	f4 := buildFileOfGetInfoNormalJson()
+	f4.apiInfo = &apiInfo{api: apiConn}
+	f4.SetSharedLinkOpen("pass", false, ti, nil)
+	f5 := buildFileOfGetInfoNormalJson()
+	f5.apiInfo = &apiInfo{api: apiConn}
+	f5.SetSharedLinkOpen("pass", false, time.Time{}, setBool(true))
+	f6 := buildFileOfGetInfoNormalJson()
+	f6.apiInfo = &apiInfo{api: apiConn}
+	f6.SetSharedLinkOpen("pass", false, time.Time{}, setBool(false))
+
+	f7 := buildFileOfGetInfoNormalJson()
+	f7.apiInfo = &apiInfo{api: apiConn}
+	f7.SetSharedLinkCompany(ti, nil)
+	f8 := buildFileOfGetInfoNormalJson()
+	f8.apiInfo = &apiInfo{api: apiConn}
+	f8.SetSharedLinkCompany(time.Time{}, setBool(true))
+	f9 := buildFileOfGetInfoNormalJson()
+	f9.apiInfo = &apiInfo{api: apiConn}
+	f9.SetSharedLinkCompany(time.Time{}, setBool(false))
+
+	f10 := buildFileOfGetInfoNormalJson()
+	f10.apiInfo = &apiInfo{api: apiConn}
+	f10.SetSharedLinkCollaborators(ti)
+
+	f11 := buildFileOfGetInfoNormalJson()
+	f11.apiInfo = &apiInfo{api: apiConn}
+	f11.SetSharedLinkCollaborators(time.Time{})
+
+	f13 := buildFileOfGetInfoNormalJson()
+	f13.apiInfo = &apiInfo{api: apiConn}
+	f13.SetTags([]string{"tag1", "tag2"})
+
+	f14 := buildFileOfGetInfoNormalJson()
+	f14.apiInfo = &apiInfo{api: apiConn}
+	f14.SetTags([]string{"tag1", "tag2"})
+
+	f15 := buildFileOfGetInfoNormalJson()
+	f15.apiInfo = &apiInfo{api: apiConn}
+	f15.SetParent("p10015")
+
+	type args struct {
+		fileId  string
+		ifMatch string
+		fields  []string
+	}
+	tests := []struct {
+		name string
+		file *File
+		args args
+		want *Request
+	}{
+		{"name",
+			f1,
+			args{"10001", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10001",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"name": "name1"
+}
+`),
+			},
+		},
+		{"desc",
+			f2,
+			args{"10002", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10002",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"description": "desc1"
+}
+`),
+			},
+		},
+		{"sharedlink open pass",
+			f3,
+			args{"10003", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10003",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "open",
+		"password": "pass"
+	}
+}
+`),
+			},
+		},
+		{"sharedlink open usharedat",
+			f4,
+			args{"10004", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10004",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "open",
+		"unshared_at": "2006-01-02T15:04:05-07:00"
+	}
+}
+`),
+			},
+		},
+		{"sharedlink open candownload true",
+			f5,
+			args{"10005", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10005",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "open",
+		"permissions": {
+			"can_download": true
+		}
+	}
+}
+`),
+			},
+		},
+		{"sharedlink open candownload false",
+			f6,
+			args{"10006", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10006",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "open",
+		"permissions": {
+			"can_download": false
+		}
+	}
+}
+`),
+			},
+		},
+		{"sharedlink company usharedat",
+			f7,
+			args{"10007", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10007",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "company",
+		"unshared_at": "2006-01-02T15:04:05-07:00"
+	}
+}
+`),
+			},
+		},
+		{"sharedlink company candownload true",
+			f8,
+			args{"10008", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10008",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "company",
+		"permissions": {
+			"can_download": true
+		}
+	}
+}
+`),
+			},
+		},
+		{"sharedlink company candownload true",
+			f9,
+			args{"10009", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10009",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "company",
+		"permissions": {
+			"can_download": false
+		}
+	}
+}
+`),
+			},
+		},
+		{"sharedlink company usharedat",
+			f10,
+			args{"10010", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10010",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "collaborators",
+		"unshared_at": "2006-01-02T15:04:05-07:00"
+	}
+}
+`),
+			},
+		},
+		{"sharedlink company",
+			f11,
+			args{"10011", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10011",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"shared_link": {
+		"access": "collaborators"
+	}
+}
+`),
+			},
+		},
+		{"tags",
+			f13,
+			args{"10013", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10013",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"tags": ["tag1","tag2"]
+}
+`),
+			},
+		},
+		{"if-match",
+			f14,
+			args{"10014", "ETAG14", []string{"type", "id"}},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10014?fields=type,id",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{"If-Match": []string{"ETAG14"}},
+				body: strings.NewReader(`
+{
+	"tags": ["tag1","tag2"]
+}
+`),
+			},
+		},
+		{"parent",
+			f15,
+			args{"10015", "", nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/10015",
+				Method:             PUT,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"parent": {"id": "p10015"}
+}
+`),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			got := tt.file.UpdateReq(tt.args.fileId, tt.args.ifMatch, tt.args.fields)
+
+			opts := diffCompOptions(File{}, ApiConn{})
+			opt := cmpopts.IgnoreUnexported(Request{})
+			opts = append(opts, opt)
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("differs: (-got +want)\n%s", diff)
+			}
+			gotBodyDec := json.NewDecoder(got.body)
+			var gotBody map[string]interface{}
+			err := gotBodyDec.Decode(&gotBody)
+			if err != nil {
+				t.Fatalf("body json doesnt unmarshal")
+			}
+
+			expBodyDec := json.NewDecoder(tt.want.body)
+			var expBody map[string]interface{}
+			err = expBodyDec.Decode(&expBody)
+			if err != nil {
+				t.Fatalf("body json doesnt unmarshal")
+			}
+
+			if diff := cmp.Diff(gotBody, expBody); diff != "" {
+				t.Errorf("body differs: (-got +want)\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestFile_Update(t *testing.T) {
+	ti, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05-07:00")
+
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/files/") {
+				t.Errorf("invalid access url %s : %s", r.URL.Path, "/2.0/files/")
+			}
+			// Method check
+			if r.Method != http.MethodPut {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			folderId := strings.TrimPrefix(r.URL.Path, "/2.0/files/")
+
+			switch folderId {
+			case "500":
+				w.WriteHeader(500)
+			case "409":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(409)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				_, _ = w.Write([]byte("invalid json"))
+			default:
+				decoder := json.NewDecoder(r.Body)
+				var got Folder
+				err := decoder.Decode(&got)
+				if err != nil {
+					t.Errorf("send body can not unmarshal %+v", err)
+					return
+				}
+				var exp Folder
+				var expJson = `
+{
+	"name": "NAME1",
+	"description": "DESC1",
+	"shared_link": {
+		"access": "open",
+		"password": "password1",
+		"unshared_at": "2006-01-02T15:04:05-07:00",
+		"permissions": {
+			"can_download": true
+		}
+	},
+	"tags": ["tag001", "tag002"]
+}`
+				err = json.Unmarshal([]byte(expJson), &exp)
+				if err != nil {
+					t.Errorf("send body can not unmarshal %+v", err)
+					return
+				}
+				opts := diffCompOptions(apiInfo{}, File{}, FileVersion{}, SharedLink{}, Folder{})
+				if diff := cmp.Diff(&got, &exp, opts...); diff != "" {
+					t.Errorf("body differs: (-got +want)\n%s", diff)
+					return
+				}
+				w.Header().Set("content-Type", "application/json")
+				resp, _ := ioutil.ReadFile("testdata/files/file_json.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	normal := buildFileOfGetInfoNormalJson()
+
+	type args struct {
+		fileId  string
+		ifMatch string
+		fields  []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *File
+		wantErr bool
+		errType interface{}
+	}{
+		{"normal/fields unspecified", args{fileId: "10001", ifMatch: "", fields: nil}, normal, false, nil},
+		{"normal/allFields", args{fileId: "10002", ifMatch: "", fields: FolderAllFields}, normal, false, nil},
+		{"http error/409", args{fileId: "409", ifMatch: "", fields: FolderAllFields}, nil, true, &ApiStatusError{}},
+		{"returned invalid json/999", args{fileId: "999", ifMatch: "", fields: nil}, nil, true, &ApiOtherError{}},
+		{"senderror", args{fileId: "999", ifMatch: "", fields: nil}, nil, true, &ApiOtherError{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			} else {
+				apiConn.Expires = 6000
+			}
+			f := NewFile(apiConn)
+			f.SetName("NAME1")
+			f.SetDescription("DESC1")
+			f.SetSharedLinkOpen("password1", true, ti, setBool(true))
+			f.SetTags([]string{"tag001", "tag002"})
+			got, err := f.Update(tt.args.fileId, tt.args.ifMatch, tt.args.fields)
+
+			// Error checks
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %v, wanted errorType %v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					if status, err := strconv.Atoi(tt.args.fileId); err != nil || status != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			// If normal response
+			opt := cmpopts.IgnoreUnexported(*got, apiInfo{}, FileVersion{}, SharedLink{})
+			if diff := cmp.Diff(&got, &tt.want, opt); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
+				return
+			}
+			// exists apiInfo
+			if got.apiInfo == nil {
+				t.Errorf("not exists `apiInfo` field\n")
+				return
+			}
+		})
+	}
+}
+
+func TestFile_PreflightCheck(t *testing.T) {
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/files/content") {
+				t.Errorf("invalid access url %s", r.URL.Path)
+			}
+			// Method check
+			if r.Method != http.MethodOptions {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			if r.Header.Get(httpHeaderContentType) != ContentTypeApplicationJson {
+				t.Fatalf("invalid content-type [%s]", r.Header.Get(httpHeaderContentType))
+			}
+
+			readAll, _ := ioutil.ReadAll(r.Body)
+
+			var v map[string]interface{}
+			_ = json.Unmarshal(readAll, &v)
+			name := v["name"]
+
+			switch name {
+			case "500":
+				w.WriteHeader(500)
+			case "409":
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(409)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				_, _ = w.Write(resp)
+			case "404":
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(404)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(200)
+			default:
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(200)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	type args struct {
+		name           string
+		parentFolderId string
+		size           *int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantOk  bool
+		wantErr bool
+		errType interface{}
+	}{
+		{"normal", args{"NEWNAME1", "p10001", nil}, true, false, nil},
+		{"normal", args{"NEWNAME2", "p10002", setIntPtr(123456)}, true, false, nil},
+		{"http error/409 ", args{"409", "p10003", setIntPtr(123456)}, false, true, &ApiStatusError{Status: 409}},
+		{"http error/404", args{"404", "p10004", nil}, false, true, &ApiStatusError{Status: 404}},
+		{"senderror", args{"999", "p10005", nil}, false, true, &ApiOtherError{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			}
+
+			f := NewFile(apiConn)
+			gotOk, err := f.PreflightCheck(tt.args.name, tt.args.parentFolderId, tt.args.size)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %+v, wantErr %+v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %+v, wanted errorType %+v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					expectedStatus := tt.errType.(*ApiStatusError).Status
+					if expectedStatus != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			if gotOk != tt.wantOk {
+				t.Errorf("File.PreflightCheck() = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
+
+func TestFile_DeleteReq(t *testing.T) {
+
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	type args struct {
+		fileId  string
+		ifMatch string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Request
+	}{
+		{
+			name: "normal/recursive false",
+			args: args{"123", ""},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/123",
+				Method:             DELETE,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+		{
+			name: "normal/recursive true",
+			args: args{"456", ""},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/456",
+				Method:             DELETE,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+		{
+			name: "normal/set If-Match",
+			args: args{"789", "3"},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/files/789",
+				Method:             DELETE,
+				headers:            http.Header{"If-Match": []string{"3"}},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := NewFile(apiConn)
+
+			got := f.DeleteReq(tt.args.fileId, tt.args.ifMatch)
+			// If normal response
+			opts := diffCompOptions(*got, Request{})
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("differ:  (-got +want)\n%s", diff)
+				return
+			}
+		})
+	}
+}
+
+func TestFile_Delete(t *testing.T) {
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/files") {
+				t.Errorf("invalid access url %s", r.URL.Path)
+			}
+			// Method check
+			if r.Method != http.MethodDelete {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+
+			fileId := strings.Split(r.URL.Path, "/")[3]
+			switch fileId {
+			case "500":
+				w.WriteHeader(500)
+			case "400":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(400)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/400_notempty.json")
+				_, _ = w.Write(resp)
+			default:
+				if r.Header.Get("If-Match") != "1" {
+					t.Fatalf("http header [If-Match] not set")
+				}
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(204)
+				resp, _ := ioutil.ReadFile("testdata/files/file_json.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	type args struct {
+		fileId  string
+		ifMatch string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errType interface{}
+	}{
+		{
+			"normal",
+			args{"10001", "1"},
+			false,
+			nil,
+		},
+		{"http error/400", args{"400", ""}, true, &ApiStatusError{Status: 400}},
+		{"senderror", args{"999", ""}, true, &ApiOtherError{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			} else {
+				apiConn.Expires = 6000
+			}
+			f := NewFile(apiConn)
+			err := f.Delete(tt.args.fileId, tt.args.ifMatch)
+
+			// Error checks
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %+v, wantErr %+v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %+v, wanted errorType %+v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					expectedStatus := tt.errType.(*ApiStatusError).Status
+					if expectedStatus != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+		})
+	}
+}
 
 func TestFile_CopyReq(t *testing.T) {
 

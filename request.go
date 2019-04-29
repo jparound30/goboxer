@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/xerrors"
 	"io"
 	"io/ioutil"
 	"math"
@@ -14,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 const defaultNumRedirects = 3
@@ -150,6 +151,8 @@ func (req *Request) Send() (*Response, error) {
 	case POST:
 		fallthrough
 	case PUT:
+		fallthrough
+	case OPTION:
 		if newRequest.Header.Get(httpHeaderContentType) == "" {
 			newRequest.Header.Add(httpHeaderContentType, ContentTypeApplicationJson)
 		}
