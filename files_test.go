@@ -1,6 +1,8 @@
 package goboxer
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -460,7 +462,426 @@ func TestFile_DownloadFile(t *testing.T) {
 	}
 }
 
-// TODO TESTCASE
+func TestFile_UploadFile(t *testing.T) {
+	const fileContent = "UPLOAD FILES. SUCCESSFUL."
+	md5Str := sha1.New()
+	md5Str.Write([]byte(fileContent))
+	encodeToString := hex.EncodeToString(md5Str.Sum(nil))
+
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/api/2.0/files/content") {
+				t.Errorf("invalid access url %s", r.URL.Path)
+			}
+			// Method check
+			if r.Method != http.MethodPost {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			attrStr := r.FormValue("attributes")
+			var v map[string]interface{}
+			_ = json.Unmarshal([]byte(attrStr), &v)
+			parentFolderId := v["name"]
+
+			// content
+			file, _, err := r.FormFile("file")
+			if err != nil {
+				t.Fatalf("There is no file part.")
+			}
+			uploadedFile, _ := ioutil.ReadAll(file)
+			expectedFile := []byte("UPLOAD FILES. SUCCESSFUL.")
+
+			if !reflect.DeepEqual(uploadedFile, expectedFile) {
+				t.Fatalf("File.DownloadFile() = %v, want %v", uploadedFile, expectedFile)
+			}
+
+			switch parentFolderId {
+			case "500":
+				w.WriteHeader(500)
+			case "404":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(404)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				_, _ = w.Write([]byte("invalid json"))
+			case "10003":
+				headerMD5 := r.Header.Get("Content-MD5")
+				if headerMD5 != encodeToString {
+					t.Fatalf("invalid md5")
+				}
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				resp, _ := ioutil.ReadFile("testdata/files/uploadfile_normal.json")
+				_, _ = w.Write(resp)
+			default:
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				resp, _ := ioutil.ReadFile("testdata/files/uploadfile_normal.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	tic, _ := time.Parse(time.RFC3339, "2006-01-02T15:04:05-07:00")
+	tim, _ := time.Parse(time.RFC3339, "2006-02-02T15:04:05-07:00")
+
+	w1 := buildFileOfGetInfoNormalJson()
+	w1.apiInfo = &apiInfo{api: apiConn}
+	w1.SharedLink = nil
+	w1.FileVersion = nil
+	w1.Tags = nil
+	w1.Lock = nil
+
+	type args struct {
+		filename          string
+		reader            io.Reader
+		parentFolderId    string
+		contentCreatedAt  *time.Time
+		contentModifiedAt *time.Time
+		contentMD5        *string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *File
+		wantErr bool
+		errType interface{}
+	}{
+		{"normal",
+			args{
+				"10001",
+				strings.NewReader(fileContent),
+				"p10001",
+				nil, nil, nil,
+			},
+			w1, false, nil},
+		{"normal/content created,modified at",
+			args{
+				"10002",
+				strings.NewReader(fileContent),
+				"p10002",
+				&tic, &tim, nil,
+			},
+			w1, false, nil},
+		{"normal/contentMD5 ",
+			args{
+				"10003",
+				strings.NewReader(fileContent),
+				"p10003",
+				nil, nil, &encodeToString,
+			},
+			w1, false, nil},
+		{"http error/404",
+			args{
+				"404",
+				strings.NewReader(fileContent),
+				"p404",
+				nil, nil, nil,
+			},
+			nil, true, &ApiStatusError{Status: 404}},
+		{"returned invalid json/999",
+			args{
+				"999",
+				strings.NewReader(fileContent),
+				"p999",
+				nil, nil, nil,
+			},
+			nil, true, &ApiOtherError{}},
+		{"senderror",
+			args{
+				"999",
+				strings.NewReader(fileContent),
+				"p999",
+				nil, nil, nil,
+			},
+			nil, true, &ApiOtherError{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			} else {
+				apiConn.Expires = 6000
+			}
+
+			f := NewFile(apiConn)
+			got, err := f.UploadFile(tt.args.filename, tt.args.reader, tt.args.parentFolderId, tt.args.contentCreatedAt, tt.args.contentModifiedAt, tt.args.contentMD5)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %+v, wantErr %+v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %+v, wanted errorType %+v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					expectedStatus := tt.errType.(*ApiStatusError).Status
+					if expectedStatus != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			// If normal response
+			opts := diffCompOptions(File{}, apiInfo{})
+			if diff := cmp.Diff(&got, &tt.want, opts...); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
+				return
+			}
+			if got.apiInfo == nil {
+				t.Errorf("not exists File.`apiInfo` field\n")
+			}
+		})
+	}
+}
+
+func TestFile_UploadFileVersion(t *testing.T) {
+	const fileContent = "UPLOAD FILES. SUCCESSFUL."
+	md5Str := sha1.New()
+	md5Str.Write([]byte(fileContent))
+	encodeToString := hex.EncodeToString(md5Str.Sum(nil))
+
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/api/2.0/files/") || !strings.HasSuffix(r.URL.Path, "/content") {
+				t.Errorf("invalid access url %s", r.URL.Path)
+			}
+			// Method check
+			if r.Method != http.MethodPost {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			attrStr := r.FormValue("attributes")
+			var v map[string]interface{}
+			_ = json.Unmarshal([]byte(attrStr), &v)
+			fileId := strings.Split(r.URL.Path, "/")[4]
+
+			// content
+			file, _, err := r.FormFile("file")
+			if err != nil {
+				t.Fatalf("There is no file part.")
+			}
+			uploadedFile, _ := ioutil.ReadAll(file)
+			expectedFile := []byte("UPLOAD FILES. SUCCESSFUL.")
+
+			if !reflect.DeepEqual(uploadedFile, expectedFile) {
+				t.Fatalf("File.DownloadFile() = %v, want %v", uploadedFile, expectedFile)
+			}
+
+			switch fileId {
+			case "500":
+				w.WriteHeader(500)
+			case "404":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(404)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				_, _ = w.Write([]byte("invalid json"))
+			case "10003":
+				headerMD5 := r.Header.Get("Content-MD5")
+				if headerMD5 != encodeToString {
+					t.Fatalf("invalid md5")
+				}
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				resp, _ := ioutil.ReadFile("testdata/files/uploadfile_normal.json")
+				_, _ = w.Write(resp)
+			default:
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				resp, _ := ioutil.ReadFile("testdata/files/uploadfile_normal.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	tim, _ := time.Parse(time.RFC3339, "2006-02-02T15:04:05-07:00")
+
+	w1 := buildFileOfGetInfoNormalJson()
+	w1.apiInfo = &apiInfo{api: apiConn}
+	w1.SharedLink = nil
+	w1.FileVersion = nil
+	w1.Tags = nil
+	w1.Lock = nil
+
+	type args struct {
+		fileId            string
+		reader            io.Reader
+		filename          *string
+		contentModifiedAt *time.Time
+		ifMatch           *string
+		contentMD5        *string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *File
+		wantErr bool
+		errType interface{}
+	}{
+		{"normal",
+			args{
+				"10001",
+				strings.NewReader(fileContent),
+				setStringPtr("p10001"),
+				nil, nil, nil,
+			},
+			w1, false, nil},
+		{"normal/content modified at",
+			args{
+				"10002",
+				strings.NewReader(fileContent),
+				setStringPtr("p10002"),
+				&tim, nil, nil,
+			},
+			w1, false, nil},
+		{"normal/contentMD5 ",
+			args{
+				"10003",
+				strings.NewReader(fileContent),
+				setStringPtr("p10003"),
+				nil, nil, &encodeToString,
+			},
+			w1, false, nil},
+		{"http error/404",
+			args{
+				"404",
+				strings.NewReader(fileContent),
+				setStringPtr("p404"),
+				nil, nil, nil,
+			},
+			nil, true, &ApiStatusError{Status: 404}},
+		{"returned invalid json/999",
+			args{
+				"999",
+				strings.NewReader(fileContent),
+				setStringPtr("p999"),
+				nil, nil, nil,
+			},
+			nil, true, &ApiOtherError{}},
+		{"senderror",
+			args{
+				"999",
+				strings.NewReader(fileContent),
+				setStringPtr("p999"),
+				nil, nil, nil,
+			},
+			nil, true, &ApiOtherError{},
+		},
+		{"ifmatch",
+			args{
+				"10010",
+				strings.NewReader(fileContent),
+				setStringPtr("p10010"),
+				nil, setStringPtr("ETAG10010"), nil,
+			},
+			w1, false, nil},
+		{"no rename",
+			args{
+				"10010",
+				strings.NewReader(fileContent),
+				nil,
+				nil, nil, nil,
+			},
+			w1, false, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			} else {
+				apiConn.Expires = 6000
+			}
+
+			f := NewFile(apiConn)
+			got, err := f.UploadFileVersion(tt.args.fileId, tt.args.reader, tt.args.filename, tt.args.contentModifiedAt, tt.args.ifMatch, tt.args.contentMD5)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %+v, wantErr %+v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %+v, wanted errorType %+v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					expectedStatus := tt.errType.(*ApiStatusError).Status
+					if expectedStatus != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			// If normal response
+			opts := diffCompOptions(File{}, apiInfo{})
+			if diff := cmp.Diff(&got, &tt.want, opts...); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
+				return
+			}
+			if got.apiInfo == nil {
+				t.Errorf("not exists File.`apiInfo` field\n")
+			}
+		})
+	}
+}
 
 func TestFile_UpdateReq(t *testing.T) {
 	url := "https://example.com"

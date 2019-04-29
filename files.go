@@ -3,7 +3,6 @@ package goboxer
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -280,32 +279,32 @@ func (f *File) UploadFile(filename string, reader io.Reader, parentFolderId stri
 	mw := multipart.NewWriter(body)
 	mhAttr, err := mw.CreateFormField("attributes")
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to create attributes part.")
 	}
 	attrJsonBytes, err := json.Marshal(&attr)
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to marshal attributes part.")
 	}
 	_, err = mhAttr.Write(attrJsonBytes)
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to write attributes part.")
 	}
 	createFormFile, err := mw.CreateFormFile("file", "file")
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to create file part.")
 	}
 	all, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to read file.")
 	}
 	_, err = createFormFile.Write(all)
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to write file part.")
 	}
 	contentType := mw.FormDataContentType()
 	err = mw.Close()
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to close multipart/form part.")
 	}
 
 	headers.Add("Content-Type", contentType)
@@ -317,9 +316,7 @@ func (f *File) UploadFile(filename string, reader io.Reader, parentFolderId stri
 	}
 
 	if resp.ResponseCode != http.StatusCreated {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to upload file"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	files := struct {
@@ -329,7 +326,7 @@ func (f *File) UploadFile(filename string, reader io.Reader, parentFolderId stri
 		Limit      int     `json:"limit"`
 	}{}
 
-	err = json.Unmarshal(resp.Body, &files)
+	err = UnmarshalJSONWrapper(resp.Body, &files)
 	if err != nil {
 		return nil, err
 	}
@@ -370,32 +367,32 @@ func (f *File) UploadFileVersion(fileId string, reader io.Reader, filename *stri
 	mw := multipart.NewWriter(body)
 	mhAttr, err := mw.CreateFormField("attributes")
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to create attributes part.")
 	}
 	attrJsonBytes, err := json.Marshal(&attr)
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to marshal attributes part.")
 	}
 	_, err = mhAttr.Write(attrJsonBytes)
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to write attributes part.")
 	}
 	createFormFile, err := mw.CreateFormFile("file", "file")
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to create file part.")
 	}
 	all, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to read file.")
 	}
 	_, err = createFormFile.Write(all)
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to write file part.")
 	}
 	contentType := mw.FormDataContentType()
 	err = mw.Close()
 	if err != nil {
-		return nil, err
+		return nil, newApiOtherError(err, "failed to close multipart/form part.")
 	}
 
 	headers.Add("Content-Type", contentType)
@@ -407,9 +404,7 @@ func (f *File) UploadFileVersion(fileId string, reader io.Reader, filename *stri
 	}
 
 	if resp.ResponseCode != http.StatusCreated {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to upload file version"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	files := struct {
@@ -419,7 +414,7 @@ func (f *File) UploadFileVersion(fileId string, reader io.Reader, filename *stri
 		Limit      int     `json:"limit"`
 	}{}
 
-	err = json.Unmarshal(resp.Body, &files)
+	err = UnmarshalJSONWrapper(resp.Body, &files)
 	if err != nil {
 		return nil, err
 	}

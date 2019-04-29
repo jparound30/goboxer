@@ -30,6 +30,8 @@ func commonInit(url string) *ApiConn {
 	apiConn.Expires = 6000
 	apiConn.BaseURL = url + "/2.0/"
 	apiConn.TokenURL = url + "/oauth2/token"
+	apiConn.BaseUploadURL = url + "/api/2.0/"
+	apiConn.RevokeURL = url + "/oauth2/revoke"
 
 	return apiConn
 }
