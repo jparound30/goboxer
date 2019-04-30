@@ -1,0 +1,17 @@
+{
+  "total_count": 2,
+  "entries": [
+    {
+      "type": "group",
+      "id": "1786931",
+      "name": "friends"
+    },
+    {
+      "type": "group",
+      "id": "1786932",
+      "name": "あいうえお"
+    }
+  ],
+  "limit": 100,
+  "offset": 0
+}

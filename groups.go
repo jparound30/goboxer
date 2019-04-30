@@ -3,9 +3,9 @@ package goboxer
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -65,7 +65,18 @@ type Group struct {
 	Description            *string                 `json:"description,omitempty"`
 	InvitabilityLevel      *InvitabilityLevel      `json:"invitability_level,omitempty"`
 	MemberViewabilityLevel *MemberViewabilityLevel `json:"member_viewability_level,omitempty"`
+
+	changeFlag uint64
 }
+
+const (
+	cGroupName uint64 = 1 << (iota)
+	cGroupProvenance
+	cGroupExternalSyncIdentifier
+	cGroupDescription
+	cGroupInvitabilityLevel
+	cGroupMemberViewabilityLevel
+)
 
 func (g *Group) ResourceType() BoxResourceType {
 	return GroupResource
@@ -83,6 +94,10 @@ var GroupAllFields = []string{
 	"invitability_level", "member_viewability_level",
 }
 
+// Get Group
+//
+// Get information about a group.
+// https://developer.box.com/reference#get-group
 func (g *Group) GetGroupReq(groupId string, fields []string) *Request {
 	var url string
 	var query string
@@ -92,6 +107,11 @@ func (g *Group) GetGroupReq(groupId string, fields []string) *Request {
 	}
 	return NewRequest(g.apiInfo.api, url+query, GET, nil, nil)
 }
+
+// Get Group
+//
+// Get information about a group.
+// https://developer.box.com/reference#get-group
 func (g *Group) GetGroup(groupId string, fields []string) (*Group, error) {
 
 	req := g.GetGroupReq(groupId, fields)
@@ -112,16 +132,47 @@ func (g *Group) GetGroup(groupId string, fields []string) (*Group, error) {
 	return r, nil
 }
 
+// Create Group
+//
+// Create a new group. Only admin roles can create and manage groups.
+// https://developer.box.com/reference#create-a-group
 func (g *Group) CreateGroupReq(fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s?%s", g.apiInfo.api.BaseURL, "groups", BuildFieldsQueryParams(fields))
+	var query string
 
-	b, err := json.Marshal(g)
-	if err != nil {
-		fmt.Println(err)
+	url = fmt.Sprintf("%s%s", g.apiInfo.api.BaseURL, "groups")
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
 	}
-	return NewRequest(g.apiInfo.api, url, POST, nil, bytes.NewReader(b))
+
+	data := &Group{}
+	if g.changeFlag&cGroupName == cGroupName {
+		data.Name = g.Name
+	}
+	if g.changeFlag&cGroupProvenance == cGroupProvenance {
+		data.Provenance = g.Provenance
+	}
+	if g.changeFlag&cGroupExternalSyncIdentifier == cGroupExternalSyncIdentifier {
+		data.ExternalSyncIdentifier = g.ExternalSyncIdentifier
+	}
+	if g.changeFlag&cGroupDescription == cGroupDescription {
+		data.Description = g.Description
+	}
+	if g.changeFlag&cGroupInvitabilityLevel == cGroupInvitabilityLevel {
+		data.InvitabilityLevel = g.InvitabilityLevel
+	}
+	if g.changeFlag&cGroupMemberViewabilityLevel == cGroupMemberViewabilityLevel {
+		data.MemberViewabilityLevel = g.MemberViewabilityLevel
+	}
+
+	b, _ := json.Marshal(data)
+	return NewRequest(g.apiInfo.api, url+query, POST, nil, bytes.NewReader(b))
 }
+
+// Create Group
+//
+// Create a new group. Only admin roles can create and manage groups.
+// https://developer.box.com/reference#create-a-group
 func (g *Group) CreateGroup(fields []string) (*Group, error) {
 
 	req := g.CreateGroupReq(fields)
@@ -131,13 +182,11 @@ func (g *Group) CreateGroup(fields []string) (*Group, error) {
 	}
 
 	if resp.ResponseCode != http.StatusCreated {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to create group"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &Group{apiInfo: &apiInfo{api: g.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
@@ -146,39 +195,76 @@ func (g *Group) CreateGroup(fields []string) (*Group, error) {
 
 func (g *Group) SetName(name string) *Group {
 	g.Name = &name
+	g.changeFlag |= cGroupName
 	return g
 }
 func (g *Group) SetProvenance(provenance string) *Group {
 	g.Provenance = &provenance
+	g.changeFlag |= cGroupProvenance
 	return g
 }
 func (g *Group) SetExternalSyncIdentifier(externalSyncIdentifier string) *Group {
 	g.ExternalSyncIdentifier = &externalSyncIdentifier
+	g.changeFlag |= cGroupExternalSyncIdentifier
 	return g
 }
 func (g *Group) SetDescription(description string) *Group {
 	g.Description = &description
+	g.changeFlag |= cGroupDescription
 	return g
 }
 func (g *Group) SetInvitabilityLevel(invitabilityLevel InvitabilityLevel) *Group {
 	g.InvitabilityLevel = &invitabilityLevel
+	g.changeFlag |= cGroupInvitabilityLevel
 	return g
 }
 func (g *Group) SetMemberViewabiityLevel(memberViewabilityLevel MemberViewabilityLevel) *Group {
 	g.MemberViewabilityLevel = &memberViewabilityLevel
+	g.changeFlag |= cGroupMemberViewabilityLevel
 	return g
 }
 
+// Update Group
+//
+// Update a group.
+// https://developer.box.com/reference#update-a-group
 func (g *Group) UpdateGroupReq(groupId string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", g.apiInfo.api.BaseURL, "groups/", groupId, BuildFieldsQueryParams(fields))
+	var query string
+	url = fmt.Sprintf("%s%s%s", g.apiInfo.api.BaseURL, "groups/", groupId)
 
-	b, err := json.Marshal(g)
-	if err != nil {
-		fmt.Println(err)
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
 	}
-	return NewRequest(g.apiInfo.api, url, PUT, nil, bytes.NewReader(b))
+
+	data := &Group{}
+	if g.changeFlag&cGroupName == cGroupName {
+		data.Name = g.Name
+	}
+	if g.changeFlag&cGroupProvenance == cGroupProvenance {
+		data.Provenance = g.Provenance
+	}
+	if g.changeFlag&cGroupExternalSyncIdentifier == cGroupExternalSyncIdentifier {
+		data.ExternalSyncIdentifier = g.ExternalSyncIdentifier
+	}
+	if g.changeFlag&cGroupDescription == cGroupDescription {
+		data.Description = g.Description
+	}
+	if g.changeFlag&cGroupInvitabilityLevel == cGroupInvitabilityLevel {
+		data.InvitabilityLevel = g.InvitabilityLevel
+	}
+	if g.changeFlag&cGroupMemberViewabilityLevel == cGroupMemberViewabilityLevel {
+		data.MemberViewabilityLevel = g.MemberViewabilityLevel
+	}
+
+	b, _ := json.Marshal(data)
+	return NewRequest(g.apiInfo.api, url+query, PUT, nil, bytes.NewReader(b))
 }
+
+// Update Group
+//
+// Update a group.
+// https://developer.box.com/reference#update-a-group
 func (g *Group) UpdateGroup(groupId string, fields []string) (*Group, error) {
 
 	req := g.UpdateGroupReq(groupId, fields)
@@ -188,25 +274,32 @@ func (g *Group) UpdateGroup(groupId string, fields []string) (*Group, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to update group info"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &Group{apiInfo: &apiInfo{api: g.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
+// Delete Group
+//
+// Delete a group.
+// //https://developer.box.com/reference#delete-a-group
 func (g *Group) DeleteGroupReq(groupId string) *Request {
 	var url string
 	url = fmt.Sprintf("%s%s%s", g.apiInfo.api.BaseURL, "groups/", groupId)
 
 	return NewRequest(g.apiInfo.api, url, DELETE, nil, nil)
 }
+
+// Delete Group
+//
+// Delete a group.
+// //https://developer.box.com/reference#delete-a-group
 func (g *Group) DeleteGroup(groupId string) error {
 
 	req := g.DeleteGroupReq(groupId)
@@ -216,19 +309,36 @@ func (g *Group) DeleteGroup(groupId string) error {
 	}
 
 	if resp.ResponseCode != http.StatusNoContent {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to delete group"))
-		return err
+		return newApiStatusError(resp.Body)
 	}
 	return nil
 }
 
+// Get Enterprise Groups
+//
+// Returns all of the groups for given enterprise. Must have permissions to see an enterprise's groups.
+// https://developer.box.com/reference#groups
 func (g *Group) GetEnterpriseGroupsReq(name string, offset int32, limit int32, fields []string) *Request {
-	var url string
-	url = fmt.Sprintf("%s%s?&name=%s&offset=%d&limit=%d&%s", g.apiInfo.api.BaseURL, "groups", name, offset, limit, BuildFieldsQueryParams(fields))
-
-	return NewRequest(g.apiInfo.api, url, GET, nil, nil)
+	var urlBase string
+	var query string
+	urlBase = fmt.Sprintf("%s%s", g.apiInfo.api.BaseURL, "groups")
+	if limit > 1000 {
+		limit = 1000
+	}
+	query = fmt.Sprintf("?offset=%d&limit=%d", offset, limit)
+	if name != "" {
+		query += fmt.Sprintf("&name=%s", url.QueryEscape(name))
+	}
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query += fmt.Sprintf("&%s", fieldsParams)
+	}
+	return NewRequest(g.apiInfo.api, urlBase+query, GET, nil, nil)
 }
+
+// Get Enterprise Groups
+//
+// Returns all of the groups for given enterprise. Must have permissions to see an enterprise's groups.
+// https://developer.box.com/reference#groups
 func (g *Group) GetEnterpriseGroups(name string, offset int32, limit int32, fields []string) (outGroups []*Group, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := g.GetEnterpriseGroupsReq(name, offset, limit, fields)
@@ -238,9 +348,7 @@ func (g *Group) GetEnterpriseGroups(name string, offset int32, limit int32, fiel
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get enterprise groups"))
-		return nil, 0, 0, 0, err
+		return nil, 0, 0, 0, newApiStatusError(resp.Body)
 	}
 
 	groups := struct {
@@ -250,7 +358,7 @@ func (g *Group) GetEnterpriseGroups(name string, offset int32, limit int32, fiel
 		Limit      int      `json:"limit"`
 	}{}
 
-	err = json.Unmarshal(resp.Body, &groups)
+	err = UnmarshalJSONWrapper(resp.Body, &groups)
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}
