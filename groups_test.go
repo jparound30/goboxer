@@ -1,9 +1,15 @@
 package goboxer
 
 import (
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func setInvitabilityLevel(level InvitabilityLevel) *InvitabilityLevel {
@@ -11,6 +17,16 @@ func setInvitabilityLevel(level InvitabilityLevel) *InvitabilityLevel {
 }
 func setMemberViewabilityLevel(level MemberViewabilityLevel) *MemberViewabilityLevel {
 	return &level
+}
+
+func buildGroupOfGetInfoNormalJson() *Group {
+	var normal Group
+	normal.Type = setUserType(TYPE_GROUP)
+	normal.ID = setStringPtr("255224")
+	normal.Name = setStringPtr("Everyone")
+	normal.CreatedAt = setTime("2014-09-15T13:15:35-07:00")
+	normal.ModifiedAt = setTime("2014-09-15T13:15:35-07:00")
+	return &normal
 }
 
 func TestInvitabilityLevel_String(t *testing.T) {
@@ -150,94 +166,180 @@ func TestNewGroup(t *testing.T) {
 }
 
 func TestGroup_GetGroupReq(t *testing.T) {
-	type fields struct {
-		UserGroupMini          UserGroupMini
-		apiInfo                *apiInfo
-		CreatedAt              *time.Time
-		ModifiedAt             *time.Time
-		Provenance             *string
-		ExternalSyncIdentifier *string
-		Description            *string
-		InvitabilityLevel      *InvitabilityLevel
-		MemberViewabilityLevel *MemberViewabilityLevel
-	}
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
 	type args struct {
 		groupId string
 		fields  []string
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   *Request
+		name string
+		args args
+		want *Request
 	}{
 		// TODO: Add test cases.
+		{
+			name: "normal/fields=nil",
+			args: args{groupId: "10001", fields: nil},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/groups/10001",
+				Method:             GET,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
+		{
+			name: "normal/fields",
+			args: args{groupId: "10002", fields: []string{"type", "id"}},
+			want: &Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/groups/10002?fields=type,id",
+				Method:             GET,
+				headers:            http.Header{},
+				body:               nil,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := &Group{
-				UserGroupMini:          tt.fields.UserGroupMini,
-				apiInfo:                tt.fields.apiInfo,
-				CreatedAt:              tt.fields.CreatedAt,
-				ModifiedAt:             tt.fields.ModifiedAt,
-				Provenance:             tt.fields.Provenance,
-				ExternalSyncIdentifier: tt.fields.ExternalSyncIdentifier,
-				Description:            tt.fields.Description,
-				InvitabilityLevel:      tt.fields.InvitabilityLevel,
-				MemberViewabilityLevel: tt.fields.MemberViewabilityLevel,
-			}
-			if got := g.GetGroupReq(tt.args.groupId, tt.args.fields); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Group.GetGroupReq() = %v, want %v", got, tt.want)
+			t.Helper()
+
+			g := NewGroup(apiConn)
+			got := g.GetGroupReq(tt.args.groupId, tt.args.fields)
+
+			// If normal response
+			opts := diffCompOptions(*got)
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("differ:  (-got +want)\n%s", diff)
+				return
 			}
 		})
 	}
 }
 
 func TestGroup_GetGroup(t *testing.T) {
-	type fields struct {
-		UserGroupMini          UserGroupMini
-		apiInfo                *apiInfo
-		CreatedAt              *time.Time
-		ModifiedAt             *time.Time
-		Provenance             *string
-		ExternalSyncIdentifier *string
-		Description            *string
-		InvitabilityLevel      *InvitabilityLevel
-		MemberViewabilityLevel *MemberViewabilityLevel
-	}
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/groups") {
+				t.Errorf("invalid access url %s : %s", r.URL.Path, "/2.0/groups")
+			}
+			// Method check
+			if r.Method != http.MethodGet {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			groupId := strings.TrimPrefix(r.URL.Path, "/2.0/groups/")
+
+			switch groupId {
+			case "500":
+				w.WriteHeader(500)
+			case "404":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(404)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(200)
+				_, _ = w.Write([]byte("invalid json"))
+			default:
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(200)
+				resp, _ := ioutil.ReadFile("testdata/groups/group_normal.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	normal := buildGroupOfGetInfoNormalJson()
+	normal.apiInfo = &apiInfo{api: apiConn}
+
 	type args struct {
 		groupId string
 		fields  []string
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    *Group
 		wantErr bool
+		errType interface{}
 	}{
 		// TODO: Add test cases.
+		{"normal", args{"10001", nil}, normal, false, nil},
+		{"http error/404", args{"404", FolderAllFields}, nil, true, &ApiStatusError{Status: 404}},
+		{"returned invalid json/999", args{"999", nil}, nil, true, &ApiOtherError{}},
+		{"senderror", args{"999", nil}, nil, true, &ApiOtherError{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			g := &Group{
-				UserGroupMini:          tt.fields.UserGroupMini,
-				apiInfo:                tt.fields.apiInfo,
-				CreatedAt:              tt.fields.CreatedAt,
-				ModifiedAt:             tt.fields.ModifiedAt,
-				Provenance:             tt.fields.Provenance,
-				ExternalSyncIdentifier: tt.fields.ExternalSyncIdentifier,
-				Description:            tt.fields.Description,
-				InvitabilityLevel:      tt.fields.InvitabilityLevel,
-				MemberViewabilityLevel: tt.fields.MemberViewabilityLevel,
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			} else {
+				apiConn.Expires = 6000
 			}
+
+			g := NewGroup(apiConn)
 			got, err := g.GetGroup(tt.args.groupId, tt.args.fields)
+
+			// Error checks
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Group.GetGroup() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Group.GetGroup() = %v, want %v", got, tt.want)
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %v, wanted errorType %v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					expectedStatus := tt.errType.(*ApiStatusError).Status
+					if expectedStatus != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			// If normal response
+			opts := diffCompOptions(*got, apiInfo{})
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
+				return
+			}
+			// exists apiInfo
+			if got.apiInfo == nil {
+				t.Errorf("not exists `apiInfo` field\n")
+				return
 			}
 		})
 	}

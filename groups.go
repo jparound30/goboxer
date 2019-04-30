@@ -85,9 +85,12 @@ var GroupAllFields = []string{
 
 func (g *Group) GetGroupReq(groupId string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", g.apiInfo.api.BaseURL, "groups/", groupId, BuildFieldsQueryParams(fields))
-
-	return NewRequest(g.apiInfo.api, url, GET, nil, nil)
+	var query string
+	url = fmt.Sprintf("%s%s%s", g.apiInfo.api.BaseURL, "groups/", groupId)
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
+	}
+	return NewRequest(g.apiInfo.api, url+query, GET, nil, nil)
 }
 func (g *Group) GetGroup(groupId string, fields []string) (*Group, error) {
 
@@ -98,13 +101,11 @@ func (g *Group) GetGroup(groupId string, fields []string) (*Group, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get group info"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &Group{apiInfo: &apiInfo{api: g.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
