@@ -61,12 +61,20 @@ func NewMembership(api *ApiConn) *Membership {
 }
 
 // Get Membership
+//
+// Fetches a specific group membership entry.
+// https://developer.box.com/reference#get-a-group-membership-entry
 func (m *Membership) GetMembershipReq(membershipId string) *Request {
 	var url string
 	url = fmt.Sprintf("%s%s%s", m.apiInfo.api.BaseURL, "group_memberships", membershipId)
 
 	return NewRequest(m.apiInfo.api, url, GET, nil, nil)
 }
+
+// Get Membership
+//
+// Fetches a specific group membership entry.
+// https://developer.box.com/reference#get-a-group-membership-entry
 func (m *Membership) GetMembership(membershipId string) (*Membership, error) {
 
 	req := m.GetMembershipReq(membershipId)
@@ -92,6 +100,9 @@ func (m *Membership) GetMembership(membershipId string) (*Membership, error) {
 }
 
 // Create Membership
+//
+// Add a member to a group.
+// https://developer.box.com/reference#add-a-member-to-a-group
 func (m *Membership) CreateMembershipReq() *Request {
 	var url string
 	url = fmt.Sprintf("%s%s", m.apiInfo.api.BaseURL, "group_memberships")
@@ -103,6 +114,11 @@ func (m *Membership) CreateMembershipReq() *Request {
 	}
 	return NewRequest(m.apiInfo.api, url, POST, nil, bytes.NewReader(b))
 }
+
+// Create Membership
+//
+// Add a member to a group.
+// https://developer.box.com/reference#add-a-member-to-a-group
 func (m *Membership) CreateMembership() (*Membership, error) {
 
 	req := m.CreateMembershipReq()
@@ -154,6 +170,9 @@ func (m *Membership) SetConfigurablePermissions(canRunReports, canInstantLogin, 
 }
 
 // Update Membership
+//
+// Update a group membership.
+// https://developer.box.com/reference#update-a-group-membership
 func (m *Membership) UpdateMembershipReq(membershipId string) *Request {
 	var url string
 	url = fmt.Sprintf("%s%s%s", m.apiInfo.api.BaseURL, "group_memberships/", membershipId)
@@ -165,6 +184,11 @@ func (m *Membership) UpdateMembershipReq(membershipId string) *Request {
 	}
 	return NewRequest(m.apiInfo.api, url, PUT, nil, bytes.NewReader(b))
 }
+
+// Update Membership
+//
+// Update a group membership.
+// https://developer.box.com/reference#update-a-group-membership
 func (m *Membership) UpdateMembership(membershipId string) (*Membership, error) {
 
 	req := m.UpdateMembershipReq(membershipId)
@@ -190,12 +214,20 @@ func (m *Membership) UpdateMembership(membershipId string) (*Membership, error) 
 }
 
 // Delete Membership
+//
+// Delete a group membership.
+// https://developer.box.com/reference#delete-a-group-membership
 func (m *Membership) DeleteMembershipReq(membershipId string) *Request {
 	var url string
 	url = fmt.Sprintf("%s%s%s", m.apiInfo.api.BaseURL, "group_memberships/", membershipId)
 
 	return NewRequest(m.apiInfo.api, url, DELETE, nil, nil)
 }
+
+// Delete Membership
+//
+// Delete a group membership.
+// https://developer.box.com/reference#delete-a-group-membership
 func (m *Membership) DeleteMembership(membershipId string) error {
 
 	req := m.DeleteMembershipReq(membershipId)
@@ -213,12 +245,20 @@ func (m *Membership) DeleteMembership(membershipId string) error {
 }
 
 // Get Memberships for Group
+//
+// Returns all of the members for a given group if the requesting user has access.
+// https://developer.box.com/reference#get-the-membership-list-for-a-group
 func (m *Membership) GetMembershipForGroupReq(groupId string, offset int32, limit int32) *Request {
 	var url string
 	url = fmt.Sprintf("%s%s%s%s?&offset=%d&limit=%d", m.apiInfo.api.BaseURL, "groups/", groupId, "/memberships", offset, limit)
 
 	return NewRequest(m.apiInfo.api, url, GET, nil, nil)
 }
+
+// Get Memberships for Group
+//
+// Returns all of the members for a given group if the requesting user has access.
+// https://developer.box.com/reference#get-the-membership-list-for-a-group
 func (m *Membership) GetMembershipForGroup(groupId string, offset int32, limit int32) (outMembership []*Membership, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := m.GetMembershipForGroupReq(groupId, offset, limit)
@@ -248,12 +288,20 @@ func (m *Membership) GetMembershipForGroup(groupId string, offset int32, limit i
 }
 
 // Get Memberships for User
+//
+// Returns all of the group memberships for a given user. Note this is only available to group admins. To retrieve group memberships for the user making the API request, use the users/me/memberships endpoint.
+// https://developer.box.com/reference#get-all-group-memberships-for-a-user
 func (m *Membership) GetMembershipForUserReq(userId string, offset int32, limit int32) *Request {
 	var url string
 	url = fmt.Sprintf("%s%s%s%s?offset=%d&limit=%d", m.apiInfo.api.BaseURL, "users/", userId, "/memberships", offset, limit)
 
 	return NewRequest(m.apiInfo.api, url, GET, nil, nil)
 }
+
+// Get Memberships for User
+//
+// Returns all of the group memberships for a given user. Note this is only available to group admins. To retrieve group memberships for the user making the API request, use the users/me/memberships endpoint.
+// https://developer.box.com/reference#get-all-group-memberships-for-a-user
 func (m *Membership) GetMembershipForUser(userId string, offset int32, limit int32) (outMembership []*Membership, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := m.GetMembershipForUserReq(userId, offset, limit)
@@ -283,12 +331,20 @@ func (m *Membership) GetMembershipForUser(userId string, offset int32, limit int
 }
 
 // Get Collaborations for Group
+//
+// Returns all of the group collaborations for a given group. Note this is only available to group admins.
+// https://developer.box.com/reference#get-all-collaborations-for-a-group
 func (m *Membership) GetCollaborationsForGroupReq(groupId string, offset int32, limit int32) *Request {
 	var url string
 	url = fmt.Sprintf("%s%s%s%s?&offset=%d&limit=%d", m.apiInfo.api.BaseURL, "groups/", groupId, "/collaborations", offset, limit)
 
 	return NewRequest(m.apiInfo.api, url, GET, nil, nil)
 }
+
+// Get Collaborations for Group
+//
+// Returns all of the group collaborations for a given group. Note this is only available to group admins.
+// https://developer.box.com/reference#get-all-collaborations-for-a-group
 func (m *Membership) GetCollaborationsForGroup(groupId string, offset int32, limit int32) (outCollaborations []*Collaboration, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := m.GetCollaborationsForGroupReq(groupId, offset, limit)

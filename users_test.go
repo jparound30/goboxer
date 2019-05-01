@@ -189,7 +189,11 @@ func TestUserStatus_MarshalJSON(t *testing.T) {
 		want    []byte
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{"nil", nil, []byte(`null`), false},
+		{"normal/active", setUserStatus(UserStatusActive), []byte(`"active"`), false},
+		{"normal/inactive", setUserStatus(UserStatusInactive), []byte(`"inactive"`), false},
+		{"normal/cannot_delete_edit", setUserStatus(UserStatusCannotDeleteEdit), []byte(`"cannot_delete_edit"`), false},
+		{"normal/cannot_delete_edit_upload", setUserStatus(UserStatusCannotDeleteEditUpload), []byte(`"cannot_delete_edit_upload"`), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -205,13 +209,20 @@ func TestUserStatus_MarshalJSON(t *testing.T) {
 	}
 }
 
+func setUserStatus(status UserStatus) *UserStatus {
+	return &status
+}
+
 func TestUserRole_String(t *testing.T) {
 	tests := []struct {
 		name string
 		ur   *UserRole
 		want string
 	}{
-		// TODO: Add test cases.
+		{"nil", nil, "<nil>"},
+		{"admin", setUserRole(UserRoleAdmin), "admin"},
+		{"coadmin", setUserRole(UserRoleCoAdmin), "coadmin"},
+		{"user", setUserRole(UserRoleUser), "user"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -229,7 +240,10 @@ func TestUserRole_MarshalJSON(t *testing.T) {
 		want    []byte
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{"nil", nil, []byte(`null`), false},
+		{"normal/admin", setUserRole(UserRoleAdmin), []byte(`"admin"`), false},
+		{"normal/coadmin", setUserRole(UserRoleCoAdmin), []byte(`"coadmin"`), false},
+		{"normal/user", setUserRole(UserRoleUser), []byte(`"user"`), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -245,13 +259,19 @@ func TestUserRole_MarshalJSON(t *testing.T) {
 	}
 }
 
+func setUserRole(role UserRole) *UserRole {
+	return &role
+}
+
 func TestEnterpriseType_String(t *testing.T) {
 	tests := []struct {
 		name string
 		et   *EnterpriseType
 		want string
 	}{
-		// TODO: Add test cases.
+		{"nil", nil, "<nil>"},
+		{"enterprise", setEnterpriseType(EnterpriseTypeEnterprise), "enterprise"},
+		{"user", setEnterpriseType(EnterpriseTypeUser), "user"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -269,7 +289,9 @@ func TestEnterpriseType_MarshalJSON(t *testing.T) {
 		want    []byte
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{"nil", nil, []byte(`null`), false},
+		{"normal/enterprise", setEnterpriseType(EnterpriseTypeEnterprise), []byte(`"enterprise"`), false},
+		{"normal/user", setEnterpriseType(EnterpriseTypeUser), []byte(`"user"`), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -283,4 +305,8 @@ func TestEnterpriseType_MarshalJSON(t *testing.T) {
 			}
 		})
 	}
+}
+
+func setEnterpriseType(enterpriseType EnterpriseType) *EnterpriseType {
+	return &enterpriseType
 }
