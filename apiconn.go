@@ -2,13 +2,14 @@ package goboxer
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -101,7 +102,7 @@ func (ac *ApiConn) Refresh() error {
 	defer ac.rwLock.Unlock()
 
 	if !ac.canRefresh() {
-		err := errors.New("cannot refreshed(There is NO RefreshToken")
+		err := xerrors.New("cannot refreshed(There is NO RefreshToken")
 		ac.notifyFail(err)
 		return err
 	}
@@ -123,17 +124,17 @@ func (ac *ApiConn) Refresh() error {
 		return err
 	}
 	if resp.ResponseCode != http.StatusOK {
-
+		err := xerrors.New("failed to refresh")
 		ac.notifyFail(err)
-		return errors.New("failed to refresh")
+		return err
 	}
 
 	var tokenResp tokenResponse
 	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
+		err = xerrors.Errorf("failed to parse response. error = %w", err)
 		ac.notifyFail(err)
 		return err
 	}
-	//fmt.Print(jsonBody)
 
 	ac.AccessToken = tokenResp.AccessToken
 	ac.RefreshToken = tokenResp.RefreshToken
@@ -168,13 +169,14 @@ func (ac *ApiConn) Authenticate(authCode string) error {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		err := errors.New("failed to Authenticate with authCode")
+		err := xerrors.New("failed to Authenticate with authCode")
 		ac.notifyFail(err)
 		return err
 	}
 
 	var tokenResp tokenResponse
 	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
+		err = xerrors.Errorf("failed to parse response. error = %w", err)
 		ac.notifyFail(err)
 		return err
 	}
@@ -208,7 +210,7 @@ func (ac *ApiConn) SaveState() ([]byte, error) {
 
 	bytes, err := json.MarshalIndent(state, "", "")
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("failed to serialize state. error = %w", err)
 	}
 	return bytes, nil
 }
@@ -217,7 +219,7 @@ func (ac *ApiConn) RestoreApiConn(stateData []byte) error {
 	var state ApiConnState
 	err := json.Unmarshal(stateData, &state)
 	if err != nil {
-		return err
+		return xerrors.Errorf("failed to deserialize state. error = %w", err)
 	}
 	ac.AccessToken = state.AccessToken
 	ac.RefreshToken = state.RefreshToken
