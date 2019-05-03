@@ -3,7 +3,6 @@ package goboxer
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -66,7 +65,7 @@ func NewMembership(api *ApiConn) *Membership {
 // https://developer.box.com/reference#get-a-group-membership-entry
 func (m *Membership) GetMembershipReq(membershipId string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s", m.apiInfo.api.BaseURL, "group_memberships", membershipId)
+	url = fmt.Sprintf("%s%s%s", m.apiInfo.api.BaseURL, "group_memberships/", membershipId)
 
 	return NewRequest(m.apiInfo.api, url, GET, nil, nil)
 }
@@ -84,18 +83,15 @@ func (m *Membership) GetMembership(membershipId string) (*Membership, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get membership"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
-	membership := Membership{}
+	membership := Membership{apiInfo: m.apiInfo}
 
-	err = json.Unmarshal(resp.Body, &membership)
+	err = UnmarshalJSONWrapper(resp.Body, &membership)
 	if err != nil {
 		return nil, err
 	}
-	membership.apiInfo = m.apiInfo
 	return &membership, nil
 }
 
@@ -106,12 +102,17 @@ func (m *Membership) GetMembership(membershipId string) (*Membership, error) {
 func (m *Membership) CreateMembershipReq() *Request {
 	var url string
 	url = fmt.Sprintf("%s%s", m.apiInfo.api.BaseURL, "group_memberships")
-
-	b, err := json.Marshal(m)
-	if err != nil {
-		// TODO error handling....
-		fmt.Println(err)
+	data := &Membership{
+		User:  &UserGroupMini{ID: m.User.ID},
+		Group: &UserGroupMini{ID: m.Group.ID},
 	}
+	if m.ConfigurablePermissions != nil {
+		data.ConfigurablePermissions = m.ConfigurablePermissions
+	}
+	if m.Role != nil {
+		data.Role = m.Role
+	}
+	b, _ := json.Marshal(data)
 	return NewRequest(m.apiInfo.api, url, POST, nil, bytes.NewReader(b))
 }
 
@@ -128,19 +129,16 @@ func (m *Membership) CreateMembership() (*Membership, error) {
 	}
 
 	if resp.ResponseCode != http.StatusCreated {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to create membership"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
-	membership := Membership{}
+	membership := &Membership{apiInfo: m.apiInfo}
 
-	err = json.Unmarshal(resp.Body, &membership)
+	err = UnmarshalJSONWrapper(resp.Body, membership)
 	if err != nil {
 		return nil, err
 	}
-	membership.apiInfo = m.apiInfo
-	return &membership, nil
+	return membership, nil
 }
 
 func (m *Membership) SetUser(userId string) *Membership {
@@ -177,11 +175,14 @@ func (m *Membership) UpdateMembershipReq(membershipId string) *Request {
 	var url string
 	url = fmt.Sprintf("%s%s%s", m.apiInfo.api.BaseURL, "group_memberships/", membershipId)
 
-	b, err := json.Marshal(m)
-	if err != nil {
-		// TODO error handling....
-		fmt.Println(err)
+	data := &Membership{}
+	if m.ConfigurablePermissions != nil {
+		data.ConfigurablePermissions = m.ConfigurablePermissions
 	}
+	if m.Role != nil {
+		data.Role = m.Role
+	}
+	b, _ := json.Marshal(data)
 	return NewRequest(m.apiInfo.api, url, PUT, nil, bytes.NewReader(b))
 }
 
@@ -198,18 +199,15 @@ func (m *Membership) UpdateMembership(membershipId string) (*Membership, error) 
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to update membership"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
-	membership := Membership{}
+	membership := Membership{apiInfo: m.apiInfo}
 
-	err = json.Unmarshal(resp.Body, &membership)
+	err = UnmarshalJSONWrapper(resp.Body, &membership)
 	if err != nil {
 		return nil, err
 	}
-	membership.apiInfo = m.apiInfo
 	return &membership, nil
 }
 
@@ -237,9 +235,7 @@ func (m *Membership) DeleteMembership(membershipId string) error {
 	}
 
 	if resp.ResponseCode != http.StatusNoContent {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to delete membership"))
-		return err
+		return newApiStatusError(resp.Body)
 	}
 	return nil
 }
@@ -250,7 +246,10 @@ func (m *Membership) DeleteMembership(membershipId string) error {
 // https://developer.box.com/reference#get-the-membership-list-for-a-group
 func (m *Membership) GetMembershipForGroupReq(groupId string, offset int32, limit int32) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s%s?&offset=%d&limit=%d", m.apiInfo.api.BaseURL, "groups/", groupId, "/memberships", offset, limit)
+	if limit > 1000 {
+		limit = 1000
+	}
+	url = fmt.Sprintf("%s%s%s%s?offset=%d&limit=%d", m.apiInfo.api.BaseURL, "groups/", groupId, "/memberships", offset, limit)
 
 	return NewRequest(m.apiInfo.api, url, GET, nil, nil)
 }
@@ -268,9 +267,7 @@ func (m *Membership) GetMembershipForGroup(groupId string, offset int32, limit i
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get memberships for group"))
-		return nil, 0, 0, 0, err
+		return nil, 0, 0, 0, newApiStatusError(resp.Body)
 	}
 
 	memberships := struct {
@@ -280,9 +277,12 @@ func (m *Membership) GetMembershipForGroup(groupId string, offset int32, limit i
 		Limit      int           `json:"limit"`
 	}{}
 
-	err = json.Unmarshal(resp.Body, &memberships)
+	err = UnmarshalJSONWrapper(resp.Body, &memberships)
 	if err != nil {
 		return nil, 0, 0, 0, err
+	}
+	for _, v := range memberships.Entries {
+		v.apiInfo = m.apiInfo
 	}
 	return memberships.Entries, memberships.Offset, memberships.Limit, memberships.TotalCount, nil
 }
@@ -293,6 +293,9 @@ func (m *Membership) GetMembershipForGroup(groupId string, offset int32, limit i
 // https://developer.box.com/reference#get-all-group-memberships-for-a-user
 func (m *Membership) GetMembershipForUserReq(userId string, offset int32, limit int32) *Request {
 	var url string
+	if limit > 1000 {
+		limit = 1000
+	}
 	url = fmt.Sprintf("%s%s%s%s?offset=%d&limit=%d", m.apiInfo.api.BaseURL, "users/", userId, "/memberships", offset, limit)
 
 	return NewRequest(m.apiInfo.api, url, GET, nil, nil)
@@ -311,9 +314,7 @@ func (m *Membership) GetMembershipForUser(userId string, offset int32, limit int
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get memberships for user"))
-		return nil, 0, 0, 0, err
+		return nil, 0, 0, 0, newApiStatusError(resp.Body)
 	}
 
 	memberships := struct {
@@ -323,9 +324,12 @@ func (m *Membership) GetMembershipForUser(userId string, offset int32, limit int
 		Limit      int           `json:"limit"`
 	}{}
 
-	err = json.Unmarshal(resp.Body, &memberships)
+	err = UnmarshalJSONWrapper(resp.Body, &memberships)
 	if err != nil {
 		return nil, 0, 0, 0, err
+	}
+	for _, v := range memberships.Entries {
+		v.apiInfo = m.apiInfo
 	}
 	return memberships.Entries, memberships.Offset, memberships.Limit, memberships.TotalCount, nil
 }
@@ -336,7 +340,10 @@ func (m *Membership) GetMembershipForUser(userId string, offset int32, limit int
 // https://developer.box.com/reference#get-all-collaborations-for-a-group
 func (m *Membership) GetCollaborationsForGroupReq(groupId string, offset int32, limit int32) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s%s?&offset=%d&limit=%d", m.apiInfo.api.BaseURL, "groups/", groupId, "/collaborations", offset, limit)
+	if limit > 1000 {
+		limit = 1000
+	}
+	url = fmt.Sprintf("%s%s%s%s?offset=%d&limit=%d", m.apiInfo.api.BaseURL, "groups/", groupId, "/collaborations", offset, limit)
 
 	return NewRequest(m.apiInfo.api, url, GET, nil, nil)
 }
@@ -354,9 +361,7 @@ func (m *Membership) GetCollaborationsForGroup(groupId string, offset int32, lim
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get collaborations for group"))
-		return nil, 0, 0, 0, err
+		return nil, 0, 0, 0, newApiStatusError(resp.Body)
 	}
 
 	collabs := struct {
@@ -366,9 +371,12 @@ func (m *Membership) GetCollaborationsForGroup(groupId string, offset int32, lim
 		Limit      int              `json:"limit"`
 	}{}
 
-	err = json.Unmarshal(resp.Body, &collabs)
+	err = UnmarshalJSONWrapper(resp.Body, &collabs)
 	if err != nil {
 		return nil, 0, 0, 0, err
+	}
+	for _, v := range collabs.Entries {
+		v.apiInfo = m.apiInfo
 	}
 	return collabs.Entries, collabs.Offset, collabs.Limit, collabs.TotalCount, nil
 }
