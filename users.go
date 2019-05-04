@@ -133,12 +133,26 @@ var UserAllFields = []string{
 	"my_tags", "hostname", "is_platform_access_only", "external_app_user_id",
 }
 
+// Get Current User
+//
+// Get information about the user who is currently logged in (i.e. the user for whom this access token was generated).
+// https://developer.box.com/reference#get-the-current-users-information
 func (u *User) GetCurrentUserReq(fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s?%s", u.apiInfo.api.BaseURL, "users/me", BuildFieldsQueryParams(fields))
+	var query string
 
-	return NewRequest(u.apiInfo.api, url, GET, nil, nil)
+	url = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users/me")
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
+	}
+
+	return NewRequest(u.apiInfo.api, url+query, GET, nil, nil)
 }
+
+// Get User
+//
+// Get information about a user in the enterprise. Requires enterprise administration authorization.
+// https://developer.box.com/reference#users
 func (u *User) GetCurrentUser(fields []string) (*User, error) {
 
 	req := u.GetCurrentUserReq(fields)
@@ -148,24 +162,31 @@ func (u *User) GetCurrentUser(fields []string) (*User, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get current user info"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
+// Get User
+//
+// Get information about a user in the enterprise. Requires enterprise administration authorization.
+// https://developer.box.com/reference#users
 func (u *User) GetUserReq(userId string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", u.apiInfo.api.BaseURL, "users/", userId, BuildFieldsQueryParams(fields))
+	var query string
 
-	return NewRequest(u.apiInfo.api, url, GET, nil, nil)
+	url = fmt.Sprintf("%s%s%s", u.apiInfo.api.BaseURL, "users/", userId)
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
+	}
+
+	return NewRequest(u.apiInfo.api, url+query, GET, nil, nil)
 }
 func (u *User) GetUser(userId string, fields []string) (*User, error) {
 
@@ -176,13 +197,11 @@ func (u *User) GetUser(userId string, fields []string) (*User, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get user info"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
