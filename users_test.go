@@ -83,6 +83,7 @@ func TestUser_Unmarshal(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				0,
 			},
 		},
 	}
@@ -114,7 +115,7 @@ func TestUser_UnmarshalMarshal(t *testing.T) {
 	spaceAmount := int64(11345156112)
 	spaceUsed := int64(1237009912)
 	maxUploadSize := 2147483648
-	trackingCodes := []map[string]string{}
+	trackingCodes := []map[string]string{{"k1": "v1"}, {"k2": "v2"}}
 	canSeeManagedUsers := true
 	isSyncEnabled := true
 	status := UserStatusActive
@@ -168,6 +169,7 @@ func TestUser_UnmarshalMarshal(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				0,
 			},
 		},
 	}
@@ -675,6 +677,631 @@ func TestUser_GetUser(t *testing.T) {
 
 			u := NewUser(apiConn)
 			got, err := u.GetUser(tt.args.userId, tt.args.fields)
+
+			// Error checks
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %v, wanted errorType %v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					expectedStatus := tt.errType.(*ApiStatusError).Status
+					if expectedStatus != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			// If normal response
+			opts := diffCompOptions(*got, apiInfo{})
+			if diff := cmp.Diff(&got, &tt.want, opts...); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
+				return
+			}
+			// exists apiInfo
+			if got.apiInfo == nil {
+				t.Errorf("not exists `apiInfo` field\n")
+				return
+			}
+		})
+	}
+}
+
+func buildUserOfCommon(apiConn *ApiConn) *User {
+	u := &User{
+		apiInfo: &apiInfo{api: apiConn},
+		UserGroupMini: UserGroupMini{
+			Type:  setUserType(TYPE_USER),
+			ID:    setStringPtr("181216415"),
+			Name:  setStringPtr("sean rose"),
+			Login: setStringPtr("sean+awesome@box.com"),
+		},
+		CreatedAt:                     setTime("2012-05-03T21:39:11-07:00"),
+		ModifiedAt:                    setTime("2012-11-14T11:21:32-08:00"),
+		Role:                          setUserRole(UserRoleAdmin),
+		Language:                      setStringPtr("en"),
+		Timezone:                      setStringPtr("Africa/Bujumbura"),
+		SpaceAmount:                   11345156112,
+		SpaceUsed:                     1237009912,
+		MaxUploadSize:                 2147483648,
+		TrackingCodes:                 []map[string]string{},
+		CanSeeManagedUsers:            setBool(true),
+		IsSyncEnabled:                 setBool(true),
+		Status:                        setUserStatus(UserStatusActive),
+		JobTitle:                      setStringPtr(""),
+		Phone:                         setStringPtr("6509241374"),
+		Address:                       setStringPtr(""),
+		AvatarUrl:                     setStringPtr("https://www.box.com/api/avatar/large/181216415"),
+		IsExemptFromDeviceLimits:      setBool(false),
+		IsExemptFromLoginVerification: setBool(false),
+		Enterprise: &Enterprise{
+			Type: EnterpriseTypeEnterprise,
+			Id:   "17077211",
+			Name: "seanrose enterprise",
+		},
+		MyTags: &[]string{"important", "needs review"},
+	}
+	return u
+}
+func TestUser_CreateUserReq(t *testing.T) {
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	u0001 := buildUserOfCommon(apiConn)
+	u0001.SetLogin("10001@example.com")
+	u0001.SetName("Jane Doe1")
+
+	u0002 := buildUserOfCommon(apiConn)
+	u0002.SetLogin("10002@example.com")
+	u0002.SetName("Jane Doe2")
+	u0002.SetRole(UserRoleCoAdmin)
+
+	u0003 := buildUserOfCommon(apiConn)
+	u0003.SetLogin("10003@example.com")
+	u0003.SetName("Jane Doe3")
+	u0003.SetLanguage("ja")
+
+	u0004 := buildUserOfCommon(apiConn)
+	u0004.SetLogin("10004@example.com")
+	u0004.SetName("Jane Doe4")
+	u0004.SetIsSyncEnabled(true)
+
+	u0005 := buildUserOfCommon(apiConn)
+	u0005.SetLogin("10005@example.com")
+	u0005.SetName("Jane Doe5")
+	u0005.SetJobTitle("MANAGER")
+
+	u0006 := buildUserOfCommon(apiConn)
+	u0006.SetLogin("10006@example.com")
+	u0006.SetName("Jane Doe6")
+	u0006.SetPhone("123-456-789")
+
+	u0007 := buildUserOfCommon(apiConn)
+	u0007.SetLogin("10007@example.com")
+	u0007.SetName("Jane Doe7")
+	u0007.SetAddress("1-2, ABC Street")
+
+	u0008 := buildUserOfCommon(apiConn)
+	u0008.SetLogin("10008@example.com")
+	u0008.SetName("Jane Doe8")
+	u0008.SetSpaceAmount(123456789)
+
+	u0009 := buildUserOfCommon(apiConn)
+	u0009.SetLogin("10009@example.com")
+	u0009.SetName("Jane Doe9")
+	u0009.SetTrackingCodes([]map[string]string{{"key1": "value1"}, {"key2": "value2"}})
+
+	u0010 := buildUserOfCommon(apiConn)
+	u0010.SetLogin("10010@example.com")
+	u0010.SetName("Jane Doe10")
+	u0010.SetCanSeeManagedUsers(false)
+
+	u0011 := buildUserOfCommon(apiConn)
+	u0011.SetLogin("10011@example.com")
+	u0011.SetName("Jane Doe11")
+	u0011.SetTimezone("America/Los_Angeles")
+
+	u0012 := buildUserOfCommon(apiConn)
+	u0012.SetLogin("10012@example.com")
+	u0012.SetName("Jane Doe12")
+	u0012.SetIsExemptFromDeviceLimits(true)
+
+	u0013 := buildUserOfCommon(apiConn)
+	u0013.SetLogin("10013@example.com")
+	u0013.SetName("Jane Doe13")
+	u0013.SetIsExemptFromLoginVerification(true)
+
+	u0014 := buildUserOfCommon(apiConn)
+	u0014.SetLogin("10014@example.com")
+	u0014.SetName("Jane Doe14")
+	u0014.SetIsExternalCollabRestricted(true)
+
+	u0015 := buildUserOfCommon(apiConn)
+	u0015.SetLogin("10015@example.com")
+	u0015.SetName("Jane Doe15")
+	u0015.SetStatus(UserStatusCannotDeleteEditUpload)
+
+	type args struct {
+		fields []string
+	}
+	tests := []struct {
+		name   string
+		target *User
+		args   args
+		want   *Request
+	}{
+		{"minimum",
+			u0001,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10001@example.com",
+	"name": "Jane Doe1"
+}
+`),
+			},
+		},
+		{"role",
+			u0002,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10002@example.com",
+	"name": "Jane Doe2",
+	"role": "coadmin"
+}
+`),
+			},
+		},
+		{"language",
+			u0003,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10003@example.com",
+	"name": "Jane Doe3",
+	"language": "ja"
+}
+`),
+			},
+		},
+		{"is_sync_enabled",
+			u0004,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10004@example.com",
+	"name": "Jane Doe4",
+	"is_sync_enabled": true
+}
+`),
+			},
+		},
+		{"job_title",
+			u0005,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10005@example.com",
+	"name": "Jane Doe5",
+	"job_title": "MANAGER"
+}
+`),
+			},
+		},
+		{"phone",
+			u0006,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10006@example.com",
+	"name": "Jane Doe6",
+	"phone": "123-456-789"
+}
+`),
+			},
+		},
+		{"phone",
+			u0007,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10007@example.com",
+	"name": "Jane Doe7",
+	"address": "1-2, ABC Street"
+}
+`),
+			},
+		},
+		{"space_amount",
+			u0008,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10008@example.com",
+	"name": "Jane Doe8",
+	"space_amount": 123456789
+}
+`),
+			},
+		},
+		{"tracking_codes",
+			u0009,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10009@example.com",
+	"name": "Jane Doe9",
+	"tracking_codes": [{"key1":"value1"},{"key2":"value2"}]
+}
+`),
+			},
+		},
+		{"can_see_managed_users",
+			u0010,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10010@example.com",
+	"name": "Jane Doe10",
+	"can_see_managed_users": false
+}
+`),
+			},
+		},
+		{"timezone",
+			u0011,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10011@example.com",
+	"name": "Jane Doe11",
+	"timezone": "America/Los_Angeles"
+}
+`),
+			},
+		},
+		{"is_exempt_from_device_limits",
+			u0012,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10012@example.com",
+	"name": "Jane Doe12",
+	"is_exempt_from_device_limits": true
+}
+`),
+			},
+		},
+		{"is_exempt_from_login_verification",
+			u0013,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10013@example.com",
+	"name": "Jane Doe13",
+	"is_exempt_from_login_verification": true
+}
+`),
+			},
+		},
+		{"is_external_collab_restricted",
+			u0014,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10014@example.com",
+	"name": "Jane Doe14",
+	"is_external_collab_restricted": true
+}
+`),
+			},
+		},
+		{"status",
+			u0015,
+			args{nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10015@example.com",
+	"name": "Jane Doe15",
+	"status": "cannot_delete_edit_upload"
+}
+`),
+			},
+		},
+		{"fields",
+			u0001,
+			args{[]string{"type", "id"}},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users?fields=type,id",
+				Method:             POST,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body: strings.NewReader(`
+{
+	"login": "10001@example.com",
+	"name": "Jane Doe1"
+}
+`),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			u := tt.target
+			got := u.CreateUserReq(tt.args.fields)
+
+			opts := diffCompOptions(*got)
+			opts = append(opts, cmpopts.IgnoreUnexported(Request{}))
+
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("diff:  (-got +want)\n%s", diff)
+				return
+			}
+
+			gotBodyDec := json.NewDecoder(got.body)
+			var gotBody map[string]interface{}
+			err := gotBodyDec.Decode(&gotBody)
+			if err != nil {
+				t.Fatalf("body json doesnt unmarshal")
+			}
+
+			expBodyDec := json.NewDecoder(tt.want.body)
+			var expBody map[string]interface{}
+			err = expBodyDec.Decode(&expBody)
+			if err != nil {
+				t.Fatalf("body json doesnt unmarshal")
+			}
+			if diff := cmp.Diff(gotBody, expBody); diff != "" {
+				t.Errorf("body differs: (-got +want)\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestUser_CreateUser(t *testing.T) {
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/users") {
+				t.Errorf("invalid access url %s : %s", r.URL.Path, "/2.0/users")
+			}
+			// Method check
+			if r.Method != http.MethodPost {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			var v map[string]interface{}
+			decoder := json.NewDecoder(r.Body)
+			err := decoder.Decode(&v)
+			if err != nil {
+				t.Fatalf("there is no body data")
+			}
+			id := v["login"]
+
+			switch id {
+			case "500":
+				w.WriteHeader(500)
+			case "404":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(404)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				_, _ = w.Write([]byte("invalid json"))
+			default:
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(201)
+				resp, _ := ioutil.ReadFile("testdata/users/create_user.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	normal := &User{
+		apiInfo: &apiInfo{api: apiConn},
+		UserGroupMini: UserGroupMini{
+			Type:  setUserType(TYPE_USER),
+			ID:    setStringPtr("187273718"),
+			Name:  setStringPtr("Ned Stark"),
+			Login: setStringPtr("eddard@box.com"),
+		},
+		CreatedAt:     setTime("2012-11-15T16:34:28-08:00"),
+		ModifiedAt:    setTime("2012-11-15T16:34:29-08:00"),
+		Role:          setUserRole(UserRoleUser),
+		Language:      setStringPtr("en"),
+		Timezone:      setStringPtr("America/Los_Angeles"),
+		SpaceAmount:   5368709120,
+		SpaceUsed:     0,
+		MaxUploadSize: 2147483648,
+		Status:        setUserStatus(UserStatusActive),
+		JobTitle:      setStringPtr(""),
+		Phone:         setStringPtr("555-555-5555"),
+		Address:       setStringPtr("555 Box Lane"),
+		AvatarUrl:     setStringPtr("https://www.box.com/api/avatar/large/187273718"),
+	}
+
+	u1 := buildUserOfCommon(apiConn)
+	u1.SetLogin("10001")
+	u2 := buildUserOfCommon(apiConn)
+	u2.SetLogin("404")
+	u3 := buildUserOfCommon(apiConn)
+	u3.SetLogin("999")
+	u4 := buildUserOfCommon(apiConn)
+	u4.SetLogin("999")
+
+	type args struct {
+		fields []string
+	}
+	tests := []struct {
+		name    string
+		target  *User
+		args    args
+		want    *User
+		wantErr bool
+		errType interface{}
+	}{
+		{"normal", u1, args{[]string{"type"}},
+			normal, false, nil,
+		},
+		{"http error/404", u2, args{[]string{"id"}},
+			nil, true, &ApiStatusError{Status: 404},
+		},
+		{"returned invalid json/999", u3, args{[]string{"name"}},
+			nil, true, &ApiOtherError{},
+		},
+		{"senderror", u4, args{[]string{"name"}},
+			nil, true, &ApiOtherError{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			} else {
+				apiConn.Expires = 6000
+			}
+
+			u := tt.target
+			got, err := u.CreateUser(tt.args.fields)
 
 			// Error checks
 			if (err != nil) != tt.wantErr {

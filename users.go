@@ -100,7 +100,7 @@ type User struct {
 	Address                       *string             `json:"address,omitempty"`
 	AvatarUrl                     *string             `json:"avatar_url,omitempty"`
 	Role                          *UserRole           `json:"role,omitempty"`
-	TrackingCodes                 []map[string]string `json:"tracking_codes"`
+	TrackingCodes                 []map[string]string `json:"tracking_codes,omitempty"`
 	CanSeeManagedUsers            *bool               `json:"can_see_managed_users,omitempty"`
 	IsSyncEnabled                 *bool               `json:"is_sync_enabled,omitempty"`
 	IsExternalCollabRestricted    *bool               `json:"is_external_collab_restricted,omitempty"`
@@ -111,7 +111,29 @@ type User struct {
 	Hostname                      *string             `json:"hostname,omitempty"`
 	IsPlatformAccessOnly          *bool               `json:"is_platform_access_only,omitempty"`
 	ExternalAppUserId             *string             `json:"external_app_user_id,omitempty"`
+
+	changeFlag uint64
 }
+
+const (
+	cUserName uint64 = 1 << (iota)
+	cUserRole
+	cUserLanguage
+	cUserIsSyncEnabled
+	cUserJobTitle
+	cUserPhone
+	cUserAddress
+	cUserSpaceAmount
+	cUserTrackingCodes
+	cUserCanSeeMangedUsers
+	cUserTimezone
+	cUserIsExemptFromDeviceLimits
+	cUserIsExemptFromLoginVerification
+	cUserIsExternalCollabRestricted
+	cUserStatus
+	cUserIsPasswordResetRequired
+	cUserIsPlatformAccessOnly
+)
 
 func (u *User) ResourceType() BoxResourceType {
 	return UserResource
@@ -212,14 +234,60 @@ func (u *User) GetUser(userId string, fields []string) (*User, error) {
 
 func (u *User) CreateUserReq(fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s?%s", u.apiInfo.api.BaseURL, "users/", BuildFieldsQueryParams(fields))
-
-	bodyBytes, err := json.Marshal(u)
-	if err != nil {
-		fmt.Println(err)
+	var query string
+	url = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users")
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
 	}
 
-	return NewRequest(u.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	data := &User{}
+	data.Login = u.Login
+	data.Name = u.Name
+	if u.changeFlag&cUserRole == cUserRole {
+		data.Role = u.Role
+	}
+	if u.changeFlag&cUserLanguage == cUserLanguage {
+		data.Language = u.Language
+	}
+	if u.changeFlag&cUserIsSyncEnabled == cUserIsSyncEnabled {
+		data.IsSyncEnabled = u.IsSyncEnabled
+	}
+	if u.changeFlag&cUserJobTitle == cUserJobTitle {
+		data.JobTitle = u.JobTitle
+	}
+	if u.changeFlag&cUserPhone == cUserPhone {
+		data.Phone = u.Phone
+	}
+	if u.changeFlag&cUserAddress == cUserAddress {
+		data.Address = u.Address
+	}
+	if u.changeFlag&cUserSpaceAmount == cUserSpaceAmount {
+		data.SpaceAmount = u.SpaceAmount
+	}
+	if u.changeFlag&cUserTrackingCodes == cUserTrackingCodes {
+		data.TrackingCodes = u.TrackingCodes
+	}
+	if u.changeFlag&cUserCanSeeMangedUsers == cUserCanSeeMangedUsers {
+		data.CanSeeManagedUsers = u.CanSeeManagedUsers
+	}
+	if u.changeFlag&cUserTimezone == cUserTimezone {
+		data.Timezone = u.Timezone
+	}
+	if u.changeFlag&cUserIsExemptFromDeviceLimits == cUserIsExemptFromDeviceLimits {
+		data.IsExemptFromDeviceLimits = u.IsExemptFromDeviceLimits
+	}
+	if u.changeFlag&cUserIsExemptFromLoginVerification == cUserIsExemptFromLoginVerification {
+		data.IsExemptFromLoginVerification = u.IsExemptFromLoginVerification
+	}
+	if u.changeFlag&cUserIsExternalCollabRestricted == cUserIsExternalCollabRestricted {
+		data.IsExternalCollabRestricted = u.IsExternalCollabRestricted
+	}
+	if u.changeFlag&cUserStatus == cUserStatus {
+		data.Status = u.Status
+	}
+	bodyBytes, _ := json.Marshal(data)
+
+	return NewRequest(u.apiInfo.api, url+query, POST, nil, bytes.NewReader(bodyBytes))
 }
 func (u *User) CreateUser(fields []string) (*User, error) {
 
@@ -230,13 +298,11 @@ func (u *User) CreateUser(fields []string) (*User, error) {
 	}
 
 	if resp.ResponseCode != http.StatusCreated {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to create user"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
@@ -249,63 +315,78 @@ func (u *User) SetLogin(login string) *User {
 }
 func (u *User) SetName(name string) *User {
 	u.Name = &name
+	u.changeFlag |= cUserName
 	return u
 }
 func (u *User) SetRole(role UserRole) *User {
 	u.Role = &role
+	u.changeFlag |= cUserRole
 	return u
 }
 func (u *User) SetLanguage(language string) *User {
 	u.Language = &language
+	u.changeFlag |= cUserLanguage
 	return u
 }
 func (u *User) SetIsSyncEnabled(isSyncEnabled bool) *User {
 	u.IsSyncEnabled = &isSyncEnabled
+	u.changeFlag |= cUserIsSyncEnabled
 	return u
 }
 func (u *User) SetJobTitle(jobTitle string) *User {
 	u.JobTitle = &jobTitle
+	u.changeFlag |= cUserJobTitle
 	return u
 }
 func (u *User) SetPhone(phone string) *User {
 	u.Phone = &phone
+	u.changeFlag |= cUserPhone
 	return u
 }
 func (u *User) SetAddress(address string) *User {
 	u.Address = &address
+	u.changeFlag |= cUserAddress
 	return u
 }
 func (u *User) SetSpaceAmount(spaceAmount int64) *User {
 	u.SpaceAmount = spaceAmount
+	u.changeFlag |= cUserSpaceAmount
 	return u
 }
 func (u *User) SetTrackingCodes(trackingCodes []map[string]string) *User {
 	u.TrackingCodes = trackingCodes
+	u.changeFlag |= cUserTrackingCodes
 	return u
 }
 func (u *User) SetCanSeeManagedUsers(canSeeManagedUsers bool) *User {
 	u.CanSeeManagedUsers = &canSeeManagedUsers
+	u.changeFlag |= cUserCanSeeMangedUsers
 	return u
 }
 func (u *User) SetTimezone(timezone string) *User {
 	u.Timezone = &timezone
+	u.changeFlag |= cUserTimezone
 	return u
 }
 func (u *User) SetIsExemptFromDeviceLimits(isExemptFromDeviceLimits bool) *User {
 	u.IsExemptFromDeviceLimits = &isExemptFromDeviceLimits
+	u.changeFlag |= cUserIsExemptFromDeviceLimits
 	return u
 }
 
 func (u *User) SetIsExemptFromLoginVerification(isExemptFromLoginVerification bool) *User {
 	u.IsExemptFromLoginVerification = &isExemptFromLoginVerification
+	u.changeFlag |= cUserIsExemptFromLoginVerification
 	return u
 }
 func (u *User) SetIsExternalCollabRestricted(isExternalCollabRestricted bool) *User {
 	u.IsExternalCollabRestricted = &isExternalCollabRestricted
+	u.changeFlag |= cUserIsExternalCollabRestricted
 	return u
 }
 func (u *User) SetStatus(status UserStatus) *User {
 	u.Status = &status
+	u.changeFlag |= cUserStatus
 	return u
 }
 
