@@ -2546,3 +2546,436 @@ func TestUser_CreateAppUser(t *testing.T) {
 		})
 	}
 }
+
+func TestUser_DeleteUserReq(t *testing.T) {
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	type args struct {
+		userId string
+		notify bool
+		force  bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Request
+	}{
+		{"normal",
+			args{"10001", true, true},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users/10001?notify=true&force=true",
+				Method:             DELETE,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body:               nil,
+			},
+		},
+		{"normal",
+			args{"10002", false, true},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users/10002?notify=false&force=true",
+				Method:             DELETE,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body:               nil,
+			},
+		},
+		{"normal",
+			args{"10003", false, false},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users/10003?notify=false&force=false",
+				Method:             DELETE,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body:               nil,
+			},
+		},
+		{"normal",
+			args{"10004", true, false},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users/10004?notify=true&force=false",
+				Method:             DELETE,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body:               nil,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			u := NewUser(apiConn)
+			got := u.DeleteUserReq(tt.args.userId, tt.args.notify, tt.args.force)
+
+			opts := diffCompOptions(*got)
+			opts = append(opts, cmpopts.IgnoreUnexported(Request{}))
+
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("diff:  (-got +want)\n%s", diff)
+				return
+			}
+		})
+	}
+}
+
+func TestUser_DeleteUser(t *testing.T) {
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/users") {
+				t.Errorf("invalid access url %s : %s", r.URL.Path, "/2.0/users")
+			}
+			// Method check
+			if r.Method != http.MethodDelete {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			id := strings.Split(r.URL.Path, "/")[3]
+
+			switch id {
+			case "500":
+				w.WriteHeader(500)
+			case "404":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(404)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				_, _ = w.Write(resp)
+			default:
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(204)
+				resp, _ := ioutil.ReadFile("testdata/users/create_user.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	u1 := buildUserOfCommon(apiConn)
+	u1.SetName("10001")
+	u2 := buildUserOfCommon(apiConn)
+	u2.SetName("404")
+	u3 := buildUserOfCommon(apiConn)
+	u3.SetName("999")
+
+	type args struct {
+		userId string
+		notify bool
+		force  bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		errType interface{}
+	}{
+		{"normal", args{"10001", false, false},
+			false, nil,
+		},
+		{"http error/404", args{"404", false, false},
+			true, &ApiStatusError{Status: 404},
+		},
+		{"senderror", args{"999", false, false},
+			true, &ApiOtherError{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			} else {
+				apiConn.Expires = 6000
+			}
+
+			u := NewUser(apiConn)
+			err := u.DeleteUser(tt.args.userId, tt.args.notify, tt.args.force)
+
+			// Error checks
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %v, wanted errorType %v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					expectedStatus := tt.errType.(*ApiStatusError).Status
+					if expectedStatus != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+		})
+	}
+}
+
+func TestUser_GetEnterpriseUsersReq(t *testing.T) {
+	url := "https://example.com"
+	apiConn := commonInit(url)
+
+	type args struct {
+		filterTerm string
+		offset     int
+		limit      int
+		fields     []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Request
+	}{
+		{"filterTerm empty",
+			args{"", 0, 1001, nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users?offset=0&limit=1000",
+				Method:             GET,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body:               nil,
+			},
+		},
+		{"filterTerm",
+			args{"あいうえお", 1, 999, nil},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users?offset=1&limit=999&filter_term=%E3%81%82%E3%81%84%E3%81%86%E3%81%88%E3%81%8A",
+				Method:             GET,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body:               nil,
+			},
+		},
+		{"filterTerm",
+			args{"something", 1, 999, []string{"type", "id"}},
+			&Request{
+				apiConn:            apiConn,
+				Url:                url + "/2.0/users?offset=1&limit=999&filter_term=something&fields=type,id",
+				Method:             GET,
+				shouldAuthenticate: true,
+				numRedirects:       defaultNumRedirects,
+				headers:            http.Header{},
+				body:               nil,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			u := NewUser(apiConn)
+			got := u.GetEnterpriseUsersReq(tt.args.filterTerm, tt.args.offset, tt.args.limit, tt.args.fields)
+
+			opts := diffCompOptions(*got)
+			opts = append(opts, cmpopts.IgnoreUnexported(Request{}))
+
+			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
+				t.Errorf("diff:  (-got +want)\n%s", diff)
+				return
+			}
+		})
+	}
+}
+
+func TestUser_GetEnterpriseUsers(t *testing.T) {
+	// test server (dummy box api)
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// for request.Send() return error (auth failed)
+			if strings.HasPrefix(r.URL.Path, "/oauth2/token") {
+				w.WriteHeader(401)
+				return
+			}
+			// URL check
+			if !strings.HasPrefix(r.URL.Path, "/2.0/users") {
+				t.Errorf("invalid access url %s : %s", r.URL.Path, "/2.0/users")
+			}
+			// Method check
+			if r.Method != http.MethodGet {
+				t.Fatalf("invalid http method")
+			}
+			// Header check
+			if r.Header.Get("Authorization") == "" {
+				t.Fatalf("not exists access token")
+			}
+			// ok, return some response
+			id := r.URL.Query().Get("filter_term")
+
+			switch id {
+			case "500":
+				w.WriteHeader(500)
+			case "404":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(404)
+				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				_, _ = w.Write(resp)
+			case "999":
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(200)
+				_, _ = w.Write([]byte("invalid json"))
+			default:
+				w.Header().Set("content-Type", "application/json")
+				w.WriteHeader(200)
+				resp, _ := ioutil.ReadFile("testdata/users/get_enterprise_users.json")
+				_, _ = w.Write(resp)
+			}
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+
+	type args struct {
+		filterTerm string
+		offset     int
+		limit      int
+		fields     []string
+	}
+	tests := []struct {
+		name           string
+		args           args
+		want           []*User
+		wantOffset     int
+		wantLimit      int
+		wantTotalCount int
+		wantErr        bool
+		errType        interface{}
+	}{
+		{"normal", args{"10001", 0, 1000, nil},
+			[]*User{
+				{
+					apiInfo: &apiInfo{api: apiConn},
+					UserGroupMini: UserGroupMini{
+						Type:  setUserType(TYPE_USER),
+						ID:    setStringPtr("181216415"),
+						Name:  setStringPtr("sean rose"),
+						Login: setStringPtr("sean+awesome@box.com"),
+					},
+					CreatedAt:     setTime("2012-05-03T21:39:11-07:00"),
+					ModifiedAt:    setTime("2012-08-23T14:57:48-07:00"),
+					Language:      setStringPtr("en"),
+					SpaceAmount:   5368709120,
+					SpaceUsed:     52947,
+					MaxUploadSize: 104857600,
+					Status:        setUserStatus(UserStatusActive),
+					JobTitle:      setStringPtr(""),
+					Phone:         setStringPtr("5555551374"),
+					Address:       setStringPtr("10 Cloud Way Los Altos CA"),
+					AvatarUrl:     setStringPtr("https://app.box.com/api/avatar/large/181216415"),
+				},
+			},
+			0, 1000, 1, false, nil,
+		},
+		{"http error/404", args{"404", 0, 1000, nil},
+			[]*User{},
+			0, 0, 0,
+			true, &ApiStatusError{Status: 404},
+		},
+		{"returned invalid json/999", args{"999", 0, 1000, []string{"name"}},
+			nil, 0, 0, 0,
+			true, &ApiOtherError{},
+		},
+		{"senderror", args{"999", 0, 1000, nil},
+			nil, 0, 0, 0,
+			true, &ApiOtherError{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Helper()
+
+			if tt.name == "senderror" {
+				apiConn.Expires = 0
+			} else {
+				apiConn.Expires = 6000
+			}
+
+			u := NewUser(apiConn)
+			got, gotOffset, gotLimit, gotTotalCount, err := u.GetEnterpriseUsers(tt.args.filterTerm, tt.args.offset, tt.args.limit, tt.args.fields)
+
+			// Error checks
+			if (err != nil) != tt.wantErr {
+				t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && tt.errType != nil {
+				if reflect.TypeOf(err).String() != reflect.TypeOf(tt.errType).String() {
+					t.Errorf("got err = %v, wanted errorType %v", err, tt.errType)
+					return
+				}
+				if reflect.TypeOf(tt.errType) == reflect.TypeOf(&ApiStatusError{}) {
+					apiStatusError := err.(*ApiStatusError)
+					expectedStatus := tt.errType.(*ApiStatusError).Status
+					if expectedStatus != apiStatusError.Status {
+						t.Errorf("status code may be not corrected [%d]", apiStatusError.Status)
+						return
+					}
+					return
+				} else {
+					return
+				}
+			} else if err != nil {
+				return
+			}
+
+			if gotOffset != 0 {
+
+			}
+			if gotLimit != tt.wantLimit || gotOffset != tt.wantOffset || gotTotalCount != tt.wantTotalCount {
+				t.Errorf("returned offset/limit/totalCount was incorrect")
+				return
+			}
+
+			// If normal response
+			opts := diffCompOptions(User{}, apiInfo{})
+			if diff := cmp.Diff(&got, &tt.want, opts...); diff != "" {
+				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
+				return
+			}
+			// exists apiInfo
+			for _, v := range got {
+				if v.apiInfo == nil {
+					t.Errorf("not exists `apiInfo` field\n")
+					return
+				}
+			}
+
+		})
+	}
+}

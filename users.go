@@ -3,9 +3,9 @@ package goboxer
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -186,15 +186,15 @@ var UserAllFields = []string{
 // Get information about the user who is currently logged in (i.e. the user for whom this access token was generated).
 // https://developer.box.com/reference#get-the-current-users-information
 func (u *User) GetCurrentUserReq(fields []string) *Request {
-	var url string
+	var urlBase string
 	var query string
 
-	url = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users/me")
+	urlBase = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users/me")
 	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
 		query = fmt.Sprintf("?%s", fieldsParams)
 	}
 
-	return NewRequest(u.apiInfo.api, url+query, GET, nil, nil)
+	return NewRequest(u.apiInfo.api, urlBase+query, GET, nil, nil)
 }
 
 // Get User
@@ -226,16 +226,21 @@ func (u *User) GetCurrentUser(fields []string) (*User, error) {
 // Get information about a user in the enterprise. Requires enterprise administration authorization.
 // https://developer.box.com/reference#users
 func (u *User) GetUserReq(userId string, fields []string) *Request {
-	var url string
+	var urlBase string
 	var query string
 
-	url = fmt.Sprintf("%s%s%s", u.apiInfo.api.BaseURL, "users/", userId)
+	urlBase = fmt.Sprintf("%s%s%s", u.apiInfo.api.BaseURL, "users/", userId)
 	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
 		query = fmt.Sprintf("?%s", fieldsParams)
 	}
 
-	return NewRequest(u.apiInfo.api, url+query, GET, nil, nil)
+	return NewRequest(u.apiInfo.api, urlBase+query, GET, nil, nil)
 }
+
+// Get User
+//
+// Get information about a user in the enterprise. Requires enterprise administration authorization.
+// https://developer.box.com/reference#users
 func (u *User) GetUser(userId string, fields []string) (*User, error) {
 
 	req := u.GetUserReq(userId, fields)
@@ -258,10 +263,14 @@ func (u *User) GetUser(userId string, fields []string) (*User, error) {
 
 // TODO Get User Avatar
 
+// Create User
+//
+// Create a new managed user in an enterprise. This method only works for Box admins.
+// https://developer.box.com/reference#create-an-enterprise-user
 func (u *User) CreateUserReq(fields []string) *Request {
-	var url string
+	var urlBase string
 	var query string
-	url = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users")
+	urlBase = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users")
 	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
 		query = fmt.Sprintf("?%s", fieldsParams)
 	}
@@ -313,8 +322,13 @@ func (u *User) CreateUserReq(fields []string) *Request {
 	}
 	bodyBytes, _ := json.Marshal(data)
 
-	return NewRequest(u.apiInfo.api, url+query, POST, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(u.apiInfo.api, urlBase+query, POST, nil, bytes.NewReader(bodyBytes))
 }
+
+// Create User
+//
+// Create a new managed user in an enterprise. This method only works for Box admins.
+// https://developer.box.com/reference#create-an-enterprise-user
 func (u *User) CreateUser(fields []string) (*User, error) {
 
 	req := u.CreateUserReq(fields)
@@ -427,10 +441,14 @@ func (u *User) SetRollOutOfEnterprise(notify bool) *User {
 	return u
 }
 
+// Update User
+//
+// Update the information for a user.
+// https://developer.box.com/reference#update-a-users-information
 func (u *User) UpdateUserReq(userId string, fields []string) *Request {
-	var url string
+	var urlBase string
 	var query string
-	url = fmt.Sprintf("%s%s%s", u.apiInfo.api.BaseURL, "users/", userId)
+	urlBase = fmt.Sprintf("%s%s%s", u.apiInfo.api.BaseURL, "users/", userId)
 
 	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
 		query = fmt.Sprintf("?%s", fieldsParams)
@@ -492,8 +510,13 @@ func (u *User) UpdateUserReq(userId string, fields []string) *Request {
 
 	bodyBytes, _ := json.Marshal(data)
 
-	return NewRequest(u.apiInfo.api, url+query, PUT, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(u.apiInfo.api, urlBase+query, PUT, nil, bytes.NewReader(bodyBytes))
 }
+
+// Update User
+//
+// Update the information for a user.
+// https://developer.box.com/reference#update-a-users-information
 func (u *User) UpdateUser(userId string, fields []string) (*User, error) {
 
 	req := u.UpdateUserReq(userId, fields)
@@ -514,11 +537,15 @@ func (u *User) UpdateUser(userId string, fields []string) (*User, error) {
 	return r, nil
 }
 
+// Create App User
+//
+// Create a new app user in an enterprise.
+// https://developer.box.com/reference#create-app-user
 func (u *User) CreateAppUserReq(fields []string) *Request {
-	var url string
+	var urlBase string
 	var query string
 
-	url = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users")
+	urlBase = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users")
 	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
 		query = fmt.Sprintf("?%s", fieldsParams)
 	}
@@ -559,8 +586,13 @@ func (u *User) CreateAppUserReq(fields []string) *Request {
 	data.IsPlatformAccessOnly = &b
 	bodyBytes, _ := json.Marshal(data)
 
-	return NewRequest(u.apiInfo.api, url+query, POST, nil, bytes.NewReader(bodyBytes))
+	return NewRequest(u.apiInfo.api, urlBase+query, POST, nil, bytes.NewReader(bodyBytes))
 }
+
+// Create App User
+//
+// Create a new app user in an enterprise.
+// https://developer.box.com/reference#create-app-user
 func (u *User) CreateAppUser(fields []string) (*User, error) {
 
 	req := u.CreateAppUserReq(fields)
@@ -581,12 +613,21 @@ func (u *User) CreateAppUser(fields []string) (*User, error) {
 	return r, nil
 }
 
+// Delete User
+//
+// Delete a user.
+// https://developer.box.com/reference#delete-an-enterprise-user
 func (u *User) DeleteUserReq(userId string, notify bool, force bool) *Request {
-	var url string
-	url = fmt.Sprintf("%s%s%s?notify=%t&force=%t", u.apiInfo.api.BaseURL, "users/", userId, notify, force)
+	var urlBase string
+	urlBase = fmt.Sprintf("%s%s%s?notify=%t&force=%t", u.apiInfo.api.BaseURL, "users/", userId, notify, force)
 
-	return NewRequest(u.apiInfo.api, url, DELETE, nil, nil)
+	return NewRequest(u.apiInfo.api, urlBase, DELETE, nil, nil)
 }
+
+// Delete User
+//
+// Delete a user.
+// https://developer.box.com/reference#delete-an-enterprise-user
 func (u *User) DeleteUser(userId string, notify bool, force bool) error {
 
 	req := u.DeleteUserReq(userId, notify, force)
@@ -596,21 +637,32 @@ func (u *User) DeleteUser(userId string, notify bool, force bool) error {
 	}
 
 	if resp.ResponseCode != http.StatusNoContent {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to delete user"))
-		return err
+		return newApiStatusError(resp.Body)
 	}
 
 	return nil
 }
 
-func (u *User) GetEnterpriseUsersReq(filterTerm string, offset int32, limit int32, fields []string) *Request {
-	var url string
-	url = fmt.Sprintf("%s%s?filter_term=%s&offset=%d&limit=%d&%s", u.apiInfo.api.BaseURL, "users", filterTerm, offset, limit, BuildFieldsQueryParams(fields))
+func (u *User) GetEnterpriseUsersReq(filterTerm string, offset int, limit int, fields []string) *Request {
+	var urlBase string
+	var query string
 
-	return NewRequest(u.apiInfo.api, url, GET, nil, nil)
+	urlBase = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users")
+
+	if limit > 1000 {
+		limit = 1000
+	}
+	query += fmt.Sprintf("?offset=%d&limit=%d", offset, limit)
+	if filterTerm != "" {
+		query += fmt.Sprintf("&filter_term=%s", url.QueryEscape(filterTerm))
+	}
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query += fmt.Sprintf("&%s", fieldsParams)
+	}
+
+	return NewRequest(u.apiInfo.api, urlBase+query, GET, nil, nil)
 }
-func (u *User) GetEnterpriseUsers(filterTerm string, offset int32, limit int32, fields []string) (outUsers []*User, outOffset int, outLimit int, outTotalCount int, err error) {
+func (u *User) GetEnterpriseUsers(filterTerm string, offset int, limit int, fields []string) (outUsers []*User, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := u.GetEnterpriseUsersReq(filterTerm, offset, limit, fields)
 	resp, err := req.Send()
@@ -619,9 +671,7 @@ func (u *User) GetEnterpriseUsers(filterTerm string, offset int32, limit int32, 
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to get enterprise users info"))
-		return nil, 0, 0, 0, err
+		return nil, 0, 0, 0, newApiStatusError(resp.Body)
 	}
 	users := struct {
 		TotalCount int     `json:"total_count"`
@@ -629,7 +679,7 @@ func (u *User) GetEnterpriseUsers(filterTerm string, offset int32, limit int32, 
 		Offset     int     `json:"offset"`
 		Limit      int     `json:"limit"`
 	}{}
-	err = json.Unmarshal(resp.Body, &users)
+	err = UnmarshalJSONWrapper(resp.Body, &users)
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}
