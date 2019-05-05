@@ -76,12 +76,36 @@ func (et *EnterpriseType) MarshalJSON() ([]byte, error) {
 const (
 	EnterpriseTypeEnterprise EnterpriseType = "enterprise"
 	EnterpriseTypeUser       EnterpriseType = "user"
+	EnterpriseTypeRolledOut  EnterpriseType = "rolledout"
 )
 
 type Enterprise struct {
 	Type EnterpriseType
 	Id   string
 	Name string
+}
+
+func (e *Enterprise) MarshalJSON() ([]byte, error) {
+	if e == nil {
+		return []byte("null"), nil
+	}
+	if e.Type == EnterpriseTypeRolledOut {
+		return []byte("null"), nil
+	}
+	var buffer bytes.Buffer
+	buffer.WriteString(`{`)
+	buffer.WriteString(`"type":`)
+	marshal, err := json.Marshal(e.Type)
+	if err != nil {
+		return nil, err
+	}
+	buffer.Write(marshal)
+	buffer.WriteString(`,"id":`)
+	buffer.WriteString(`"` + e.Id + `"`)
+	buffer.WriteString(`,"name":`)
+	buffer.WriteString(`"` + e.Name + `"`)
+	buffer.WriteString(`}`)
+	return buffer.Bytes(), nil
 }
 
 type User struct {
@@ -111,8 +135,10 @@ type User struct {
 	Hostname                      *string             `json:"hostname,omitempty"`
 	IsPlatformAccessOnly          *bool               `json:"is_platform_access_only,omitempty"`
 	ExternalAppUserId             *string             `json:"external_app_user_id,omitempty"`
+	IsPasswordResetRequired       *bool               `json:"is_password_reset_required,omitempty"`
 
-	changeFlag uint64
+	NotifyRolledOut *bool `json:"notify,omitempty"`
+	changeFlag      uint64
 }
 
 const (
@@ -132,7 +158,7 @@ const (
 	cUserIsExternalCollabRestricted
 	cUserStatus
 	cUserIsPasswordResetRequired
-	cUserIsPlatformAccessOnly
+	cUserRollOut
 )
 
 func (u *User) ResourceType() BoxResourceType {
@@ -389,17 +415,84 @@ func (u *User) SetStatus(status UserStatus) *User {
 	u.changeFlag |= cUserStatus
 	return u
 }
+func (u *User) SetIsPasswordResetRequired(b bool) *User {
+	u.IsPasswordResetRequired = &b
+	u.changeFlag |= cUserIsPasswordResetRequired
+	return u
+}
+func (u *User) SetRollOutOfEnterprise(notify bool) *User {
+	u.NotifyRolledOut = &notify
+	u.Enterprise = &Enterprise{Type: EnterpriseTypeRolledOut}
+	u.changeFlag |= cUserRollOut
+	return u
+}
 
 func (u *User) UpdateUserReq(userId string, fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s%s?%s", u.apiInfo.api.BaseURL, "users/", userId, BuildFieldsQueryParams(fields))
+	var query string
+	url = fmt.Sprintf("%s%s%s", u.apiInfo.api.BaseURL, "users/", userId)
 
-	bodyBytes, err := json.Marshal(u)
-	if err != nil {
-		fmt.Println(err)
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
 	}
 
-	return NewRequest(u.apiInfo.api, url, PUT, nil, bytes.NewReader(bodyBytes))
+	data := &User{}
+	if u.changeFlag&cUserName == cUserName {
+		data.Name = u.Name
+	}
+	if u.changeFlag&cUserRole == cUserRole {
+		data.Role = u.Role
+	}
+	if u.changeFlag&cUserLanguage == cUserLanguage {
+		data.Language = u.Language
+	}
+	if u.changeFlag&cUserIsSyncEnabled == cUserIsSyncEnabled {
+		data.IsSyncEnabled = u.IsSyncEnabled
+	}
+	if u.changeFlag&cUserJobTitle == cUserJobTitle {
+		data.JobTitle = u.JobTitle
+	}
+	if u.changeFlag&cUserPhone == cUserPhone {
+		data.Phone = u.Phone
+	}
+	if u.changeFlag&cUserAddress == cUserAddress {
+		data.Address = u.Address
+	}
+	if u.changeFlag&cUserSpaceAmount == cUserSpaceAmount {
+		data.SpaceAmount = u.SpaceAmount
+	}
+	if u.changeFlag&cUserTrackingCodes == cUserTrackingCodes {
+		data.TrackingCodes = u.TrackingCodes
+	}
+	if u.changeFlag&cUserCanSeeMangedUsers == cUserCanSeeMangedUsers {
+		data.CanSeeManagedUsers = u.CanSeeManagedUsers
+	}
+	if u.changeFlag&cUserTimezone == cUserTimezone {
+		data.Timezone = u.Timezone
+	}
+	if u.changeFlag&cUserIsExemptFromDeviceLimits == cUserIsExemptFromDeviceLimits {
+		data.IsExemptFromDeviceLimits = u.IsExemptFromDeviceLimits
+	}
+	if u.changeFlag&cUserIsExemptFromLoginVerification == cUserIsExemptFromLoginVerification {
+		data.IsExemptFromLoginVerification = u.IsExemptFromLoginVerification
+	}
+	if u.changeFlag&cUserIsExternalCollabRestricted == cUserIsExternalCollabRestricted {
+		data.IsExternalCollabRestricted = u.IsExternalCollabRestricted
+	}
+	if u.changeFlag&cUserStatus == cUserStatus {
+		data.Status = u.Status
+	}
+	if u.changeFlag&cUserIsPasswordResetRequired == cUserIsPasswordResetRequired {
+		data.IsPasswordResetRequired = u.IsPasswordResetRequired
+	}
+	if u.changeFlag&cUserRollOut == cUserRollOut {
+		data.Enterprise = &Enterprise{Type: EnterpriseTypeRolledOut}
+		data.NotifyRolledOut = u.NotifyRolledOut
+	}
+
+	bodyBytes, _ := json.Marshal(data)
+
+	return NewRequest(u.apiInfo.api, url+query, PUT, nil, bytes.NewReader(bodyBytes))
 }
 func (u *User) UpdateUser(userId string, fields []string) (*User, error) {
 
@@ -410,13 +503,11 @@ func (u *User) UpdateUser(userId string, fields []string) (*User, error) {
 	}
 
 	if resp.ResponseCode != http.StatusOK {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to update user info"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
@@ -425,16 +516,50 @@ func (u *User) UpdateUser(userId string, fields []string) (*User, error) {
 
 func (u *User) CreateAppUserReq(fields []string) *Request {
 	var url string
-	url = fmt.Sprintf("%s%s?%s", u.apiInfo.api.BaseURL, "users/", BuildFieldsQueryParams(fields))
+	var query string
 
-	b := true
-	u.IsPlatformAccessOnly = &b
-	bodyBytes, err := json.Marshal(u)
-	if err != nil {
-		fmt.Println(err)
+	url = fmt.Sprintf("%s%s", u.apiInfo.api.BaseURL, "users")
+	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
+		query = fmt.Sprintf("?%s", fieldsParams)
 	}
 
-	return NewRequest(u.apiInfo.api, url, POST, nil, bytes.NewReader(bodyBytes))
+	data := &User{}
+	if u.changeFlag&cUserName == cUserName {
+		data.Name = u.Name
+	}
+	if u.changeFlag&cUserLanguage == cUserLanguage {
+		data.Language = u.Language
+	}
+	if u.changeFlag&cUserJobTitle == cUserJobTitle {
+		data.JobTitle = u.JobTitle
+	}
+	if u.changeFlag&cUserPhone == cUserPhone {
+		data.Phone = u.Phone
+	}
+	if u.changeFlag&cUserAddress == cUserAddress {
+		data.Address = u.Address
+	}
+	if u.changeFlag&cUserSpaceAmount == cUserSpaceAmount {
+		data.SpaceAmount = u.SpaceAmount
+	}
+	if u.changeFlag&cUserCanSeeMangedUsers == cUserCanSeeMangedUsers {
+		data.CanSeeManagedUsers = u.CanSeeManagedUsers
+	}
+	if u.changeFlag&cUserTimezone == cUserTimezone {
+		data.Timezone = u.Timezone
+	}
+	if u.changeFlag&cUserIsExternalCollabRestricted == cUserIsExternalCollabRestricted {
+		data.IsExternalCollabRestricted = u.IsExternalCollabRestricted
+	}
+	if u.changeFlag&cUserStatus == cUserStatus {
+		data.Status = u.Status
+	}
+
+	b := true
+	data.IsPlatformAccessOnly = &b
+	bodyBytes, _ := json.Marshal(data)
+
+	return NewRequest(u.apiInfo.api, url+query, POST, nil, bytes.NewReader(bodyBytes))
 }
 func (u *User) CreateAppUser(fields []string) (*User, error) {
 
@@ -445,13 +570,11 @@ func (u *User) CreateAppUser(fields []string) (*User, error) {
 	}
 
 	if resp.ResponseCode != http.StatusCreated {
-		// TODO improve error handling...
-		err = errors.New(fmt.Sprintf("faild to create app user"))
-		return nil, err
+		return nil, newApiStatusError(resp.Body)
 	}
 
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = json.Unmarshal(resp.Body, r)
+	err = UnmarshalJSONWrapper(resp.Body, r)
 	if err != nil {
 		return nil, err
 	}
