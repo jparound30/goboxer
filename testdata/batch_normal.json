@@ -1,0 +1,40 @@
+{
+  "responses": [
+    {
+      "status": 201,
+      "response": {
+        "type": "collaboration",
+        "id": "123"
+      }
+    },
+    {
+      "status": 404,
+      "response": {
+        "type": "error",
+        "status": 404,
+        "code": "not_found",
+        "message": "Not Found",
+        "request_id": "139334760758014ea2935ab"
+      }
+    },
+    {
+      "status": 200,
+      "response": {
+        "type": "collaboration",
+        "id": "456"
+      }
+    },
+    {
+      "status": 404,
+      "headers": {},
+      "response": null
+    },
+    {
+      "status": 429,
+      "headers": {
+        "Retry-After": 4
+      },
+      "response": null
+    }
+  ]
+}

@@ -158,26 +158,7 @@ func (req *Request) Send() (*Response, error) {
 		}
 	}
 
-	if Log != nil {
-		builder := strings.Builder{}
-		builder.WriteString(fmt.Sprintf("\tRequest URI: %s %s\n", method, req.Url))
-		builder.WriteString("\tRequestHeader:\n")
-		for key, value := range newRequest.Header {
-			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
-		}
-		switch newRequest.Header.Get(httpHeaderContentType) {
-		case ContentTypeApplicationJson:
-			fallthrough
-		case ContentTypeFormUrlEncoded:
-			if req.body != nil {
-				readCloser, _ := newRequest.GetBody()
-				reqBody, _ := ioutil.ReadAll(readCloser)
-				builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
-			}
-		default:
-		}
-		Log.RequestDumpf("[goboxer Req]\n%s", builder.String())
-	}
+	logRequest(method, newRequest)
 
 	resp, rttInMillis, err := send(newRequest)
 	if err != nil {
@@ -191,34 +172,14 @@ func (req *Request) Send() (*Response, error) {
 		_ = resp.Body.Close()
 	}()
 
+	// TODO should use io.ReadCloser. refine Response structure
 	respBodyBytes, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
 		err = xerrors.Errorf("failed to read response: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 
-	if Log != nil {
-		builder := strings.Builder{}
-		builder.WriteString(fmt.Sprintf("\tHTTP Status Code:%d\n", resp.StatusCode))
-		builder.WriteString("\tResponseHeader:\n")
-		for key, value := range resp.Header {
-			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
-		}
-		builder.WriteString(fmt.Sprintf("\tMaybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
-
-		if Log.EnabledLoggingResponseBody() {
-			switch resp.Header.Get(httpHeaderContentType) {
-			case ContentTypeApplicationJson:
-				fallthrough
-			case ContentTypeFormUrlEncoded:
-				builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
-			default:
-			}
-		}
-		Log.ResponseDumpf("[goboxer Res]\n%s", builder.String())
-
-		Log.Debugf("Request turn around time: %d [ms]\n", rttInMillis)
-	}
+	logResponse(resp, respBodyBytes, rttInMillis)
 
 	result = &Response{
 		ResponseCode: resp.StatusCode,
@@ -230,6 +191,54 @@ func (req *Request) Send() (*Response, error) {
 	}
 
 	return result, nil
+}
+
+func logRequest(method string, request *http.Request) {
+	if Log == nil {
+		return
+	}
+	builder := strings.Builder{}
+	builder.WriteString(fmt.Sprintf("---\nRequest URL: %s %s\n", method, request.URL))
+	builder.WriteString("RequestHeader:\n")
+	for key, value := range request.Header {
+		builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
+	}
+	switch request.Header.Get(httpHeaderContentType) {
+	case ContentTypeApplicationJson:
+		fallthrough
+	case ContentTypeFormUrlEncoded:
+		if readCloser, _ := request.GetBody(); readCloser != nil {
+			reqBody, _ := ioutil.ReadAll(readCloser)
+			builder.WriteString(fmt.Sprintf("RequestBody:\n%s\n", string(reqBody)))
+		}
+	default:
+	}
+	builder.WriteString("---\n")
+	Log.RequestDumpf("[goboxer] Request\n%s", builder.String())
+}
+
+func logResponse(resp *http.Response, respBodyBytes []byte, rttInMillis int64) {
+	if Log == nil {
+		return
+	}
+	builder := strings.Builder{}
+	builder.WriteString(fmt.Sprintf("---\nHTTP Status Code: %d\n", resp.StatusCode))
+	builder.WriteString("ResponseHeader:\n")
+	for key, value := range resp.Header {
+		builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
+	}
+	builder.WriteString(fmt.Sprintf("Maybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
+
+	if Log.EnabledLoggingResponseBody() {
+		switch resp.Header.Get(httpHeaderContentType) {
+		case ContentTypeApplicationJson:
+			builder.WriteString(fmt.Sprintf("ResponseBody:\n%s\n", string(respBodyBytes)))
+		default:
+		}
+	}
+	builder.WriteString("---\n")
+	Log.ResponseDumpf("[goboxer] Response\n%s", builder.String())
+	Log.Debugf("[goboxer] Request turn around time: %d [ms]\n", rttInMillis)
 }
 
 func send(request *http.Request) (resp *http.Response, rttInMillis int64, err error) {
@@ -290,17 +299,8 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 	return resp, rttInMillis, nil
 }
 
-//func (req *Request)redirect() {
-//
-//}
-func isResponseSuccessful(responseCode int) bool {
-	return responseCode < 400
-}
 func isResponseRetryable(responseCode int) bool {
 	return responseCode >= 500 || responseCode == http.StatusTooManyRequests
-}
-func isResponseRedirect(responseCode int) bool {
-	return responseCode == http.StatusMovedPermanently || responseCode == http.StatusFound
 }
 
 type BatchRequest struct {
@@ -364,10 +364,6 @@ func (req *Request) MarshalJSON() ([]byte, error) {
 			}
 			buf.WriteString(`"`)
 		}
-		err := req.headers.Write(&buf)
-		if err != nil {
-			return nil, err
-		}
 		buf.WriteString(`}`)
 	}
 
@@ -418,18 +414,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		}
 	}
 
-	if Log != nil {
-		builder := strings.Builder{}
-		builder.WriteString(fmt.Sprintf("\tRequest URI: %s %s\n", "POST", req.Url))
-		builder.WriteString("\tRequestHeader:\n")
-		for key, value := range newRequest.Header {
-			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
-		}
-		readCloser, _ := newRequest.GetBody()
-		reqBody, _ := ioutil.ReadAll(readCloser)
-		builder.WriteString(fmt.Sprintf("\tRequestBody:\n%s\n", string(reqBody)))
-		Log.RequestDumpf("[goboxer Req]\n%s", builder.String())
-	}
+	logRequest("POST", newRequest)
 
 	resp, rttInMillis, err := send(newRequest)
 	if err != nil {
@@ -442,29 +427,13 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	respBodyBytes, err := ioutil.ReadAll(resp.Body)
 
-	if Log != nil {
-		builder := strings.Builder{}
-		builder.WriteString(fmt.Sprintf("\tHTTP Status Code:%d\n", resp.StatusCode))
-		builder.WriteString("\tResponseHeader:\n")
-		for key, value := range resp.Header {
-			builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
-		}
-		builder.WriteString(fmt.Sprintf("\tMaybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
-
-		if Log.EnabledLoggingResponseBody() {
-			builder.WriteString(fmt.Sprintf("\tResponseBody:\n%s\n", string(respBodyBytes)))
-		}
-		Log.ResponseDumpf("[goboxer Res]\n%s", builder.String())
-
-		Log.Debugf("Request turn around time: %d [ms]\n", rttInMillis)
-	}
+	logResponse(resp, respBodyBytes, rttInMillis)
 
 	var result *BatchResponse
 
 	var responses []*Response
 
 	if resp.StatusCode != http.StatusOK {
-		err = xerrors.Errorf("got error response: %w", err)
 		return nil, newApiStatusError(respBodyBytes)
 	}
 	var r struct {
@@ -474,16 +443,16 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 			Response json.RawMessage        `json:"response"`
 		} `json:"responses"`
 	}
-	err = json.Unmarshal(respBodyBytes, &r)
+	err = UnmarshalJSONWrapper(respBodyBytes, &r)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal response: %w", err)
-		return nil, newApiOtherError(err, "")
+		return nil, err
 	}
 	rs := r.Responses
 	for i, v := range rs {
 		httpHeader := http.Header{}
 		for hi, hv := range v.Headers {
-			httpHeader.Add(hi, fmt.Sprintf("%s", hv))
+
+			httpHeader.Add(hi, fmt.Sprintf("%v", hv))
 		}
 		bo := v.Response
 		indResp := &Response{
@@ -500,7 +469,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		Response: Response{
 			ResponseCode: resp.StatusCode,
 			Headers:      resp.Header,
-			Body:         respBodyBytes,
+			Body:         nil,
 			Request:      &req.Request,
 			ContentType:  resp.Header.Get(httpHeaderContentType),
 			RTTInMillis:  rttInMillis,
