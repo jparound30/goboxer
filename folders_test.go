@@ -2251,3 +2251,19 @@ func TestFolder_Collaborations(t *testing.T) {
 		})
 	}
 }
+
+func TestFolder_String(t *testing.T) {
+	normal := buildFolderOfGetInfoNormalJson()
+	tests := []struct {
+		name   string
+		target *Folder
+	}{
+		{"normal", normal},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := tt.target
+			_ = f.String()
+		})
+	}
+}
