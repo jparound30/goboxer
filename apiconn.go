@@ -41,6 +41,7 @@ type ApiConn struct {
 	rwLock             sync.RWMutex
 	notifier           ApiConnRefreshNotifier
 	accessTokenLock    sync.RWMutex
+	RestrictedTo       []*FileScope `json:"restricted_to"`
 }
 
 // Common Initialization
@@ -140,6 +141,7 @@ func (ac *ApiConn) Refresh() error {
 	ac.RefreshToken = tokenResp.RefreshToken
 	ac.Expires = tokenResp.ExpiresIn
 	ac.LastRefresh = time.Now()
+	ac.RestrictedTo = tokenResp.RestrictedTo
 
 	ac.notifySuccess()
 
@@ -229,12 +231,22 @@ func (ac *ApiConn) RestoreApiConn(stateData []byte) error {
 	return nil
 }
 
+type FileScope struct {
+	Scope     string          `json:"scope"`
+	ObjectRaw json.RawMessage `json:"object"`
+}
+
+func (fs *FileScope) Object() BoxResource {
+	resource, _ := ParseResource(fs.ObjectRaw)
+	return resource
+}
+
 type tokenResponse struct {
-	AccessToken  string   `json:"access_token"`
-	RefreshToken string   `json:"refresh_token"`
-	ExpiresIn    float64  `json:"expires_in"`
-	RestrictedTo []string `json:"restricted_to"`
-	TokenType    string   `json:"token_type"`
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+	ExpiresIn    float64      `json:"expires_in"`
+	RestrictedTo []*FileScope `json:"restricted_to"`
+	TokenType    string       `json:"token_type"`
 }
 
 func (ac *ApiConn) needsRefresh() bool {

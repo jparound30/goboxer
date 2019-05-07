@@ -42,7 +42,25 @@ func TestApiConn_Refresh(t *testing.T) {
 
 			// レスポンスを設定する
 			w.Header().Set("content-Type", "application/json")
-			const successResp = `{"access_token":"ACCESS_TOKEN_2","expires_in":3600,"restricted_to":[],"refresh_token":"REFRESH_TOKEN_2","token_type":"bearer"}`
+			const successResp = `{
+  "access_token": "ACCESS_TOKEN_2",
+  "expires_in": 3600,
+  "token_type": "bearer",
+  "restricted_to": [
+    {
+      "scope": "item_download",
+      "object": {
+        "id": 11446498,
+        "type": "file",
+        "sequence_id": 1,
+        "etag": 1,
+        "name": "Pictures"
+      }
+    }
+  ],
+  "refresh_token": "REFRESH_TOKEN_2",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token"
+}`
 			_, _ = fmt.Fprintf(w, "%s", successResp)
 			return
 		},
@@ -70,8 +88,136 @@ func TestApiConn_Refresh(t *testing.T) {
 		if apiConn.RefreshToken != "REFRESH_TOKEN_2" {
 			t.Errorf("WRONG RT")
 		}
+		if len(apiConn.RestrictedTo) != 1 {
+			t.Fatalf("Wrong restricted_to data")
+		}
+		r := apiConn.RestrictedTo[0].Object()
+		if r == nil {
+			t.Fatalf("Invalid object")
+		}
+		itemMini := r.(*File)
+		if itemMini == nil {
+			t.Fatalf("Invalid object")
+		}
 	})
+}
 
+func TestApiConn_Refresh_NoRefreshToken(t *testing.T) {
+
+	// テストサーバを用意する
+	// サーバ側でアクセスする側のテストを行う
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// URLのアクセスパスが誤っていないかチェック
+			if r.URL.Path != "/oauth2/token" {
+				t.Fatalf("誤ったアクセスパスでアクセス!")
+			}
+			if r.Method != http.MethodPost {
+				t.Fatalf("POSTメソッド以外でアクセス")
+			}
+			_ = r.ParseForm()
+			if r.PostForm.Get("grant_type") != "refresh_token" {
+				t.Fatalf("grant_typeパラメータなし")
+			}
+			if r.PostForm.Get("refresh_token") != "REFRESH_TOKEN" {
+				t.Fatalf("refresh_tokenパラメータなし")
+			}
+			if r.PostForm.Get("client_id") != "CLIENT_ID" {
+				t.Fatalf("client_idパラメータなし")
+			}
+			if r.PostForm.Get("client_secret") != "CLIENT_SECRET" {
+				t.Fatalf("client_secretパラメータなし")
+			}
+
+			// レスポンスを設定する
+			w.Header().Set("content-Type", "application/json")
+			const successResp = `{
+  "access_token": "ACCESS_TOKEN_2",
+  "expires_in": 3600,
+  "token_type": "bearer",
+  "restricted_to": [
+    {
+      "scope": "item_download",
+      "object": {
+        "id": 11446498,
+        "type": "file",
+        "sequence_id": 1,
+        "etag": 1,
+        "name": "Pictures"
+      }
+    }
+  ],
+  "refresh_token": "REFRESH_TOKEN_2",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token"
+}`
+			_, _ = fmt.Fprintf(w, "%s", successResp)
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := NewApiConnWithRefreshToken(
+		"CLIENT_ID",
+		"CLIENT_SECRET",
+		"ACCESS_TOKEN",
+		"")
+	apiConn.TokenURL = ts.URL + "/oauth2/token"
+	t.Run("Refresh", func(t *testing.T) {
+		err := apiConn.Refresh()
+		if err == nil {
+			t.Fatalf("should not request token refresh")
+		}
+	})
+}
+
+func TestApiConn_Refresh_InvalidResponse(t *testing.T) {
+
+	// テストサーバを用意する
+	// サーバ側でアクセスする側のテストを行う
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// URLのアクセスパスが誤っていないかチェック
+			if r.URL.Path != "/oauth2/token" {
+				t.Fatalf("誤ったアクセスパスでアクセス!")
+			}
+			if r.Method != http.MethodPost {
+				t.Fatalf("POSTメソッド以外でアクセス")
+			}
+			_ = r.ParseForm()
+			if r.PostForm.Get("grant_type") != "refresh_token" {
+				t.Fatalf("grant_typeパラメータなし")
+			}
+			if r.PostForm.Get("refresh_token") != "REFRESH_TOKEN" {
+				t.Fatalf("refresh_tokenパラメータなし")
+			}
+			if r.PostForm.Get("client_id") != "CLIENT_ID" {
+				t.Fatalf("client_idパラメータなし")
+			}
+			if r.PostForm.Get("client_secret") != "CLIENT_SECRET" {
+				t.Fatalf("client_secretパラメータなし")
+			}
+
+			// レスポンスを設定する
+			w.Header().Set("content-Type", "application/json")
+			const successResp = `INVALID DATA`
+			_, _ = fmt.Fprintf(w, "%s", successResp)
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := NewApiConnWithRefreshToken(
+		"CLIENT_ID",
+		"CLIENT_SECRET",
+		"ACCESS_TOKEN",
+		"REFRESH_TOKEN")
+	apiConn.TokenURL = ts.URL + "/oauth2/token"
+	t.Run("Refresh", func(t *testing.T) {
+		err := apiConn.Refresh()
+		if err == nil {
+			t.Fatalf("should happen a error for invalid token response")
+		}
+	})
 }
 
 func TestApiConn_Authenticate(t *testing.T) {
@@ -132,7 +278,100 @@ func TestApiConn_Authenticate(t *testing.T) {
 			t.Errorf("WRONG RT")
 		}
 	})
+}
 
+func TestApiConn_Authenticate_InvalidResponse(t *testing.T) {
+
+	// テストサーバを用意する
+	// サーバ側でアクセスする側のテストを行う
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// URLのアクセスパスが誤っていないかチェック
+			if r.URL.Path != "/oauth2/token" {
+				t.Fatalf("誤ったアクセスパスでアクセス!")
+			}
+			if r.Method != http.MethodPost {
+				t.Fatalf("POSTメソッド以外でアクセス")
+			}
+			_ = r.ParseForm()
+			if r.PostForm.Get("grant_type") != "authorization_code" {
+				t.Fatalf("grant_typeパラメータなし")
+			}
+			if r.PostForm.Get("client_id") != "CLIENT_ID" {
+				t.Fatalf("client_idパラメータなし")
+			}
+			if r.PostForm.Get("client_secret") != "CLIENT_SECRET" {
+				t.Fatalf("client_secretパラメータなし")
+			}
+
+			// レスポンスを設定する
+			w.Header().Set("content-Type", "application/json")
+			const successResp = `INVALID DATA`
+			_, _ = fmt.Fprintf(w, "%s", successResp)
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := NewApiConnWithRefreshToken(
+		"CLIENT_ID",
+		"CLIENT_SECRET",
+		"ACCESS_TOKEN",
+		"REFRESH_TOKEN")
+	apiConn.TokenURL = ts.URL + "/oauth2/token"
+	t.Run("Refresh", func(t *testing.T) {
+		err := apiConn.Authenticate("ABCDEFG")
+		if err == nil {
+			t.Fatalf("should happen a error for invalid token response")
+		}
+	})
+}
+func TestApiConn_Authenticate_HttpStatus_401(t *testing.T) {
+
+	// テストサーバを用意する
+	// サーバ側でアクセスする側のテストを行う
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// URLのアクセスパスが誤っていないかチェック
+			if r.URL.Path != "/oauth2/token" {
+				t.Fatalf("誤ったアクセスパスでアクセス!")
+			}
+			if r.Method != http.MethodPost {
+				t.Fatalf("POSTメソッド以外でアクセス")
+			}
+			_ = r.ParseForm()
+			if r.PostForm.Get("grant_type") != "authorization_code" {
+				t.Fatalf("grant_typeパラメータなし")
+			}
+			if r.PostForm.Get("client_id") != "CLIENT_ID" {
+				t.Fatalf("client_idパラメータなし")
+			}
+			if r.PostForm.Get("client_secret") != "CLIENT_SECRET" {
+				t.Fatalf("client_secretパラメータなし")
+			}
+
+			// レスポンスを設定する
+			w.Header().Set("content-Type", "application/json")
+			const successResp = `INVALID DATA`
+			w.WriteHeader(401)
+			_, _ = fmt.Fprintf(w, "%s", successResp)
+			return
+		},
+	))
+	defer ts.Close()
+
+	apiConn := NewApiConnWithRefreshToken(
+		"CLIENT_ID",
+		"CLIENT_SECRET",
+		"ACCESS_TOKEN",
+		"REFRESH_TOKEN")
+	apiConn.TokenURL = ts.URL + "/oauth2/token"
+	t.Run("Refresh", func(t *testing.T) {
+		err := apiConn.Authenticate("ABCDEFG")
+		if err == nil {
+			t.Fatalf("should happen a error for invalid token response")
+		}
+	})
 }
 
 func TestNewApiConnWithAccessToken(t *testing.T) {
@@ -190,10 +429,15 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 		{"SaveState Normal",
 			fields{"CLIENT_ID", "CLIENT_SECRET", "ACCESS_TOKEN", "REFRESH_TOKEN",
 				"TOKEN_URL", "REVOKE_URL", "BASE_URL", "BASE_UPLOAD_URL",
-				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10, sync.RWMutex{}, nil, sync.RWMutex{}},
+				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10,
+				sync.RWMutex{}, nil, sync.RWMutex{},
+			},
 			ApiConn{"CLIENT_ID", "CLIENT_SECRET", "ACCESS_TOKEN", "REFRESH_TOKEN",
 				"TOKEN_URL", "REVOKE_URL", "BASE_URL", "BASE_UPLOAD_URL",
-				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10, sync.RWMutex{}, nil, sync.RWMutex{}},
+				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10,
+				sync.RWMutex{}, nil, sync.RWMutex{},
+				nil,
+			},
 			false},
 	}
 	for _, tt := range tests {
