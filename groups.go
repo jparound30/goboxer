@@ -57,7 +57,7 @@ func (us *MemberViewabilityLevel) MarshalJSON() ([]byte, error) {
 
 type Group struct {
 	UserGroupMini
-	apiInfo                *apiInfo                `json:"-"`
+	apiInfo                *apiInfo
 	CreatedAt              *time.Time              `json:"created_at,omitempty"`
 	ModifiedAt             *time.Time              `json:"modified_at,omitempty"`
 	Provenance             *string                 `json:"provenance,omitempty"`
@@ -99,13 +99,13 @@ var GroupAllFields = []string{
 // Get information about a group.
 // https://developer.box.com/reference#get-group
 func (g *Group) GetGroupReq(groupId string, fields []string) *Request {
-	var url string
+	var baseUrl string
 	var query string
-	url = fmt.Sprintf("%s%s%s", g.apiInfo.api.BaseURL, "groups/", groupId)
+	baseUrl = fmt.Sprintf("%s%s%s", g.apiInfo.api.BaseURL, "groups/", groupId)
 	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
 		query = fmt.Sprintf("?%s", fieldsParams)
 	}
-	return NewRequest(g.apiInfo.api, url+query, GET, nil, nil)
+	return NewRequest(g.apiInfo.api, baseUrl+query, GET, nil, nil)
 }
 
 // Get Group
@@ -137,10 +137,10 @@ func (g *Group) GetGroup(groupId string, fields []string) (*Group, error) {
 // Create a new group. Only admin roles can create and manage groups.
 // https://developer.box.com/reference#create-a-group
 func (g *Group) CreateGroupReq(fields []string) *Request {
-	var url string
+	var baseUrl string
 	var query string
 
-	url = fmt.Sprintf("%s%s", g.apiInfo.api.BaseURL, "groups")
+	baseUrl = fmt.Sprintf("%s%s", g.apiInfo.api.BaseURL, "groups")
 	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
 		query = fmt.Sprintf("?%s", fieldsParams)
 	}
@@ -166,7 +166,7 @@ func (g *Group) CreateGroupReq(fields []string) *Request {
 	}
 
 	b, _ := json.Marshal(data)
-	return NewRequest(g.apiInfo.api, url+query, POST, nil, bytes.NewReader(b))
+	return NewRequest(g.apiInfo.api, baseUrl+query, POST, nil, bytes.NewReader(b))
 }
 
 // Create Group
@@ -229,9 +229,9 @@ func (g *Group) SetMemberViewabiityLevel(memberViewabilityLevel MemberViewabilit
 // Update a group.
 // https://developer.box.com/reference#update-a-group
 func (g *Group) UpdateGroupReq(groupId string, fields []string) *Request {
-	var url string
+	var baseUrl string
 	var query string
-	url = fmt.Sprintf("%s%s%s", g.apiInfo.api.BaseURL, "groups/", groupId)
+	baseUrl = fmt.Sprintf("%s%s%s", g.apiInfo.api.BaseURL, "groups/", groupId)
 
 	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
 		query = fmt.Sprintf("?%s", fieldsParams)
@@ -258,7 +258,7 @@ func (g *Group) UpdateGroupReq(groupId string, fields []string) *Request {
 	}
 
 	b, _ := json.Marshal(data)
-	return NewRequest(g.apiInfo.api, url+query, PUT, nil, bytes.NewReader(b))
+	return NewRequest(g.apiInfo.api, baseUrl+query, PUT, nil, bytes.NewReader(b))
 }
 
 // Update Group
@@ -290,10 +290,10 @@ func (g *Group) UpdateGroup(groupId string, fields []string) (*Group, error) {
 // Delete a group.
 // //https://developer.box.com/reference#delete-a-group
 func (g *Group) DeleteGroupReq(groupId string) *Request {
-	var url string
-	url = fmt.Sprintf("%s%s%s", g.apiInfo.api.BaseURL, "groups/", groupId)
+	var baseUrl string
+	baseUrl = fmt.Sprintf("%s%s%s", g.apiInfo.api.BaseURL, "groups/", groupId)
 
-	return NewRequest(g.apiInfo.api, url, DELETE, nil, nil)
+	return NewRequest(g.apiInfo.api, baseUrl, DELETE, nil, nil)
 }
 
 // Delete Group

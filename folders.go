@@ -239,7 +239,7 @@ func (m *Metadata) String() string {
 
 type Folder struct {
 	ItemMini
-	apiInfo                               *apiInfo           `json:"-"`
+	apiInfo                               *apiInfo
 	CreatedAt                             *time.Time         `json:"created_at,omitempty"`
 	ModifiedAt                            *time.Time         `json:"modified_at,omitempty"`
 	Description                           *string            `json:"description,omitempty"`

@@ -50,7 +50,7 @@ type ApiStatusError struct {
 	HelpUrl     string                 `json:"help_url,omitempty"`
 	Message     string                 `json:"message,omitempty"`
 	RequestId   string                 `json:"request_id,omitempty"`
-	frame       xerrors.Frame          `json:"-"`
+	frame       xerrors.Frame
 }
 
 func (e *ApiStatusError) Format(f fmt.State, c rune) { // implements fmt.Formatter

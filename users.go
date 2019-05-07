@@ -110,7 +110,7 @@ func (e *Enterprise) MarshalJSON() ([]byte, error) {
 
 type User struct {
 	UserGroupMini
-	apiInfo                       *apiInfo            `json:"-"`
+	apiInfo                       *apiInfo
 	CreatedAt                     *time.Time          `json:"created_at,omitempty"`
 	ModifiedAt                    *time.Time          `json:"modified_at,omitempty"`
 	Language                      *string             `json:"language,omitempty"`

@@ -11,7 +11,6 @@ func TestItemType_String(t *testing.T) {
 		i    *ItemType
 		want string
 	}{
-		// TODO: Add test cases.
 		{"nil", nil, "<nil>"},
 		{"normal", setItemTypePtr(TYPE_FILE), "file"},
 		{"normal", setItemTypePtr(TYPE_FOLDER), "folder"},
@@ -32,7 +31,6 @@ func TestItemType_MarshalJSON(t *testing.T) {
 		want    []byte
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{"nil", nil, []byte(`null`), false},
 		{"normal", setItemTypePtr(TYPE_FILE), []byte(`"file"`), false},
 		{"normal", setItemTypePtr(TYPE_FOLDER), []byte(`"folder"`), false},

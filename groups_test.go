@@ -36,7 +36,6 @@ func TestInvitabilityLevel_String(t *testing.T) {
 		us   *InvitabilityLevel
 		want string
 	}{
-		// TODO: Add test cases.
 		{"nil", nil, "<nil>"},
 		{"normal", setInvitabilityLevel(InvitabilityAdminsOnly), "admins_only"},
 		{"normal", setInvitabilityLevel(InvitabilityAdminsMembers), "admins_and_members"},
@@ -129,7 +128,6 @@ func TestGroup_ResourceType(t *testing.T) {
 		target *Group
 		want   BoxResourceType
 	}{
-		// TODO: Add test cases.
 		{"normal", nil, GroupResource},
 		{"normal", &Group{}, GroupResource},
 	}
@@ -179,7 +177,6 @@ func TestGroup_GetGroupReq(t *testing.T) {
 		args args
 		want *Request
 	}{
-		// TODO: Add test cases.
 		{
 			name: "normal/fields=nil",
 			args: args{groupId: "10001", fields: nil},
@@ -287,7 +284,6 @@ func TestGroup_GetGroup(t *testing.T) {
 		wantErr bool
 		errType interface{}
 	}{
-		// TODO: Add test cases.
 		{"normal", args{"10001", nil}, normal, false, nil},
 		{"http error/404", args{"404", FolderAllFields}, nil, true, &ApiStatusError{Status: 404}},
 		{"returned invalid json/999", args{"999", nil}, nil, true, &ApiOtherError{}},
@@ -1249,7 +1245,6 @@ func TestGroup_GetEnterpriseGroupsReq(t *testing.T) {
 		args args
 		want *Request
 	}{
-		// TODO: Add test cases.
 		{"no name",
 			args{
 				"",
@@ -1406,7 +1401,6 @@ func TestGroup_GetEnterpriseGroups(t *testing.T) {
 		wantErr           bool
 		errType           interface{}
 	}{
-		// TODO: Add test cases.
 		{
 			"normal",
 			args{"10001", 0, 100, nil},

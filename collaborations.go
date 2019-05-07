@@ -32,7 +32,7 @@ const (
 )
 
 type Collaboration struct {
-	apiInfo        *apiInfo             `json:"-"`
+	apiInfo        *apiInfo
 	Type           *string              `json:"type,omitempty"`
 	ID             *string              `json:"id,omitempty"`
 	CreatedBy      *UserGroupMini       `json:"created_by,omitempty"`

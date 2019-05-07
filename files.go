@@ -14,7 +14,7 @@ import (
 
 type File struct {
 	ItemMini
-	apiInfo            *apiInfo        `json:"-"`
+	apiInfo            *apiInfo
 	FileVersion        *FileVersion    `json:"file_version,omitempty"`
 	Sha1               *string         `json:"sha1,omitempty"`
 	Description        *string         `json:"description,omitempty"`
@@ -112,7 +112,7 @@ func (f *File) SetSharedLinkCompany(unsharedAt time.Time, canDownload *bool) *Fi
 	if ua.IsZero() {
 		ua = nil
 	}
-	var cd *bool = nil
+	var cd *bool
 	var perm *Permissions
 	if canDownload != nil {
 		cd = canDownload

@@ -38,7 +38,7 @@ type ConfigurablePermissions struct {
 }
 
 type Membership struct {
-	apiInfo                 *apiInfo                 `json:"-"`
+	apiInfo                 *apiInfo
 	Type                    *string                  `json:"type,omitempty"`
 	ID                      *string                  `json:"id,omitempty"`
 	User                    *UserGroupMini           `json:"user,omitempty"`
