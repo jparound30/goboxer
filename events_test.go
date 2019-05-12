@@ -261,7 +261,7 @@ func TestEvent_UserEvent(t *testing.T) {
 			fields{api},
 			args{Changes, "now", 1000},
 			[]*BoxEvent{
-				&BoxEvent{
+				{
 					Type:    "event",
 					EventID: "f82c3ba03e41f7e8a7608363cc6c0390183c3f83",
 					CreatedBy: &UserGroupMini{
@@ -442,7 +442,7 @@ func TestEvent_EnterpriseEvent(t *testing.T) {
 	file001.apiInfo = api
 
 	wantBes := []*BoxEvent{
-		&BoxEvent{
+		{
 			Type:    "event",
 			EventID: "b9a2393a-20cf-4307-90f5-004110dec209",
 			CreatedBy: &UserGroupMini{
@@ -460,7 +460,7 @@ func TestEvent_EnterpriseEvent(t *testing.T) {
 			RecordedAt:        nil,
 			ActionBy:          nil,
 		},
-		&BoxEvent{
+		{
 			Type:    "event",
 			EventID: "1a4ade15-b1ff-4cc3-89a8-955e1522557c",
 			CreatedBy: &UserGroupMini{
