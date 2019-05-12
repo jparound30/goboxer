@@ -52,7 +52,7 @@ func (c *Collaboration) ResourceType() BoxResourceType {
 	return CollaborationResource
 }
 
-func NewCollaboration(api *ApiConn) *Collaboration {
+func NewCollaboration(api *APIConn) *Collaboration {
 	return &Collaboration{apiInfo: &apiInfo{api: api}}
 }
 

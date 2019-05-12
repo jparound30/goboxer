@@ -9,7 +9,7 @@ var (
 )
 
 type apiInfo struct {
-	api *ApiConn
+	api *APIConn
 }
 
 type ItemType string

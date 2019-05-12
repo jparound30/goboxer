@@ -82,7 +82,7 @@ func (g *Group) ResourceType() BoxResourceType {
 	return GroupResource
 }
 
-func NewGroup(api *ApiConn) *Group {
+func NewGroup(api *APIConn) *Group {
 	return &Group{
 		apiInfo: &apiInfo{api: api},
 	}

@@ -72,7 +72,7 @@ const (
 )
 
 type Request struct {
-	apiConn            *ApiConn
+	apiConn            *APIConn
 	Url                string
 	headers            http.Header
 	body               io.Reader
@@ -90,7 +90,7 @@ func (req *Request) AsUser(userId string) *Request {
 	return req
 }
 
-func NewRequest(apiConn *ApiConn, url string, method Method, headers http.Header, body io.Reader) *Request {
+func NewRequest(apiConn *APIConn, url string, method Method, headers http.Header, body io.Reader) *Request {
 	h := make(http.Header, len(headers))
 	for k, v := range headers {
 		vv := make([]string, len(v))
@@ -307,7 +307,7 @@ type BatchRequest struct {
 	Request
 }
 
-func NewBatchRequest(apiConn *ApiConn) *BatchRequest {
+func NewBatchRequest(apiConn *APIConn) *BatchRequest {
 	return &BatchRequest{
 		Request{apiConn: apiConn, shouldAuthenticate: true},
 	}

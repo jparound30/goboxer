@@ -161,7 +161,7 @@ func (f *File) SetParent(parentFolderId string) *File {
 	return f
 }
 
-func NewFile(api *ApiConn) *File {
+func NewFile(api *APIConn) *File {
 	return &File{
 		apiInfo: &apiInfo{api: api},
 	}

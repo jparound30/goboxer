@@ -20,8 +20,8 @@ import (
 //
 // COMMON UTILITY FUNCTIONS FOR TESTS
 //
-func commonInit(url string) *ApiConn {
-	var apiConn = NewApiConnWithRefreshToken(
+func commonInit(url string) *APIConn {
+	var apiConn = NewAPIConnWithRefreshToken(
 		"CLIENT_ID",
 		"CLIENT_SECRET",
 		"ACCESS_TOKEN",
@@ -41,7 +41,7 @@ func diffCompOptions(types ...interface{}) []cmp.Option {
 
 	opts = append(opts, cmp.AllowUnexported(types...))
 	opts = append(opts, cmpopts.IgnoreTypes(sync.RWMutex{}))
-	opts = append(opts, cmpopts.IgnoreInterfaces(struct{ ApiConnRefreshNotifier }{}))
+	opts = append(opts, cmpopts.IgnoreInterfaces(struct{ APIConnRefreshNotifier }{}))
 	return opts
 }
 
@@ -1419,7 +1419,7 @@ func TestFolder_UpdateReq(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.folder.UpdateReq(tt.args.folderId, tt.args.fields)
 
-			opts := diffCompOptions(Folder{}, ApiConn{})
+			opts := diffCompOptions(Folder{}, APIConn{})
 			opt := cmpopts.IgnoreUnexported(Request{})
 			opts = append(opts, opt)
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {

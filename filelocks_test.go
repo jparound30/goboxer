@@ -132,7 +132,7 @@ func TestFile_LockFileReq(t *testing.T) {
 			f := NewFile(apiConn)
 			got := f.LockFileReq(tt.args.fileId, tt.args.expiresAt, tt.args.isDownloadPrevented, tt.args.fields)
 
-			opts := diffCompOptions(ApiConn{})
+			opts := diffCompOptions(APIConn{})
 			opt := cmpopts.IgnoreUnexported(Request{})
 			opts = append(opts, opt)
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
@@ -391,7 +391,7 @@ func TestFile_UnlockFileReq(t *testing.T) {
 			f := NewFile(apiConn)
 			got := f.UnlockFileReq(tt.args.fileId, tt.args.fields)
 
-			opts := diffCompOptions(ApiConn{})
+			opts := diffCompOptions(APIConn{})
 			opt := cmpopts.IgnoreUnexported(Request{})
 			opts = append(opts, opt)
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {

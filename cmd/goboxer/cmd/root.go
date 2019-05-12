@@ -19,7 +19,7 @@ var accessToken string
 var refreshToken string
 var verbose bool
 
-var apiConn *goboxer.ApiConn
+var apiConn *goboxer.APIConn
 
 func init() {
 }
@@ -100,12 +100,12 @@ var (
 )
 
 func createGoboxerApiConn() error {
-	apiConn = goboxer.NewApiConnWithRefreshToken(clientId, clientSecret, accessToken, refreshToken)
+	apiConn = goboxer.NewAPIConnWithRefreshToken(clientId, clientSecret, accessToken, refreshToken)
 
 	_, err := os.Stat(StateFilename)
 	if err == nil {
 		bytes, err := ioutil.ReadFile(StateFilename)
-		err = apiConn.RestoreApiConn(bytes)
+		err = apiConn.RestoreState(bytes)
 		if err != nil {
 			return err
 		}
@@ -128,7 +128,7 @@ func createGoboxerApiConn() error {
 		return InvalidClientSecretError
 	}
 
-	apiConn.SetApiConnRefreshNotifier(&mainState)
+	apiConn.SetAPIConnRefreshNotifier(&mainState)
 	goboxer.Log = &mainState
 	return nil
 }
@@ -178,7 +178,7 @@ func (*Main) EnabledLoggingRequestBody() bool {
 	return true
 }
 
-func (*Main) Success(apiConn *goboxer.ApiConn) {
+func (*Main) Success(apiConn *goboxer.APIConn) {
 	bytes, err := apiConn.SaveState()
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -191,7 +191,7 @@ func (*Main) Success(apiConn *goboxer.ApiConn) {
 	}
 }
 
-func (*Main) Fail(apiConn *goboxer.ApiConn, err error) {
+func (*Main) Fail(apiConn *goboxer.APIConn, err error) {
 	fmt.Printf("%v\n", err)
 }
 

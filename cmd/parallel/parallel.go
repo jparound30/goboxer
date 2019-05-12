@@ -22,23 +22,23 @@ func main() {
 	accessToken := os.Getenv("_BOX_AT")
 	refreshToken := os.Getenv("_BOX_RT")
 
-	apiConn := goboxer.NewApiConnWithRefreshToken(clientId, clientSecret, accessToken, refreshToken)
+	apiConn := goboxer.NewAPIConnWithRefreshToken(clientId, clientSecret, accessToken, refreshToken)
 
 	_, err := os.Stat(StateFilename)
 	if err == nil {
 		bytes, err := ioutil.ReadFile(StateFilename)
-		err = apiConn.RestoreApiConn(bytes)
+		err = apiConn.RestoreState(bytes)
 		if err != nil {
 			os.Exit(1)
 		}
-		err = apiConn.RestoreApiConn(bytes)
+		err = apiConn.RestoreState(bytes)
 		if err != nil {
 			os.Exit(1)
 		}
 	}
 
 	mainState := Main{}
-	apiConn.SetApiConnRefreshNotifier(&mainState)
+	apiConn.SetAPIConnRefreshNotifier(&mainState)
 	goboxer.Log = &mainState
 
 	// API Usage Example
@@ -142,7 +142,7 @@ func (*Main) EnabledLoggingRequestBody() bool {
 	return true
 }
 
-func (*Main) Success(apiConn *goboxer.ApiConn) {
+func (*Main) Success(apiConn *goboxer.APIConn) {
 	fmt.Printf("access_token: %s\n", apiConn.AccessToken)
 	fmt.Printf("refresh_token: %s\n", apiConn.RefreshToken)
 	bytes, err := apiConn.SaveState()
@@ -157,6 +157,6 @@ func (*Main) Success(apiConn *goboxer.ApiConn) {
 	}
 }
 
-func (*Main) Fail(apiConn *goboxer.ApiConn, err error) {
+func (*Main) Fail(apiConn *goboxer.APIConn, err error) {
 	fmt.Printf("%v\n", err)
 }

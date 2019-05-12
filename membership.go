@@ -53,7 +53,7 @@ func (m *Membership) ResourceType() BoxResourceType {
 	return MembershipResource
 }
 
-func NewMembership(api *ApiConn) *Membership {
+func NewMembership(api *APIConn) *Membership {
 	return &Membership{
 		apiInfo: &apiInfo{api: api},
 	}

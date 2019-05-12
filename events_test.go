@@ -128,7 +128,7 @@ func TestNewEvent(t *testing.T) {
 	url := "https://example.com"
 	apiConn := commonInit(url)
 	type args struct {
-		api *ApiConn
+		api *APIConn
 	}
 	tests := []struct {
 		name string

@@ -722,7 +722,7 @@ func TestUser_GetUser(t *testing.T) {
 	}
 }
 
-func buildUserOfCommon(apiConn *ApiConn) *User {
+func buildUserOfCommon(apiConn *APIConn) *User {
 	u := &User{
 		apiInfo: &apiInfo{api: apiConn},
 		UserGroupMini: UserGroupMini{

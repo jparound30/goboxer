@@ -1229,7 +1229,7 @@ func TestFile_UpdateReq(t *testing.T) {
 
 			got := tt.file.UpdateReq(tt.args.fileId, tt.args.ifMatch, tt.args.fields)
 
-			opts := diffCompOptions(File{}, ApiConn{})
+			opts := diffCompOptions(File{}, APIConn{})
 			opt := cmpopts.IgnoreUnexported(Request{})
 			opts = append(opts, opt)
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {

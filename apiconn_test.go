@@ -67,7 +67,7 @@ func TestApiConn_Refresh(t *testing.T) {
 	))
 	defer ts.Close()
 
-	apiConn := NewApiConnWithRefreshToken(
+	apiConn := NewAPIConnWithRefreshToken(
 		"CLIENT_ID",
 		"CLIENT_SECRET",
 		"ACCESS_TOKEN",
@@ -156,7 +156,7 @@ func TestApiConn_Refresh_NoRefreshToken(t *testing.T) {
 	))
 	defer ts.Close()
 
-	apiConn := NewApiConnWithRefreshToken(
+	apiConn := NewAPIConnWithRefreshToken(
 		"CLIENT_ID",
 		"CLIENT_SECRET",
 		"ACCESS_TOKEN",
@@ -206,7 +206,7 @@ func TestApiConn_Refresh_InvalidResponse(t *testing.T) {
 	))
 	defer ts.Close()
 
-	apiConn := NewApiConnWithRefreshToken(
+	apiConn := NewAPIConnWithRefreshToken(
 		"CLIENT_ID",
 		"CLIENT_SECRET",
 		"ACCESS_TOKEN",
@@ -256,7 +256,7 @@ func TestApiConn_Authenticate(t *testing.T) {
 	))
 	defer ts.Close()
 
-	apiConn := NewApiConnWithRefreshToken(
+	apiConn := NewAPIConnWithRefreshToken(
 		"CLIENT_ID",
 		"CLIENT_SECRET",
 		"ACCESS_TOKEN",
@@ -313,7 +313,7 @@ func TestApiConn_Authenticate_InvalidResponse(t *testing.T) {
 	))
 	defer ts.Close()
 
-	apiConn := NewApiConnWithRefreshToken(
+	apiConn := NewAPIConnWithRefreshToken(
 		"CLIENT_ID",
 		"CLIENT_SECRET",
 		"ACCESS_TOKEN",
@@ -360,7 +360,7 @@ func TestApiConn_Authenticate_HttpStatus_401(t *testing.T) {
 	))
 	defer ts.Close()
 
-	apiConn := NewApiConnWithRefreshToken(
+	apiConn := NewAPIConnWithRefreshToken(
 		"CLIENT_ID",
 		"CLIENT_SECRET",
 		"ACCESS_TOKEN",
@@ -376,7 +376,7 @@ func TestApiConn_Authenticate_HttpStatus_401(t *testing.T) {
 
 func TestNewApiConnWithAccessToken(t *testing.T) {
 
-	defaultInstance := ApiConn{}
+	defaultInstance := APIConn{}
 	defaultInstance.commonInit()
 	defaultInstance.AccessToken = "ACTK"
 
@@ -386,14 +386,14 @@ func TestNewApiConnWithAccessToken(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *ApiConn
+		want *APIConn
 	}{
 		{"Create", args{"ACTK"}, &defaultInstance},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewApiConnWithAccessToken(tt.args.accessToken); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewApiConnWithAccessToken() = %v, want %v", got, tt.want)
+			if got := NewAPIConnWithAccessToken(tt.args.accessToken); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewAPIConnWithAccessToken() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -414,14 +414,14 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 		LastRefresh        time.Time
 		Expires            float64
 		MaxRequestAttempts int
-		notifier           ApiConnRefreshNotifier
+		notifier           APIConnRefreshNotifier
 	}
 	testTime := time.Now().Truncate(time.Microsecond)
 
 	tests := []struct {
 		name    string
 		fields  fields
-		want    *ApiConn
+		want    *APIConn
 		wantErr bool
 	}{
 		{"SaveState Normal",
@@ -430,7 +430,7 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10,
 				nil,
 			},
-			&ApiConn{"CLIENT_ID", "CLIENT_SECRET", "ACCESS_TOKEN", "REFRESH_TOKEN",
+			&APIConn{"CLIENT_ID", "CLIENT_SECRET", "ACCESS_TOKEN", "REFRESH_TOKEN",
 				"TOKEN_URL", "REVOKE_URL", "BASE_URL", "BASE_UPLOAD_URL",
 				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10,
 				sync.RWMutex{}, nil, sync.RWMutex{},
@@ -440,7 +440,7 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ac := &ApiConn{
+			ac := &APIConn{
 				ClientID:           tt.fields.ClientID,
 				ClientSecret:       tt.fields.ClientSecret,
 				AccessToken:        tt.fields.AccessToken,
@@ -460,18 +460,18 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 			}
 			got, err := ac.SaveState()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ApiConn.SaveState() error = %v, wantErr %v\n", err, tt.wantErr)
+				t.Errorf("APIConn.SaveState() error = %v, wantErr %v\n", err, tt.wantErr)
 				return
 			}
-			err = ac.RestoreApiConn(got)
+			err = ac.RestoreState(got)
 			if err != nil {
-				t.Errorf("ApiConn.RestoreApiConn() error = \n%v\n", err)
+				t.Errorf("APIConn.RestoreState() error = \n%v\n", err)
 				return
 			}
-			opt := cmp.AllowUnexported(ApiConn{})
+			opt := cmp.AllowUnexported(APIConn{})
 			opt1 := cmpopts.IgnoreUnexported(sync.RWMutex{})
 			if diff := cmp.Diff(ac, tt.want, opt, opt1); diff != "" {
-				t.Errorf("ApiConn.SaveState() = \n%v, want \n%v\n", ac, &tt.want)
+				t.Errorf("APIConn.SaveState() = \n%v, want \n%v\n", ac, &tt.want)
 			}
 		})
 	}

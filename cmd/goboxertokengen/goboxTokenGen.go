@@ -96,7 +96,7 @@ func redirectHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		apiConn := goboxer.NewApiConnWithRefreshToken(ClientID, ClientSecret, "", "")
+		apiConn := goboxer.NewAPIConnWithRefreshToken(ClientID, ClientSecret, "", "")
 		err := apiConn.Authenticate(authCode)
 		if err != nil {
 			writeErrorHtml(w, err)

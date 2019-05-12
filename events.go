@@ -198,7 +198,7 @@ type Event struct {
 	apiInfo *apiInfo
 }
 
-func NewEvent(api *ApiConn) *Event {
+func NewEvent(api *APIConn) *Event {
 	return &Event{
 		apiInfo: &apiInfo{api: api},
 	}

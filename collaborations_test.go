@@ -219,7 +219,7 @@ func TestNewCollaboration(t *testing.T) {
 	apiConn := commonInit(url)
 
 	type args struct {
-		api *ApiConn
+		api *APIConn
 	}
 	tests := []struct {
 		name string
@@ -977,7 +977,7 @@ func TestCollaboration_CreateReq(t *testing.T) {
 			c := tt.target
 			got := c.CreateReq(tt.args.targetItem, tt.args.grantedTo, tt.args.role, tt.args.canViewPath, tt.args.fields, tt.args.notify)
 
-			opts := diffCompOptions(Collaboration{}, ApiConn{})
+			opts := diffCompOptions(Collaboration{}, APIConn{})
 			opt := cmpopts.IgnoreUnexported(Request{})
 			opts = append(opts, opt)
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
@@ -1338,7 +1338,7 @@ func TestCollaboration_UpdateReq(t *testing.T) {
 
 			got := c.UpdateReq(tt.args.collaborationId, tt.args.role, tt.args.status, tt.args.canViewPath, tt.args.fields)
 
-			opts := diffCompOptions(Collaboration{}, ApiConn{})
+			opts := diffCompOptions(Collaboration{}, APIConn{})
 			opt := cmpopts.IgnoreUnexported(Request{})
 			opts = append(opts, opt)
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
@@ -1577,7 +1577,7 @@ func TestCollaboration_DeleteReq(t *testing.T) {
 			c := NewCollaboration(apiConn)
 
 			got := c.DeleteReq(tt.args.collaborationId)
-			opts := diffCompOptions(Collaboration{}, ApiConn{})
+			opts := diffCompOptions(Collaboration{}, APIConn{})
 			opt := cmpopts.IgnoreUnexported(Request{})
 			opts = append(opts, opt)
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {

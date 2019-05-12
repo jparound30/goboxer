@@ -338,7 +338,7 @@ func (f *Folder) ResourceType() BoxResourceType {
 	return FolderResource
 }
 
-func NewFolder(api *ApiConn) *Folder {
+func NewFolder(api *APIConn) *Folder {
 	return &Folder{
 		apiInfo: &apiInfo{api: api},
 	}

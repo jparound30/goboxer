@@ -54,7 +54,7 @@ func (*Main) EnabledLoggingRequestBody() bool {
 	return true
 }
 
-func (*Main) Success(apiConn *ApiConn) {
+func (*Main) Success(apiConn *APIConn) {
 	stateData, err := apiConn.SaveState()
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -63,7 +63,7 @@ func (*Main) Success(apiConn *ApiConn) {
 	fmt.Printf("%v\n", stateData)
 }
 
-func (*Main) Fail(apiConn *ApiConn, err error) {
+func (*Main) Fail(apiConn *APIConn, err error) {
 	fmt.Printf("%v\n", err)
 }
 

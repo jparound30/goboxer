@@ -165,7 +165,7 @@ func (u *User) ResourceType() BoxResourceType {
 	return UserResource
 }
 
-func NewUser(api *ApiConn) *User {
+func NewUser(api *APIConn) *User {
 	return &User{
 		apiInfo: &apiInfo{api: api},
 	}

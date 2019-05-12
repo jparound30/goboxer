@@ -13,18 +13,19 @@ import (
 )
 
 const (
-	RefreshMarginInSec = 60.0
+	refreshMarginInSec = 60.0
 )
 
 // TODO Suppressing Notifications https://developer.box.com/reference#suppressing-notifications
 
-type ApiConnRefreshNotifier interface {
-	Success(apiConn *ApiConn)
-	Fail(apiConn *ApiConn, err error)
+// APIConnRefreshNotifier is the interface that notifies the refresh result AccessToken/RefreshToken
+type APIConnRefreshNotifier interface {
+	Success(apiConn *APIConn)
+	Fail(apiConn *APIConn, err error)
 }
 
-// Box Api connection structure
-type ApiConn struct {
+// APIConn is the structure for Box API connection
+type APIConn struct {
 	ClientID           string
 	ClientSecret       string
 	AccessToken        string
@@ -39,13 +40,13 @@ type ApiConn struct {
 	Expires            float64
 	MaxRequestAttempts int
 	rwLock             sync.RWMutex
-	notifier           ApiConnRefreshNotifier
+	notifier           APIConnRefreshNotifier
 	accessTokenLock    sync.RWMutex
 	RestrictedTo       []*FileScope `json:"restricted_to"`
 }
 
 // Common Initialization
-func (ac *ApiConn) commonInit() {
+func (ac *APIConn) commonInit() {
 	ac.TokenURL = "https://api.box.com/oauth2/token"
 	ac.RevokeURL = "https://api.box.com/oauth2/revoke"
 	ac.BaseURL = "https://api.box.com/2.0/"
@@ -55,26 +56,27 @@ func (ac *ApiConn) commonInit() {
 	ac.MaxRequestAttempts = 5
 }
 
-func (ac *ApiConn) SetApiConnRefreshNotifier(notifier ApiConnRefreshNotifier) {
+// SetAPIConnRefreshNotifier set APIConnRefreshNotifier
+func (ac *APIConn) SetAPIConnRefreshNotifier(notifier APIConnRefreshNotifier) {
 	ac.notifier = notifier
 }
 
-// Create Box Api connection from AccessToken.
+// NewAPIConnWithAccessToken allocates and returns a new Box API connection from AccessToken.
 //
 // Instance created by this method can not refresh a AccessToken.
-func NewApiConnWithAccessToken(accessToken string) *ApiConn {
-	instance := &ApiConn{
+func NewAPIConnWithAccessToken(accessToken string) *APIConn {
+	instance := &APIConn{
 		AccessToken: accessToken,
 	}
 	instance.commonInit()
 	return instance
 }
 
-// Create Box Api connection from ClientID,ClientSecret,AccessToken,RefreshToken.
+// NewAPIConnWithRefreshToken allocates and returns a new Box API connection from ClientID,ClientSecret,AccessToken,RefreshToken.
 //
 // Instance created by this method can refresh a AccessToken.
-func NewApiConnWithRefreshToken(clientID string, clientSecret string, accessToken string, refreshToken string) *ApiConn {
-	instance := &ApiConn{
+func NewAPIConnWithRefreshToken(clientID string, clientSecret string, accessToken string, refreshToken string) *APIConn {
+	instance := &APIConn{
 		AccessToken:  accessToken,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
@@ -84,20 +86,22 @@ func NewApiConnWithRefreshToken(clientID string, clientSecret string, accessToke
 	return instance
 }
 
-func (ac *ApiConn) canRefresh() bool {
+func (ac *APIConn) canRefresh() bool {
 	return ac.RefreshToken != ""
 }
-func (ac *ApiConn) notifySuccess() {
+func (ac *APIConn) notifySuccess() {
 	if ac.notifier != nil {
 		ac.notifier.Success(ac)
 	}
 }
-func (ac *ApiConn) notifyFail(err error) {
+func (ac *APIConn) notifyFail(err error) {
 	if ac.notifier != nil {
 		ac.notifier.Fail(ac, err)
 	}
 }
-func (ac *ApiConn) Refresh() error {
+
+// Refresh the accessToken and refreshToken
+func (ac *APIConn) Refresh() error {
 
 	ac.rwLock.Lock()
 	defer ac.rwLock.Unlock()
@@ -148,7 +152,8 @@ func (ac *ApiConn) Refresh() error {
 	return nil
 }
 
-func (ac *ApiConn) Authenticate(authCode string) error {
+// Authenticate a user with authCode
+func (ac *APIConn) Authenticate(authCode string) error {
 	ac.rwLock.Lock()
 	defer ac.rwLock.Unlock()
 
@@ -193,7 +198,7 @@ func (ac *ApiConn) Authenticate(authCode string) error {
 	return nil
 }
 
-type ApiConnState struct {
+type apiConnState struct {
 	AccessToken        string    `json:"accessToken"`
 	RefreshToken       string    `json:"refreshToken"`
 	LastRefresh        time.Time `json:"lastRefresh"`
@@ -201,8 +206,9 @@ type ApiConnState struct {
 	MaxRequestAttempts int       `json:"maxRequestAttempts"`
 }
 
-func (ac *ApiConn) SaveState() ([]byte, error) {
-	var state = ApiConnState{
+// SaveState serialize the Box API connection states.
+func (ac *APIConn) SaveState() ([]byte, error) {
+	var state = apiConnState{
 		AccessToken:        ac.AccessToken,
 		RefreshToken:       ac.RefreshToken,
 		LastRefresh:        ac.LastRefresh,
@@ -217,8 +223,9 @@ func (ac *ApiConn) SaveState() ([]byte, error) {
 	return bytes, nil
 }
 
-func (ac *ApiConn) RestoreApiConn(stateData []byte) error {
-	var state ApiConnState
+// RestoreState deserialize the Box API connection states.
+func (ac *APIConn) RestoreState(stateData []byte) error {
+	var state apiConnState
 	err := json.Unmarshal(stateData, &state)
 	if err != nil {
 		return xerrors.Errorf("failed to deserialize state. error = %w", err)
@@ -231,11 +238,13 @@ func (ac *ApiConn) RestoreApiConn(stateData []byte) error {
 	return nil
 }
 
+// FileScope is a relation between a file and the scopes for which the file can be accessed
 type FileScope struct {
 	Scope     string          `json:"scope"`
 	ObjectRaw json.RawMessage `json:"object"`
 }
 
+// Object returns a information of file or folder
 func (fs *FileScope) Object() BoxResource {
 	resource, _ := ParseResource(fs.ObjectRaw)
 	return resource
@@ -249,17 +258,17 @@ type tokenResponse struct {
 	TokenType    string       `json:"token_type"`
 }
 
-func (ac *ApiConn) needsRefresh() bool {
+func (ac *APIConn) needsRefresh() bool {
 	var needsRefresh = false
 	ac.rwLock.RLock()
 	defer ac.rwLock.RUnlock()
 
 	now := time.Now()
 	durationInSec := now.Unix() - ac.LastRefresh.Unix()
-	needsRefresh = float64(durationInSec) >= ac.Expires-RefreshMarginInSec
+	needsRefresh = float64(durationInSec) >= ac.Expires-refreshMarginInSec
 	return needsRefresh
 }
-func (ac *ApiConn) lockAccessToken() (string, error) {
+func (ac *APIConn) lockAccessToken() (string, error) {
 	if ac.canRefresh() && ac.needsRefresh() {
 		err := ac.Refresh()
 		if err != nil {
@@ -271,6 +280,6 @@ func (ac *ApiConn) lockAccessToken() (string, error) {
 	}
 	return ac.AccessToken, nil
 }
-func (ac *ApiConn) unlockAccessToken() {
+func (ac *APIConn) unlockAccessToken() {
 	ac.accessTokenLock.Unlock()
 }

@@ -146,7 +146,7 @@ func TestNewGroup(t *testing.T) {
 	apiConn := commonInit(url)
 
 	type args struct {
-		api *ApiConn
+		api *APIConn
 	}
 	tests := []struct {
 		name string
