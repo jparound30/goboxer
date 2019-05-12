@@ -457,6 +457,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 			// If normal response
 			opts := diffCompOptions()
 			opts = append(opts, cmpopts.IgnoreUnexported(Request{}))
+			opts = append(opts, cmpopts.IgnoreFields(Response{}, "RTTInMillis"))
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
 				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
 				return
