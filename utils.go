@@ -57,7 +57,7 @@ func intToString(i *int) string {
 	if i == nil {
 		return "<nil>"
 	}
-	return string(*i)
+	return string(rune(*i))
 }
 
 func ParseResource(jsonEntity []byte) (r BoxResource, err error) {
