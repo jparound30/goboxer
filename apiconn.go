@@ -2,19 +2,35 @@ package goboxer
 
 import (
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/dgrijalva/jwt-go/v4"
+	"github.com/google/uuid"
+	"github.com/youmark/pkcs8"
 	"golang.org/x/xerrors"
 )
 
 const (
 	refreshMarginInSec = 60.0
 )
+
+var uuidGen uuid.UUID
+
+func init() {
+	var err error
+	uuidGen, err = uuid.NewRandom()
+	if err != nil {
+		log.Panicf("cannot initialize ID generator")
+	}
+}
 
 // TODO Suppressing Notifications https://developer.box.com/reference#suppressing-notifications
 
@@ -282,4 +298,137 @@ func (ac *APIConn) lockAccessToken() (string, error) {
 }
 func (ac *APIConn) unlockAccessToken() {
 	ac.accessTokenLock.Unlock()
+}
+
+type JwtConfig struct {
+	BoxAppSettings struct {
+		ClientID     string `json:"clientID"`
+		ClientSecret string `json:"clientSecret"`
+		AppAuth      struct {
+			PublicKeyID string `json:"publicKeyID"`
+			PrivateKey  string `json:"privateKey"`
+			Passphrase  string `json:"passphrase"`
+		} `json:"appAuth"`
+	} `json:"boxAppSettings"`
+	EnterpriseID string `json:"enterpriseID"`
+}
+
+type BoxJwt struct {
+	BoxSubType string `json:"box_sub_type"`
+	Audience   string `json:"aud"`
+	ExpiresAt  int64  `json:"exp"`
+	jwt.StandardClaims
+}
+
+// NewAPIConnWithJwtConfig allocates and returns a new Box API connection from Jwt config.
+func NewAPIConnWithJwtConfig(jwtConfigPath string) (*APIConn, error) {
+	// 1. Read JSON configuration
+	configFile, err := ioutil.ReadFile(jwtConfigPath)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to read Jwt Config File. %w", err)
+	}
+	jwtConfig := JwtConfig{}
+	err = json.Unmarshal(configFile, &jwtConfig)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to parse Jwt Config File. %w", err)
+	}
+
+	// 2. Decrypt private key
+	block, _ := pem.Decode([]byte(jwtConfig.BoxAppSettings.AppAuth.PrivateKey))
+	if block == nil {
+		return nil, xerrors.New("failed to decode a PEM")
+	}
+
+	pkey, _, err := pkcs8.ParsePrivateKey(
+		block.Bytes,
+		[]byte(jwtConfig.BoxAppSettings.AppAuth.Passphrase),
+	)
+	if err != nil {
+		log.Printf("failed to parse private key.  %+v", err)
+		return nil, xerrors.Errorf("failed to parse private key. %w", err)
+	}
+
+	// 3. Create JWT assertion
+	boxJwt := BoxJwt{
+		BoxSubType: "enterprise",
+		Audience:   "https://api.box.com/oauth2/token",
+		ExpiresAt:  time.Now().Add(time.Duration(55) * time.Second).Unix(),
+		StandardClaims: jwt.StandardClaims{
+			Issuer:    jwtConfig.BoxAppSettings.ClientID,
+			Subject:   jwtConfig.EnterpriseID,
+			ID:        uuidGen.URN(),
+			IssuedAt:  nil,
+			NotBefore: nil,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, boxJwt)
+	token.Header["kid"] = jwtConfig.BoxAppSettings.AppAuth.PublicKeyID
+	signedString, err := token.SignedString(pkey)
+	if err != nil {
+		log.Printf("failed to signing token : %s", err)
+		return nil, xerrors.New("failed to signing token")
+	}
+	log.Printf("TOKEN: %s", signedString)
+
+	instance := &APIConn{
+		ClientID:     jwtConfig.BoxAppSettings.ClientID,
+		ClientSecret: jwtConfig.BoxAppSettings.ClientSecret,
+	}
+	instance.commonInit()
+
+	err = instance.authenticateWithJwt(signedString)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to authenticate with jwt. %w", err)
+	}
+	return instance, nil
+}
+
+func (ac *APIConn) authenticateWithJwt(jwt string) error {
+	ac.rwLock.Lock()
+	defer ac.rwLock.Unlock()
+
+	var params = url.Values{}
+	params.Add("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer")
+	params.Add("assertion", jwt)
+	params.Add("client_id", ac.ClientID)
+	params.Add("client_secret", ac.ClientSecret)
+
+	header := http.Header{}
+	header.Add(httpHeaderContentType, ContentTypeFormUrlEncoded)
+
+	request := NewRequest(ac, ac.TokenURL, POST, header, strings.NewReader(params.Encode()))
+	request.shouldAuthenticate = false
+
+	resp, err := request.Send()
+	if err != nil {
+		ac.notifyFail(err)
+		return err
+	}
+
+	if resp.ResponseCode != http.StatusOK {
+		log.Printf("error: %+v", resp)
+		log.Printf("body: %s", string(resp.Body))
+		err := xerrors.New("failed to Authenticate with Jwt")
+		ac.notifyFail(err)
+		return err
+	}
+
+	var tokenResp tokenResponse
+	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
+		log.Printf("error:\n%+v", tokenResp)
+		err = xerrors.Errorf("failed to parse response. error = %w", err)
+		ac.notifyFail(err)
+		return err
+	}
+	log.Printf("token:\n%+v", tokenResp)
+
+	ac.AccessToken = tokenResp.AccessToken
+	ac.RefreshToken = tokenResp.RefreshToken
+	ac.Expires = tokenResp.ExpiresIn
+	ac.LastRefresh = time.Now()
+
+	ac.notifySuccess()
+
+	return nil
 }
