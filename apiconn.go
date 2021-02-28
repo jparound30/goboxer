@@ -438,7 +438,6 @@ func (ac *APIConn) createJwtAssertionForServiceAccount() (string, error) {
 		log.Printf("failed to signing token : %s", err)
 		return "", xerrors.New("failed to signing token")
 	}
-	log.Printf("TOKEN: %s", signedString)
 
 	return signedString, nil
 }
@@ -465,7 +464,6 @@ func (ac *APIConn) createJwtAssertionForUser(userId string) (string, error) {
 		log.Printf("failed to signing token : %s", err)
 		return "", xerrors.New("failed to signing token")
 	}
-	log.Printf("TOKEN: %s", signedString)
 
 	return signedString, nil
 }
@@ -507,7 +505,6 @@ func (ac *APIConn) authenticateWithJwt(jwt string) error {
 		ac.notifyFail(err)
 		return err
 	}
-	log.Printf("token:\n%+v", tokenResp)
 
 	ac.AccessToken = tokenResp.AccessToken
 	ac.RefreshToken = tokenResp.RefreshToken
