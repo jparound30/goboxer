@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -40,8 +39,7 @@ func diffCompOptions(types ...interface{}) []cmp.Option {
 	var opts []cmp.Option
 
 	opts = append(opts, cmp.AllowUnexported(types...))
-	opts = append(opts, cmpopts.IgnoreTypes(sync.RWMutex{}))
-	opts = append(opts, cmpopts.IgnoreInterfaces(struct{ APIConnRefreshNotifier }{}))
+	opts = append(opts, cmpopts.IgnoreUnexported(APIConn{}))
 	return opts
 }
 

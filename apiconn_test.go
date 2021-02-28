@@ -78,10 +78,6 @@ func TestApiConn_Refresh(t *testing.T) {
 		if err != nil {
 			t.Fatalf("予期しないエラー:%v", err)
 		}
-		//if (err != nil) != tt.wantErr {
-		//	t.Errorf("GetConfiguration() error = %v, wantErr %v", err, tt.wantErr)
-		//	return
-		//}
 		if apiConn.AccessToken != "ACCESS_TOKEN_2" {
 			t.Errorf("WRONG AC")
 		}
@@ -267,10 +263,6 @@ func TestApiConn_Authenticate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("予期しないエラー:%v", err)
 		}
-		//if (err != nil) != tt.wantErr {
-		//	t.Errorf("GetConfiguration() error = %v, wantErr %v", err, tt.wantErr)
-		//	return
-		//}
 		if apiConn.AccessToken != "ACCESS_TOKEN_2" {
 			t.Errorf("WRONG AC")
 		}
@@ -434,7 +426,7 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 				"TOKEN_URL", "REVOKE_URL", "BASE_URL", "BASE_UPLOAD_URL",
 				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10,
 				sync.RWMutex{}, nil, sync.RWMutex{},
-				nil,
+				nil, nil, "",
 			},
 			false},
 	}
@@ -457,6 +449,9 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 				rwLock:             sync.RWMutex{},
 				notifier:           nil,
 				accessTokenLock:    sync.RWMutex{},
+				RestrictedTo:       nil,
+				jwtConfig:          nil,
+				privateKey:         "",
 			}
 			got, err := ac.SaveState()
 			if (err != nil) != tt.wantErr {
@@ -471,7 +466,7 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 			opt := cmp.AllowUnexported(APIConn{})
 			opt1 := cmpopts.IgnoreUnexported(sync.RWMutex{})
 			if diff := cmp.Diff(ac, tt.want, opt, opt1); diff != "" {
-				t.Errorf("APIConn.SaveState() = \n%v, want \n%v\n", ac, &tt.want)
+				t.Errorf("APIConn.SaveState() = \n%v, want \n%v\n", ac, tt.want)
 			}
 		})
 	}
