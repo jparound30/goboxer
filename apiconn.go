@@ -22,14 +22,12 @@ const (
 	refreshMarginInSec = 60.0
 )
 
-var uuidGen uuid.UUID
-
-func init() {
-	var err error
-	uuidGen, err = uuid.NewRandom()
+func generateUniqueIdForJwt() string {
+	uuidGen, err := uuid.NewRandom()
 	if err != nil {
-		log.Panicf("cannot initialize ID generator")
+		return ""
 	}
+	return uuidGen.URN()
 }
 
 // TODO Suppressing Notifications https://developer.box.com/reference#suppressing-notifications
@@ -59,6 +57,8 @@ type APIConn struct {
 	notifier           APIConnRefreshNotifier
 	accessTokenLock    sync.RWMutex
 	RestrictedTo       []*FileScope `json:"restricted_to"`
+	jwtConfig          *jwtConfig
+	privateKey         interface{}
 }
 
 // Common Initialization
@@ -300,7 +300,7 @@ func (ac *APIConn) unlockAccessToken() {
 	ac.accessTokenLock.Unlock()
 }
 
-type JwtConfig struct {
+type jwtConfig struct {
 	BoxAppSettings struct {
 		ClientID     string `json:"clientID"`
 		ClientSecret string `json:"clientSecret"`
@@ -313,7 +313,7 @@ type JwtConfig struct {
 	EnterpriseID string `json:"enterpriseID"`
 }
 
-type BoxJwt struct {
+type boxJwt struct {
 	BoxSubType string `json:"box_sub_type"`
 	Audience   string `json:"aud"`
 	ExpiresAt  int64  `json:"exp"`
@@ -323,17 +323,70 @@ type BoxJwt struct {
 // NewAPIConnWithJwtConfig allocates and returns a new Box API connection from Jwt config.
 func NewAPIConnWithJwtConfig(jwtConfigPath string) (*APIConn, error) {
 	// 1. Read JSON configuration
-	configFile, err := ioutil.ReadFile(jwtConfigPath)
+	jwtConfig, err := loadJwtConfig(jwtConfigPath)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to read Jwt Config File. %w", err)
-	}
-	jwtConfig := JwtConfig{}
-	err = json.Unmarshal(configFile, &jwtConfig)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to parse Jwt Config File. %w", err)
+		return nil, xerrors.Errorf("failed to load jwt config %w", err)
 	}
 
 	// 2. Decrypt private key
+	pkey, err := decryptPrivateKey(jwtConfig, err)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to decrypt private key %w", err)
+	}
+
+	instance := &APIConn{
+		ClientID:     jwtConfig.BoxAppSettings.ClientID,
+		ClientSecret: jwtConfig.BoxAppSettings.ClientSecret,
+		jwtConfig:    jwtConfig,
+		privateKey:   pkey,
+	}
+	instance.commonInit()
+
+	jwtAssertion, err := instance.createJwtAssertionForServiceAccount()
+	if err != nil {
+		return nil, xerrors.Errorf("failed to create jwt assertion. %w", err)
+	}
+	err = instance.authenticateWithJwt(jwtAssertion)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to authenticate with jwt. %w", err)
+	}
+	return instance, nil
+}
+
+// NewAPIConnWithJwtConfigForUser allocates and returns a new Box API connection from Jwt config.
+func NewAPIConnWithJwtConfigForUser(jwtConfigPath string, userId string) (*APIConn, error) {
+	// 1. Read JSON configuration
+	jwtConfig, err := loadJwtConfig(jwtConfigPath)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to load jwt config %w", err)
+	}
+
+	// 2. Decrypt private key
+	pkey, err := decryptPrivateKey(jwtConfig, err)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to decrypt private key %w", err)
+	}
+
+	instance := &APIConn{
+		ClientID:     jwtConfig.BoxAppSettings.ClientID,
+		ClientSecret: jwtConfig.BoxAppSettings.ClientSecret,
+		jwtConfig:    jwtConfig,
+		privateKey:   pkey,
+	}
+	instance.commonInit()
+
+	jwtAssertion, err := instance.createJwtAssertionForUser(userId)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to create jwt assertion. %w", err)
+	}
+	err = instance.authenticateWithJwt(jwtAssertion)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to authenticate with jwt. %w", err)
+	}
+	return instance, nil
+}
+
+func decryptPrivateKey(jwtConfig *jwtConfig, err error) (interface{}, error) {
 	block, _ := pem.Decode([]byte(jwtConfig.BoxAppSettings.AppAuth.PrivateKey))
 	if block == nil {
 		return nil, xerrors.New("failed to decode a PEM")
@@ -347,41 +400,74 @@ func NewAPIConnWithJwtConfig(jwtConfigPath string) (*APIConn, error) {
 		log.Printf("failed to parse private key.  %+v", err)
 		return nil, xerrors.Errorf("failed to parse private key. %w", err)
 	}
+	return pkey, nil
+}
 
+func loadJwtConfig(jwtConfigPath string) (*jwtConfig, error) {
+	configFile, err := ioutil.ReadFile(jwtConfigPath)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to read Jwt Config File. %w", err)
+	}
+	jwtConfig := jwtConfig{}
+	err = json.Unmarshal(configFile, &jwtConfig)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to parse Jwt Config File. %w", err)
+	}
+	return &jwtConfig, nil
+}
+
+func (ac *APIConn) createJwtAssertionForServiceAccount() (string, error) {
 	// 3. Create JWT assertion
-	boxJwt := BoxJwt{
+	boxJwt := boxJwt{
 		BoxSubType: "enterprise",
-		Audience:   "https://api.box.com/oauth2/token",
+		Audience:   ac.TokenURL,
 		ExpiresAt:  time.Now().Add(time.Duration(55) * time.Second).Unix(),
 		StandardClaims: jwt.StandardClaims{
-			Issuer:    jwtConfig.BoxAppSettings.ClientID,
-			Subject:   jwtConfig.EnterpriseID,
-			ID:        uuidGen.URN(),
+			Issuer:    ac.jwtConfig.BoxAppSettings.ClientID,
+			Subject:   ac.jwtConfig.EnterpriseID,
+			ID:        generateUniqueIdForJwt(),
 			IssuedAt:  nil,
 			NotBefore: nil,
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, boxJwt)
-	token.Header["kid"] = jwtConfig.BoxAppSettings.AppAuth.PublicKeyID
-	signedString, err := token.SignedString(pkey)
+	token.Header["kid"] = ac.jwtConfig.BoxAppSettings.AppAuth.PublicKeyID
+	signedString, err := token.SignedString(ac.privateKey)
 	if err != nil {
 		log.Printf("failed to signing token : %s", err)
-		return nil, xerrors.New("failed to signing token")
+		return "", xerrors.New("failed to signing token")
 	}
 	log.Printf("TOKEN: %s", signedString)
 
-	instance := &APIConn{
-		ClientID:     jwtConfig.BoxAppSettings.ClientID,
-		ClientSecret: jwtConfig.BoxAppSettings.ClientSecret,
-	}
-	instance.commonInit()
+	return signedString, nil
+}
 
-	err = instance.authenticateWithJwt(signedString)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to authenticate with jwt. %w", err)
+func (ac *APIConn) createJwtAssertionForUser(userId string) (string, error) {
+	// 3. Create JWT assertion
+	boxJwt := boxJwt{
+		BoxSubType: "user",
+		Audience:   ac.TokenURL,
+		ExpiresAt:  time.Now().Add(time.Duration(55) * time.Second).Unix(),
+		StandardClaims: jwt.StandardClaims{
+			Issuer:    ac.jwtConfig.BoxAppSettings.ClientID,
+			Subject:   userId,
+			ID:        generateUniqueIdForJwt(),
+			IssuedAt:  nil,
+			NotBefore: nil,
+		},
 	}
-	return instance, nil
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, boxJwt)
+	token.Header["kid"] = ac.jwtConfig.BoxAppSettings.AppAuth.PublicKeyID
+	signedString, err := token.SignedString(ac.privateKey)
+	if err != nil {
+		log.Printf("failed to signing token : %s", err)
+		return "", xerrors.New("failed to signing token")
+	}
+	log.Printf("TOKEN: %s", signedString)
+
+	return signedString, nil
 }
 
 func (ac *APIConn) authenticateWithJwt(jwt string) error {
