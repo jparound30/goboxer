@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -30,26 +30,42 @@ func main() {
 		log.Fatalf("userId must be non-zero")
 	}
 
-	fmt.Printf(`=====
+	log.Printf(`=====
  START REQUEST JWT TOKEN for ENTERPRISE.
 =====
 `)
-	apiConn, err := goboxer.NewAPIConnWithJwtConfig(jwtConfigFilePath)
+	configFile, err := os.Open(jwtConfigFilePath)
 	if err != nil {
-		log.Fatalf("Failed: ENTERPRISE")
+		log.Fatalf("Failed: ENTERPRISE %s", err)
+	}
+	loader := goboxer.JwtConfigDefaultLoader{}
+	apiConn, err := goboxer.NewAPIConnWithJwtConfig(configFile, loader)
+	if err != nil {
+		log.Fatalf("Failed: ENTERPRISE: %s", err)
 	}
 	folder := goboxer.NewFolder(apiConn)
 	getInfo, err := folder.GetInfo(rootFolderId, nil)
 	if err != nil {
-		log.Fatalf("Failed: ENTERPRISE GET FOLDER")
+		log.Fatalf("Failed: ENTERPRISE GET FOLDER: %s", err)
 	}
 	log.Printf("%v\n", getInfo)
 
-	fmt.Printf(`=====
+	err = apiConn.Refresh()
+	if err != nil {
+		log.Fatalf("Failed: ENTERPRISE API TOKEN REFRESH: %s", err)
+	}
+	err = apiConn.Authenticate("")
+	if err == nil {
+		log.Fatalf("Failed: ENTERPRISE Authenticate with AUTHCODE: %s", err)
+	}
+
+	_, _ = configFile.Seek(0, io.SeekStart)
+
+	log.Printf(`=====
  START REQUEST JWT TOKEN for User.
 =====
 `)
-	apiConnUser, err := goboxer.NewAPIConnWithJwtConfigForUser(jwtConfigFilePath, userId)
+	apiConnUser, err := goboxer.NewAPIConnWithJwtConfigForUser(configFile, loader, userId)
 	if err != nil {
 		log.Fatalf("Failed: USER")
 	}
@@ -59,5 +75,14 @@ func main() {
 		log.Fatalf("Failed: USER GET FOLDER")
 	}
 	log.Printf("%v\n", getInfo)
+
+	err = apiConnUser.Refresh()
+	if err != nil {
+		log.Fatalf("Failed: USER API TOKEN REFRESH: %s", err)
+	}
+	err = apiConnUser.Authenticate("")
+	if err == nil {
+		log.Fatalf("Failed: USER Authenticate with AUTHCODE: %s", err)
+	}
 
 }

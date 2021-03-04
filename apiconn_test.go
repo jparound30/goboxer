@@ -426,7 +426,7 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 				"TOKEN_URL", "REVOKE_URL", "BASE_URL", "BASE_UPLOAD_URL",
 				"AUTHORIZATION_URL", "USER_AGENT", testTime, 3600.0, 10,
 				sync.RWMutex{}, nil, sync.RWMutex{},
-				nil, nil, "",
+				nil, nil,
 			},
 			false},
 	}
@@ -450,8 +450,7 @@ func TestApiConn_SaveStateAndRestore(t *testing.T) {
 				notifier:           nil,
 				accessTokenLock:    sync.RWMutex{},
 				RestrictedTo:       nil,
-				jwtConfig:          nil,
-				privateKey:         "",
+				jwtAuth:            nil,
 			}
 			got, err := ac.SaveState()
 			if (err != nil) != tt.wantErr {
