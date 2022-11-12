@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dgrijalva/jwt-go/v4"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/google/uuid"
 	"golang.org/x/xerrors"
 )
@@ -101,7 +101,7 @@ func (j *JwtAuthClaim) Claim(tokenUrl string) (string, error) {
 		BoxSubType: boxSubType,
 		Audience:   tokenUrl,
 		ExpiresAt:  time.Now().Add(time.Duration(55) * time.Second).Unix(),
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    j.jwtConfig.BoxAppSettings.ClientID,
 			Subject:   subject,
 			ID:        generateUniqueIdForJwt(),
@@ -156,7 +156,7 @@ type boxJwt struct {
 	BoxSubType string `json:"box_sub_type"`
 	Audience   string `json:"aud"`
 	ExpiresAt  int64  `json:"exp"`
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 }
 
 // Common Initialization
