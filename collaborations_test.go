@@ -3,7 +3,7 @@ package goboxer
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -321,14 +321,14 @@ func TestCollaboration_GetInfo(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
 				_, _ = w.Write([]byte("invalid json"))
 			default:
 				w.Header().Set("content-Type", "application/json")
-				resp, _ := ioutil.ReadFile("testdata/collaborations/collaboration_normal.json")
+				resp, _ := os.ReadFile("testdata/collaborations/collaboration_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1026,7 +1026,7 @@ func TestCollaboration_Create(t *testing.T) {
 				t.Fatalf("not exists access token")
 			}
 			// ok, return some response
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			var js map[string]interface{}
 			_ = json.Unmarshal(body, &js)
 			tmp1 := js["item"].(map[string]interface{})
@@ -1038,7 +1038,7 @@ func TestCollaboration_Create(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1047,7 +1047,7 @@ func TestCollaboration_Create(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/collaborations/collaboration_normal.json")
+				resp, _ := os.ReadFile("testdata/collaborations/collaboration_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1395,7 +1395,7 @@ func TestCollaboration_Update(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1406,7 +1406,7 @@ func TestCollaboration_Update(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/collaborations/collaboration_normal.json")
+				resp, _ := os.ReadFile("testdata/collaborations/collaboration_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1617,7 +1617,7 @@ func TestCollaboration_Delete(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1817,7 +1817,7 @@ func TestCollaboration_PendingCollaborations(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")

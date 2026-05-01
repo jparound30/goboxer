@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
-	"io/ioutil"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -101,7 +101,7 @@ func TestFile_Unmarshal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, _ := ioutil.ReadFile(tt.jsonFile)
+			b, _ := os.ReadFile(tt.jsonFile)
 			file := File{}
 			err := json.Unmarshal(b, &file)
 			if err != nil {
@@ -227,7 +227,7 @@ func TestFile_GetFileInfo(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -236,7 +236,7 @@ func TestFile_GetFileInfo(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/files/file_json.json")
+				resp, _ := os.ReadFile("testdata/files/file_json.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -351,7 +351,7 @@ func TestFile_DownloadFile(t *testing.T) {
 			case "404":
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("Content-Type", "application/json")
@@ -453,7 +453,7 @@ func TestFile_DownloadFile(t *testing.T) {
 
 			if got.ResponseCode == http.StatusOK {
 				gotBytes := got.Body
-				wantBytes, _ := ioutil.ReadAll(tt.want)
+				wantBytes, _ := io.ReadAll(tt.want)
 				if !reflect.DeepEqual(gotBytes, wantBytes) {
 					t.Errorf("File.DownloadFile() = %v, want %v", got, tt.want)
 				}
@@ -499,7 +499,7 @@ func TestFile_UploadFile(t *testing.T) {
 			if err != nil {
 				t.Fatalf("There is no file part.")
 			}
-			uploadedFile, _ := ioutil.ReadAll(file)
+			uploadedFile, _ := io.ReadAll(file)
 			expectedFile := []byte("UPLOAD FILES. SUCCESSFUL.")
 
 			if !reflect.DeepEqual(uploadedFile, expectedFile) {
@@ -512,7 +512,7 @@ func TestFile_UploadFile(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -525,12 +525,12 @@ func TestFile_UploadFile(t *testing.T) {
 				}
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/files/uploadfile_normal.json")
+				resp, _ := os.ReadFile("testdata/files/uploadfile_normal.json")
 				_, _ = w.Write(resp)
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/files/uploadfile_normal.json")
+				resp, _ := os.ReadFile("testdata/files/uploadfile_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -702,7 +702,7 @@ func TestFile_UploadFileVersion(t *testing.T) {
 			if err != nil {
 				t.Fatalf("There is no file part.")
 			}
-			uploadedFile, _ := ioutil.ReadAll(file)
+			uploadedFile, _ := io.ReadAll(file)
 			expectedFile := []byte("UPLOAD FILES. SUCCESSFUL.")
 
 			if !reflect.DeepEqual(uploadedFile, expectedFile) {
@@ -715,7 +715,7 @@ func TestFile_UploadFileVersion(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -728,12 +728,12 @@ func TestFile_UploadFileVersion(t *testing.T) {
 				}
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/files/uploadfile_normal.json")
+				resp, _ := os.ReadFile("testdata/files/uploadfile_normal.json")
 				_, _ = w.Write(resp)
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/files/uploadfile_normal.json")
+				resp, _ := os.ReadFile("testdata/files/uploadfile_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1288,7 +1288,7 @@ func TestFile_Update(t *testing.T) {
 			case "409":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(409)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				resp, _ := os.ReadFile("testdata/genericerror/409.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1327,7 +1327,7 @@ func TestFile_Update(t *testing.T) {
 					return
 				}
 				w.Header().Set("content-Type", "application/json")
-				resp, _ := ioutil.ReadFile("testdata/files/file_json.json")
+				resp, _ := os.ReadFile("testdata/files/file_json.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1438,7 +1438,7 @@ func TestFile_PreflightCheck(t *testing.T) {
 				t.Fatalf("invalid content-type [%s]", r.Header.Get(httpHeaderContentType))
 			}
 
-			readAll, _ := ioutil.ReadAll(r.Body)
+			readAll, _ := io.ReadAll(r.Body)
 
 			var v map[string]interface{}
 			_ = json.Unmarshal(readAll, &v)
@@ -1450,12 +1450,12 @@ func TestFile_PreflightCheck(t *testing.T) {
 			case "409":
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(409)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				resp, _ := os.ReadFile("testdata/genericerror/409.json")
 				_, _ = w.Write(resp)
 			case "404":
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("Content-Type", "application/json")
@@ -1628,7 +1628,7 @@ func TestFile_Delete(t *testing.T) {
 			case "400":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(400)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/400_notempty.json")
+				resp, _ := os.ReadFile("testdata/genericerror/400_notempty.json")
 				_, _ = w.Write(resp)
 			default:
 				if r.Header.Get("If-Match") != "1" {
@@ -1636,7 +1636,7 @@ func TestFile_Delete(t *testing.T) {
 				}
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(204)
-				resp, _ := ioutil.ReadFile("testdata/files/file_json.json")
+				resp, _ := os.ReadFile("testdata/files/file_json.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1790,8 +1790,8 @@ func TestFile_CopyReq(t *testing.T) {
 				return
 			}
 			// compare body
-			b1, _ := ioutil.ReadAll(got.body)
-			b2, _ := ioutil.ReadAll(tt.want.body)
+			b1, _ := io.ReadAll(got.body)
+			b2, _ := io.ReadAll(tt.want.body)
 
 			var m1 map[string]interface{}
 			_ = json.Unmarshal(b1, &m1)
@@ -1840,7 +1840,7 @@ func TestFile_Copy(t *testing.T) {
 			case "409":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(409)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				resp, _ := os.ReadFile("testdata/genericerror/409.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1849,7 +1849,7 @@ func TestFile_Copy(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/files/file_json.json")
+				resp, _ := os.ReadFile("testdata/files/file_json.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -2052,14 +2052,14 @@ func TestFile_Collaborations(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
 				_, _ = w.Write([]byte("invalid json"))
 			default:
 				w.Header().Set("content-Type", "application/json")
-				resp, _ := ioutil.ReadFile("testdata/files/collaborations_normal.json")
+				resp, _ := os.ReadFile("testdata/files/collaborations_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return

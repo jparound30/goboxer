@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strconv"
@@ -26,7 +25,7 @@ func main() {
 
 	_, err := os.Stat(StateFilename)
 	if err == nil {
-		bytes, err := ioutil.ReadFile(StateFilename)
+		bytes, err := os.ReadFile(StateFilename)
 		err = apiConn.RestoreState(bytes)
 		if err != nil {
 			os.Exit(1)
@@ -150,7 +149,7 @@ func (*Main) Success(apiConn *goboxer.APIConn) {
 		fmt.Printf("%v\n", err)
 		return
 	}
-	err = ioutil.WriteFile(StateFilename, bytes, 0666)
+	err = os.WriteFile(StateFilename, bytes, 0666)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return

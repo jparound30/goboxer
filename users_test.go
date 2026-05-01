@@ -2,7 +2,7 @@ package goboxer
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -91,7 +91,7 @@ func TestUser_Unmarshal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, _ := ioutil.ReadFile(tt.jsonfile)
+			b, _ := os.ReadFile(tt.jsonfile)
 			user := User{}
 			err := json.Unmarshal(b, &user)
 			if err != nil {
@@ -406,7 +406,7 @@ func TestUser_GetCurrentUser(t *testing.T) {
 			case "id":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "name":
 				w.Header().Set("content-Type", "application/json")
@@ -415,7 +415,7 @@ func TestUser_GetCurrentUser(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/users/get_current_user.json")
+				resp, _ := os.ReadFile("testdata/users/get_current_user.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -605,7 +605,7 @@ func TestUser_GetUser(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -614,7 +614,7 @@ func TestUser_GetUser(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/users/get_user.json")
+				resp, _ := os.ReadFile("testdata/users/get_user.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1219,7 +1219,7 @@ func TestUser_CreateUser(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1228,7 +1228,7 @@ func TestUser_CreateUser(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/users/create_user.json")
+				resp, _ := os.ReadFile("testdata/users/create_user.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1834,7 +1834,7 @@ func TestUser_UpdateUser(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1843,7 +1843,7 @@ func TestUser_UpdateUser(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/users/create_user.json")
+				resp, _ := os.ReadFile("testdata/users/create_user.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -2419,7 +2419,7 @@ func TestUser_CreateAppUser(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -2428,7 +2428,7 @@ func TestUser_CreateAppUser(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/users/create_user.json")
+				resp, _ := os.ReadFile("testdata/users/create_user.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -2658,12 +2658,12 @@ func TestUser_DeleteUser(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(204)
-				resp, _ := ioutil.ReadFile("testdata/users/create_user.json")
+				resp, _ := os.ReadFile("testdata/users/create_user.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -2842,7 +2842,7 @@ func TestUser_GetEnterpriseUsers(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -2851,7 +2851,7 @@ func TestUser_GetEnterpriseUsers(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/users/get_enterprise_users.json")
+				resp, _ := os.ReadFile("testdata/users/get_enterprise_users.json")
 				_, _ = w.Write(resp)
 			}
 			return

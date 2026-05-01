@@ -3,7 +3,8 @@ package goboxer
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -148,7 +149,7 @@ func Test_logResponse(t *testing.T) {
 	r1.StatusCode = 204
 	r1.Uncompressed = false
 	r1.ContentLength = -1
-	var emptyBody = ioutil.NopCloser(strings.NewReader(""))
+	var emptyBody = io.NopCloser(strings.NewReader(""))
 	r1.Body = emptyBody
 
 	r2 := &http.Response{}
@@ -165,7 +166,7 @@ func Test_logResponse(t *testing.T) {
 	"login": "userid0001@example.com"
 }
 `
-	var r2body = ioutil.NopCloser(strings.NewReader(r2str))
+	var r2body = io.NopCloser(strings.NewReader(r2str))
 	r2.Body = r2body
 
 	r3 := &http.Response{}
@@ -182,7 +183,7 @@ func Test_logResponse(t *testing.T) {
 	"login": "userid0001@example.com"
 }
 `)
-	var r3body = ioutil.NopCloser(bytes.NewReader(r3byte))
+	var r3body = io.NopCloser(bytes.NewReader(r3byte))
 	r3.Body = r3body
 
 	type args struct {
@@ -240,7 +241,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -250,7 +251,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 				w.Header().Set("content-Type", "application/json")
 				w.Header().Set("Date", dateStr)
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/batch_normal.json")
+				resp, _ := os.ReadFile("testdata/batch_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -491,7 +492,7 @@ func TestRequest_RetryProcess(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -500,7 +501,7 @@ func TestRequest_RetryProcess(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/users/get_user.json")
+				resp, _ := os.ReadFile("testdata/users/get_user.json")
 				_, _ = w.Write(resp)
 			}
 			return

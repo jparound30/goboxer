@@ -3,7 +3,7 @@ package goboxer
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -194,14 +194,14 @@ func TestFolder_GetInfo(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
 				_, _ = w.Write([]byte("invalid json"))
 			default:
 				w.Header().Set("content-Type", "application/json")
-				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
+				resp, _ := os.ReadFile("testdata/folders/getinfo_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -369,14 +369,14 @@ func TestFolder_FolderItem(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
 				_, _ = w.Write([]byte("invalid json"))
 			default:
 				w.Header().Set("content-Type", "application/json")
-				resp, _ := ioutil.ReadFile("testdata/folders/getfolderitem_normal.json")
+				resp, _ := os.ReadFile("testdata/folders/getfolderitem_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -557,8 +557,8 @@ func TestFolder_CreateReq(t *testing.T) {
 				return
 			}
 			// compare body
-			b1, _ := ioutil.ReadAll(got.body)
-			b2, _ := ioutil.ReadAll(tt.want.body)
+			b1, _ := io.ReadAll(got.body)
+			b2, _ := io.ReadAll(tt.want.body)
 
 			var m1 map[string]interface{}
 			_ = json.Unmarshal(b1, &m1)
@@ -599,7 +599,7 @@ func TestFolder_Create(t *testing.T) {
 				t.Fatalf("invalid content-type [%s]", r.Header.Get(httpHeaderContentType))
 			}
 
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			var js map[string]interface{}
 			_ = json.Unmarshal(body, &js)
 			tmp1 := js["parent"].(map[string]interface{})
@@ -611,7 +611,7 @@ func TestFolder_Create(t *testing.T) {
 			case "409":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(409)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				resp, _ := os.ReadFile("testdata/genericerror/409.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -620,7 +620,7 @@ func TestFolder_Create(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
+				resp, _ := os.ReadFile("testdata/folders/getinfo_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1476,7 +1476,7 @@ func TestFolder_Update(t *testing.T) {
 			case "409":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(409)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				resp, _ := os.ReadFile("testdata/genericerror/409.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1521,7 +1521,7 @@ func TestFolder_Update(t *testing.T) {
 					return
 				}
 				w.Header().Set("content-Type", "application/json")
-				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
+				resp, _ := os.ReadFile("testdata/folders/getinfo_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1707,7 +1707,7 @@ func TestFolder_Delete(t *testing.T) {
 			case "400":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(400)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/400_notempty.json")
+				resp, _ := os.ReadFile("testdata/genericerror/400_notempty.json")
 				_, _ = w.Write(resp)
 			default:
 				if r.Header.Get("If-Match") != "1" {
@@ -1715,7 +1715,7 @@ func TestFolder_Delete(t *testing.T) {
 				}
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(204)
-				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
+				resp, _ := os.ReadFile("testdata/folders/getinfo_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1851,8 +1851,8 @@ func TestFolder_CopyReq(t *testing.T) {
 				return
 			}
 			// compare body
-			b1, _ := ioutil.ReadAll(got.body)
-			b2, _ := ioutil.ReadAll(tt.want.body)
+			b1, _ := io.ReadAll(got.body)
+			b2, _ := io.ReadAll(tt.want.body)
 
 			var m1 map[string]interface{}
 			_ = json.Unmarshal(b1, &m1)
@@ -1901,7 +1901,7 @@ func TestFolder_Copy(t *testing.T) {
 			case "409":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(409)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/409.json")
+				resp, _ := os.ReadFile("testdata/genericerror/409.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1910,7 +1910,7 @@ func TestFolder_Copy(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/folders/getinfo_normal.json")
+				resp, _ := os.ReadFile("testdata/folders/getinfo_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -2095,14 +2095,14 @@ func TestFolder_Collaborations(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
 				_, _ = w.Write([]byte("invalid json"))
 			default:
 				w.Header().Set("content-Type", "application/json")
-				resp, _ := ioutil.ReadFile("testdata/folders/collaborations_normal.json")
+				resp, _ := os.ReadFile("testdata/folders/collaborations_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return

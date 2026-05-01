@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"github.com/jparound30/goboxer"
-	"io/ioutil"
 	"os"
 
 	"github.com/mitchellh/go-homedir"
@@ -104,7 +103,7 @@ func createGoboxerApiConn() error {
 
 	_, err := os.Stat(StateFilename)
 	if err == nil {
-		bytes, err := ioutil.ReadFile(StateFilename)
+		bytes, err := os.ReadFile(StateFilename)
 		err = apiConn.RestoreState(bytes)
 		if err != nil {
 			return err
@@ -184,7 +183,7 @@ func (*Main) Success(apiConn *goboxer.APIConn) {
 		fmt.Printf("%v\n", err)
 		return
 	}
-	err = ioutil.WriteFile(StateFilename, bytes, 0666)
+	err = os.WriteFile(StateFilename, bytes, 0666)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return

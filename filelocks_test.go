@@ -2,7 +2,7 @@ package goboxer
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -189,7 +189,7 @@ func TestFile_LockFile(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -198,7 +198,7 @@ func TestFile_LockFile(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/files/filelocks_normal.json")
+				resp, _ := os.ReadFile("testdata/files/filelocks_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -448,7 +448,7 @@ func TestFile_UnlockFile(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -457,7 +457,7 @@ func TestFile_UnlockFile(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/files/filelocks_normal.json")
+				resp, _ := os.ReadFile("testdata/files/filelocks_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return

@@ -6,7 +6,6 @@ import (
 	"github.com/youmark/pkcs8"
 	"golang.org/x/xerrors"
 	"io"
-	"io/ioutil"
 	"log"
 )
 
@@ -38,7 +37,7 @@ func (JwtConfigDefaultLoader) Load(reader io.Reader) (*JwtConfig, error) {
 	if reader == nil {
 		return nil, xerrors.New("reader must not be null")
 	}
-	configFile, err := ioutil.ReadAll(reader)
+	configFile, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to read Jwt Config File. %w", err)
 	}
