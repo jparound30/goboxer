@@ -2,7 +2,8 @@ package goboxer
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -251,7 +252,7 @@ func TestGroup_GetGroup(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -260,7 +261,7 @@ func TestGroup_GetGroup(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/groups/group_normal.json")
+				resp, _ := os.ReadFile("testdata/groups/group_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -556,7 +557,7 @@ func TestGroup_CreateGroup(t *testing.T) {
 				t.Fatalf("not exists access token")
 			}
 			// ok, return some response
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			var js map[string]interface{}
 			_ = json.Unmarshal(body, &js)
 			groupName := js["name"]
@@ -567,7 +568,7 @@ func TestGroup_CreateGroup(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -576,7 +577,7 @@ func TestGroup_CreateGroup(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/groups/group_normal.json")
+				resp, _ := os.ReadFile("testdata/groups/group_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -923,7 +924,7 @@ func TestGroup_UpdateGroup(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -932,7 +933,7 @@ func TestGroup_UpdateGroup(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/groups/group_normal.json")
+				resp, _ := os.ReadFile("testdata/groups/group_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1135,7 +1136,7 @@ func TestGroup_DeleteGroup(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1363,7 +1364,7 @@ func TestGroup_GetEnterpriseGroups(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1372,7 +1373,7 @@ func TestGroup_GetEnterpriseGroups(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/groups/get_enterprise_normal.json")
+				resp, _ := os.ReadFile("testdata/groups/get_enterprise_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return

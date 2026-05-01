@@ -2,7 +2,7 @@ package goboxer
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -176,14 +176,14 @@ func TestEvent_UserEvent(t *testing.T) {
 			case "400":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(400)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/400_notempty.json")
+				resp, _ := os.ReadFile("testdata/genericerror/400_notempty.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
 				_, _ = w.Write([]byte("invalid json"))
 			default:
 				w.Header().Set("content-Type", "application/json")
-				resp, _ := ioutil.ReadFile("testdata/events/events_user_normal.json")
+				resp, _ := os.ReadFile("testdata/events/events_user_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -391,14 +391,14 @@ func TestEvent_EnterpriseEvent(t *testing.T) {
 			case "400":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(400)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/400_notempty.json")
+				resp, _ := os.ReadFile("testdata/genericerror/400_notempty.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
 				_, _ = w.Write([]byte("invalid json"))
 			default:
 				w.Header().Set("content-Type", "application/json")
-				resp, _ := ioutil.ReadFile("testdata/events/events_enterprise_normal.json")
+				resp, _ := os.ReadFile("testdata/events/events_enterprise_normal.json")
 				_, _ = w.Write(resp)
 			}
 			return

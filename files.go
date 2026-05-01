@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -293,7 +292,7 @@ func (f *File) UploadFile(filename string, reader io.Reader, parentFolderId stri
 	if err != nil {
 		return nil, newApiOtherError(err, "failed to create file part.")
 	}
-	all, err := ioutil.ReadAll(reader)
+	all, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, newApiOtherError(err, "failed to read file.")
 	}
@@ -381,7 +380,7 @@ func (f *File) UploadFileVersion(fileId string, reader io.Reader, filename *stri
 	if err != nil {
 		return nil, newApiOtherError(err, "failed to create file part.")
 	}
-	all, err := ioutil.ReadAll(reader)
+	all, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, newApiOtherError(err, "failed to read file.")
 	}

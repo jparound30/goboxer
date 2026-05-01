@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"net"
@@ -173,7 +172,7 @@ func (req *Request) Send() (*Response, error) {
 	}()
 
 	// TODO should use io.ReadCloser. refine Response structure
-	respBodyBytes, err = ioutil.ReadAll(resp.Body)
+	respBodyBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
 		err = xerrors.Errorf("failed to read response: %w", err)
 		return nil, newApiOtherError(err, "")
@@ -208,7 +207,7 @@ func logRequest(method string, request *http.Request) {
 		fallthrough
 	case ContentTypeFormUrlEncoded:
 		if readCloser, _ := request.GetBody(); readCloser != nil {
-			reqBody, _ := ioutil.ReadAll(readCloser)
+			reqBody, _ := io.ReadAll(readCloser)
 			builder.WriteString(fmt.Sprintf("RequestBody:\n%s\n", string(reqBody)))
 		}
 	default:
@@ -340,7 +339,7 @@ func (req *Request) MarshalJSON() ([]byte, error) {
 	buf.Write(relativeUrlBytes)
 
 	if req.body != nil {
-		all, err := ioutil.ReadAll(req.body)
+		all, err := io.ReadAll(req.body)
 		if err != nil {
 			return nil, err
 		}
@@ -425,7 +424,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		_ = resp.Body.Close()
 	}()
 
-	respBodyBytes, err := ioutil.ReadAll(resp.Body)
+	respBodyBytes, err := io.ReadAll(resp.Body)
 
 	logResponse(resp, respBodyBytes, rttInMillis)
 

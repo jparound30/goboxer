@@ -2,7 +2,8 @@ package goboxer
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -75,7 +76,7 @@ func TestMembership_Unmarshal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, _ := ioutil.ReadFile(tt.jsonFile)
+			b, _ := os.ReadFile(tt.jsonFile)
 			membership := Membership{}
 			err := json.Unmarshal(b, &membership)
 			if err != nil {
@@ -223,7 +224,7 @@ func TestMembership_GetMembership(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -232,7 +233,7 @@ func TestMembership_GetMembership(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/membership/membership_json.json")
+				resp, _ := os.ReadFile("testdata/membership/membership_json.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -584,7 +585,7 @@ func TestMembership_CreateMembership(t *testing.T) {
 				t.Fatalf("not exists access token")
 			}
 			// ok, return some response
-			body, _ := ioutil.ReadAll(r.Body)
+			body, _ := io.ReadAll(r.Body)
 			var js map[string]interface{}
 			_ = json.Unmarshal(body, &js)
 			userId := js["user"].(map[string]interface{})["id"]
@@ -595,7 +596,7 @@ func TestMembership_CreateMembership(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -604,7 +605,7 @@ func TestMembership_CreateMembership(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(201)
-				resp, _ := ioutil.ReadFile("testdata/membership/membership_json.json")
+				resp, _ := os.ReadFile("testdata/membership/membership_json.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -926,7 +927,7 @@ func TestMembership_UpdateMembership(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -935,7 +936,7 @@ func TestMembership_UpdateMembership(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/membership/membership_json.json")
+				resp, _ := os.ReadFile("testdata/membership/membership_json.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1179,7 +1180,7 @@ func TestMembership_DeleteMembership(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1188,7 +1189,7 @@ func TestMembership_DeleteMembership(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(204)
-				resp, _ := ioutil.ReadFile("testdata/membership/membership_json.json")
+				resp, _ := os.ReadFile("testdata/membership/membership_json.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1387,7 +1388,7 @@ func TestMembership_GetMembershipForGroup(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1396,7 +1397,7 @@ func TestMembership_GetMembershipForGroup(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/membership/membership_for_group.json")
+				resp, _ := os.ReadFile("testdata/membership/membership_for_group.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1620,7 +1621,7 @@ func TestMembership_GetMembershipForUser(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1629,7 +1630,7 @@ func TestMembership_GetMembershipForUser(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/membership/membership_for_user.json")
+				resp, _ := os.ReadFile("testdata/membership/membership_for_user.json")
 				_, _ = w.Write(resp)
 			}
 			return
@@ -1836,7 +1837,7 @@ func TestMembership_GetCollaborationsForGroup(t *testing.T) {
 			case "404":
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(404)
-				resp, _ := ioutil.ReadFile("testdata/genericerror/404.json")
+				resp, _ := os.ReadFile("testdata/genericerror/404.json")
 				_, _ = w.Write(resp)
 			case "999":
 				w.Header().Set("content-Type", "application/json")
@@ -1845,7 +1846,7 @@ func TestMembership_GetCollaborationsForGroup(t *testing.T) {
 			default:
 				w.Header().Set("content-Type", "application/json")
 				w.WriteHeader(200)
-				resp, _ := ioutil.ReadFile("testdata/membership/collaboration_for_group.json")
+				resp, _ := os.ReadFile("testdata/membership/collaboration_for_group.json")
 				_, _ = w.Write(resp)
 			}
 			return
