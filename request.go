@@ -16,7 +16,11 @@ import (
 	"golang.org/x/xerrors"
 )
 
-const defaultNumRedirects = 3
+const (
+	defaultNumRedirects = 3
+	// defaultMaxRequestAttempts is used when APIConn.MaxRequestAttempts is not set (less than 1).
+	defaultMaxRequestAttempts = 5
+)
 
 type Method int
 
@@ -159,7 +163,7 @@ func (req *Request) Send() (*Response, error) {
 
 	logRequest(method, newRequest)
 
-	resp, rttInMillis, err := send(newRequest)
+	resp, rttInMillis, err := send(newRequest, req.apiConn.MaxRequestAttempts)
 	if err != nil {
 		err = xerrors.Errorf("failed to send request: %w", err)
 		return nil, newApiOtherError(err, "")
@@ -240,7 +244,12 @@ func logResponse(resp *http.Response, respBodyBytes []byte, rttInMillis int64) {
 	Log.Debugf("[goboxer] Request turn around time: %d [ms]\n", rttInMillis)
 }
 
-func send(request *http.Request) (resp *http.Response, rttInMillis int64, err error) {
+// send executes request, retrying on HTTP 429 and 5xx responses up to maxAttempts times in total.
+// A maxAttempts value less than 1 falls back to defaultMaxRequestAttempts.
+func send(request *http.Request, maxAttempts int) (resp *http.Response, rttInMillis int64, err error) {
+	if maxAttempts < 1 {
+		maxAttempts = defaultMaxRequestAttempts
+	}
 
 	bodyCloser := request.Body
 	defer func() {
@@ -251,7 +260,7 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 
 	b := time.Now()
 
-	for retryCount := 5; retryCount > 0; retryCount-- {
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		if bodyCloser != nil {
 			request.Body = bodyCloser
 			bodyNoClose, _ := request.GetBody()
@@ -272,7 +281,7 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 		if !isResponseRetryable(resp.StatusCode) {
 			break
 		}
-		if retryCount == 1 {
+		if attempt == maxAttempts {
 			if Log != nil {
 				Log.Warnf("Retry count reached max count\n")
 			}
@@ -282,7 +291,7 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 		if resp.StatusCode == http.StatusTooManyRequests {
 			retryAfter, _ = strconv.Atoi(resp.Header.Get(HttpHeaderRetryAfter))
 		} else {
-			exponent := 5 - (retryCount - 1)
+			exponent := attempt
 			minWindow := 0.5
 			maxWindow := 1.5
 			jitter := (rand.Float64() * (maxWindow - minWindow)) + minWindow
@@ -409,7 +418,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	logRequest("POST", newRequest)
 
-	resp, rttInMillis, err := send(newRequest)
+	resp, rttInMillis, err := send(newRequest, req.apiConn.MaxRequestAttempts)
 	if err != nil {
 		err = xerrors.Errorf("failed to send request: %w", err)
 		return nil, newApiOtherError(err, "")
