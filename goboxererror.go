@@ -43,13 +43,13 @@ func newApiOtherError(err error, msg string) error {
 
 // Refer https://developer.box.com/reference#errors
 type ApiStatusError struct {
-	Type        string                 `json:"type"`
-	Status      int                    `json:"status,omitempty"`
-	Code        string                 `json:"code,omitempty"`
-	ContextInfo map[string]interface{} `json:"context_info,omitempty"`
-	HelpUrl     string                 `json:"help_url,omitempty"`
-	Message     string                 `json:"message,omitempty"`
-	RequestId   string                 `json:"request_id,omitempty"`
+	Type        string         `json:"type"`
+	Status      int            `json:"status,omitempty"`
+	Code        string         `json:"code,omitempty"`
+	ContextInfo map[string]any `json:"context_info,omitempty"`
+	HelpUrl     string         `json:"help_url,omitempty"`
+	Message     string         `json:"message,omitempty"`
+	RequestId   string         `json:"request_id,omitempty"`
 	frame       xerrors.Frame
 }
 

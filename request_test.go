@@ -21,31 +21,31 @@ var mainObj Main
 type Main struct {
 }
 
-func (*Main) RequestDumpf(format string, args ...interface{}) {
+func (*Main) RequestDumpf(format string, args ...any) {
 	fmt.Printf(format, args...)
 }
 
-func (*Main) ResponseDumpf(format string, args ...interface{}) {
+func (*Main) ResponseDumpf(format string, args ...any) {
 	fmt.Printf(format, args...)
 }
 
-func (*Main) Debugf(format string, args ...interface{}) {
+func (*Main) Debugf(format string, args ...any) {
 	fmt.Printf(format, args...)
 }
 
-func (*Main) Infof(format string, args ...interface{}) {
+func (*Main) Infof(format string, args ...any) {
 	fmt.Printf(format, args...)
 }
 
-func (*Main) Warnf(format string, args ...interface{}) {
+func (*Main) Warnf(format string, args ...any) {
 	fmt.Printf(format, args...)
 }
 
-func (*Main) Errorf(format string, args ...interface{}) {
+func (*Main) Errorf(format string, args ...any) {
 	fmt.Printf(format, args...)
 }
 
-func (*Main) Fatalf(format string, args ...interface{}) {
+func (*Main) Fatalf(format string, args ...any) {
 	fmt.Printf(format, args...)
 }
 func (*Main) EnabledLoggingResponseBody() bool {
@@ -400,7 +400,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		logger  Logger
 		want    *BatchResponse
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		// TODO: Add test cases.
 		{
@@ -541,7 +541,7 @@ func TestRequest_RetryProcess(t *testing.T) {
 		args    args
 		want    *User
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"retry by http status 429", args{"429", []string{"type"}},
 			normal, true, &ApiOtherError{},

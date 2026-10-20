@@ -283,7 +283,7 @@ func TestGroup_GetGroup(t *testing.T) {
 		args    args
 		want    *Group
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{"10001", nil}, normal, false, nil},
 		{"http error/404", args{"404", FolderAllFields}, nil, true, &ApiStatusError{Status: 404}},
@@ -515,14 +515,14 @@ func TestGroup_CreateGroupReq(t *testing.T) {
 			}
 
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -558,7 +558,7 @@ func TestGroup_CreateGroup(t *testing.T) {
 			}
 			// ok, return some response
 			body, _ := io.ReadAll(r.Body)
-			var js map[string]interface{}
+			var js map[string]any
 			_ = json.Unmarshal(body, &js)
 			groupName := js["name"]
 
@@ -611,7 +611,7 @@ func TestGroup_CreateGroup(t *testing.T) {
 		args    args
 		want    *Group
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			g1,
@@ -875,14 +875,14 @@ func TestGroup_UpdateGroupReq(t *testing.T) {
 			}
 
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -968,7 +968,7 @@ func TestGroup_UpdateGroup(t *testing.T) {
 		args    args
 		want    *Group
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			g1,
@@ -1163,7 +1163,7 @@ func TestGroup_DeleteGroup(t *testing.T) {
 		args    args
 		want    *Group
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			args{
@@ -1400,7 +1400,7 @@ func TestGroup_GetEnterpriseGroups(t *testing.T) {
 		wantOutLimit      int
 		wantOutTotalCount int
 		wantErr           bool
-		errType           interface{}
+		errType           any
 	}{
 		{
 			"normal",

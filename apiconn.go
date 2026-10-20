@@ -82,7 +82,7 @@ const (
 
 type JwtAuthClaim struct {
 	jwtConfig  *JwtConfig
-	privateKey interface{}
+	privateKey any
 	typ        jwtAuthType
 	userId     string
 }
@@ -122,16 +122,16 @@ func (j *JwtAuthClaim) Claim(tokenUrl string) (string, error) {
 }
 
 // NewJwtAuthClaim creates a JwtAuthClaim for service account (enterprise) authentication.
-func NewJwtAuthClaim(config *JwtConfig, pkey interface{}) (*JwtAuthClaim, error) {
+func NewJwtAuthClaim(config *JwtConfig, pkey any) (*JwtAuthClaim, error) {
 	return newJwtAuthClaim(config, pkey, jwtAuthServiceAccount, "")
 }
 
 // NewJwtAuthClaimForUser creates a JwtAuthClaim for user authentication.
-func NewJwtAuthClaimForUser(config *JwtConfig, pkey interface{}, userId string) (*JwtAuthClaim, error) {
+func NewJwtAuthClaimForUser(config *JwtConfig, pkey any, userId string) (*JwtAuthClaim, error) {
 	return newJwtAuthClaim(config, pkey, jwtAuthUser, userId)
 }
 
-func newJwtAuthClaim(config *JwtConfig, pkey interface{}, typ jwtAuthType, userId string) (*JwtAuthClaim, error) {
+func newJwtAuthClaim(config *JwtConfig, pkey any, typ jwtAuthType, userId string) (*JwtAuthClaim, error) {
 	rsaKey, ok := pkey.(*rsa.PrivateKey)
 	if config == nil {
 		return nil, xerrors.New("config parameter must be non-null")

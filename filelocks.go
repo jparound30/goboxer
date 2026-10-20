@@ -53,18 +53,8 @@ func (f *File) LockFileReq(fileId string, expiresAt *time.Time, isDownloadPreven
 // TODO consider the receiver type
 func (f *File) LockFile(fileId string, expiresAt *time.Time, isDownloadPrevented *bool, fields []string) (file *File, err error) {
 	req := f.LockFileReq(fileId, expiresAt, isDownloadPrevented, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	file = &File{apiInfo: &apiInfo{api: f.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, file)
-	if err != nil {
+	if _, err := sendAndDecode(req, file, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return file, nil
@@ -83,7 +73,7 @@ func (f *File) UnlockFileReq(fileId string, fields []string) *Request {
 		query = fmt.Sprintf("?%s", fieldsParam)
 	}
 
-	data := map[string]interface{}{"lock": nil}
+	data := map[string]any{"lock": nil}
 	bodyBytes, _ := json.Marshal(data)
 
 	return NewRequest(f.apiInfo.api, url+query, PUT, nil, bytes.NewReader(bodyBytes))
@@ -95,18 +85,8 @@ func (f *File) UnlockFileReq(fileId string, fields []string) *Request {
 // TODO consider the receiver type
 func (f *File) UnlockFile(fileId string, fields []string) (file *File, err error) {
 	req := f.UnlockFileReq(fileId, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	file = &File{apiInfo: &apiInfo{api: f.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, file)
-	if err != nil {
+	if _, err := sendAndDecode(req, file, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return file, nil

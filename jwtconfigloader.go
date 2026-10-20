@@ -11,12 +11,12 @@ import (
 
 type JwtConfigLoader interface {
 	Load(reader io.Reader) (*JwtConfig, error)
-	DecryptPrivateKey(jwtConfig *JwtConfig) (interface{}, error)
+	DecryptPrivateKey(jwtConfig *JwtConfig) (any, error)
 }
 
 type JwtConfigDefaultLoader struct{}
 
-func (JwtConfigDefaultLoader) DecryptPrivateKey(jwtConfig *JwtConfig) (interface{}, error) {
+func (JwtConfigDefaultLoader) DecryptPrivateKey(jwtConfig *JwtConfig) (any, error) {
 	block, _ := pem.Decode([]byte(jwtConfig.BoxAppSettings.AppAuth.PrivateKey))
 	if block == nil {
 		return nil, xerrors.New("failed to decode a PEM")

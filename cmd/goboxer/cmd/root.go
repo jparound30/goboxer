@@ -134,39 +134,39 @@ func createGoboxerApiConn() error {
 type Main struct {
 }
 
-func (*Main) RequestDumpf(format string, args ...interface{}) {
+func (*Main) RequestDumpf(format string, args ...any) {
 	if verbose {
 		fmt.Printf(format, args...)
 	}
 }
 
-func (*Main) ResponseDumpf(format string, args ...interface{}) {
+func (*Main) ResponseDumpf(format string, args ...any) {
 	if verbose {
 		fmt.Printf(format, args...)
 	}
 }
 
-func (*Main) Debugf(format string, args ...interface{}) {
+func (*Main) Debugf(format string, args ...any) {
 	if verbose {
 		fmt.Printf("[goboxer] "+format, args...)
 	}
 }
 
-func (*Main) Infof(format string, args ...interface{}) {
+func (*Main) Infof(format string, args ...any) {
 	if verbose {
 		fmt.Printf("[goboxer] "+format, args...)
 	}
 }
 
-func (*Main) Warnf(format string, args ...interface{}) {
+func (*Main) Warnf(format string, args ...any) {
 	fmt.Printf("[goboxer] "+format, args...)
 }
 
-func (*Main) Errorf(format string, args ...interface{}) {
+func (*Main) Errorf(format string, args ...any) {
 	fmt.Printf("[goboxer] "+format, args...)
 }
 
-func (*Main) Fatalf(format string, args ...interface{}) {
+func (*Main) Fatalf(format string, args ...any) {
 	fmt.Printf("[goboxer] "+format, args...)
 }
 func (*Main) EnabledLoggingResponseBody() bool {

@@ -33,7 +33,7 @@ func commonInit(url string) *APIConn {
 	return apiConn
 }
 
-func diffCompOptions(types ...interface{}) []cmp.Option {
+func diffCompOptions(types ...any) []cmp.Option {
 	var opts []cmp.Option
 
 	opts = append(opts, cmp.AllowUnexported(types...))
@@ -220,7 +220,7 @@ func TestFolder_GetInfo(t *testing.T) {
 		args    args
 		want    *Folder
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal/fields unspecified", args{folderId: "10001", fields: nil}, normal, false, nil},
 		{"normal/allFields", args{folderId: "10002", fields: FolderAllFields}, normal, false, nil},
@@ -403,7 +403,7 @@ func TestFolder_FolderItem(t *testing.T) {
 		args    args
 		want    *want
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{
 			"normal/fields unspecified",
@@ -558,9 +558,9 @@ func TestFolder_CreateReq(t *testing.T) {
 			b1, _ := io.ReadAll(got.body)
 			b2, _ := io.ReadAll(tt.want.body)
 
-			var m1 map[string]interface{}
+			var m1 map[string]any
 			_ = json.Unmarshal(b1, &m1)
-			var m2 map[string]interface{}
+			var m2 map[string]any
 			_ = json.Unmarshal(b2, &m2)
 
 			if diff := cmp.Diff(m1, m2); diff != "" {
@@ -598,9 +598,9 @@ func TestFolder_Create(t *testing.T) {
 			}
 
 			body, _ := io.ReadAll(r.Body)
-			var js map[string]interface{}
+			var js map[string]any
 			_ = json.Unmarshal(body, &js)
-			tmp1 := js["parent"].(map[string]interface{})
+			tmp1 := js["parent"].(map[string]any)
 			folderId := tmp1["id"].(string)
 
 			switch folderId {
@@ -643,7 +643,7 @@ func TestFolder_Create(t *testing.T) {
 		args    args
 		want    *want
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{
 			"normal/fields unspecified",
@@ -1422,14 +1422,14 @@ func TestFolder_UpdateReq(t *testing.T) {
 				t.Errorf("differs: (-got +want)\n%s", diff)
 			}
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -1540,7 +1540,7 @@ func TestFolder_Update(t *testing.T) {
 		args    args
 		want    *Folder
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal/fields unspecified", args{folderId: "10001", fields: nil}, normal, false, nil},
 		{"normal/allFields", args{folderId: "10002", fields: FolderAllFields}, normal, false, nil},
@@ -1732,7 +1732,7 @@ func TestFolder_Delete(t *testing.T) {
 		name    string
 		args    args
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{
 			"normal",
@@ -1852,9 +1852,9 @@ func TestFolder_CopyReq(t *testing.T) {
 			b1, _ := io.ReadAll(got.body)
 			b2, _ := io.ReadAll(tt.want.body)
 
-			var m1 map[string]interface{}
+			var m1 map[string]any
 			_ = json.Unmarshal(b1, &m1)
-			var m2 map[string]interface{}
+			var m2 map[string]any
 			_ = json.Unmarshal(b2, &m2)
 
 			if diff := cmp.Diff(m1, m2); diff != "" {
@@ -1934,7 +1934,7 @@ func TestFolder_Copy(t *testing.T) {
 		args    args
 		want    *want
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{
 			"normal/fields unspecified",
@@ -2123,7 +2123,7 @@ func TestFolder_Collaborations(t *testing.T) {
 		args    args
 		want    *want
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{
 			"normal/fields unspecified",

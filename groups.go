@@ -115,18 +115,8 @@ func (g *Group) GetGroupReq(groupId string, fields []string) *Request {
 func (g *Group) GetGroup(groupId string, fields []string) (*Group, error) {
 
 	req := g.GetGroupReq(groupId, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &Group{apiInfo: &apiInfo{api: g.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -176,18 +166,8 @@ func (g *Group) CreateGroupReq(fields []string) *Request {
 func (g *Group) CreateGroup(fields []string) (*Group, error) {
 
 	req := g.CreateGroupReq(fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &Group{apiInfo: &apiInfo{api: g.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -268,18 +248,8 @@ func (g *Group) UpdateGroupReq(groupId string, fields []string) *Request {
 func (g *Group) UpdateGroup(groupId string, fields []string) (*Group, error) {
 
 	req := g.UpdateGroupReq(groupId, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &Group{apiInfo: &apiInfo{api: g.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -303,15 +273,8 @@ func (g *Group) DeleteGroupReq(groupId string) *Request {
 func (g *Group) DeleteGroup(groupId string) error {
 
 	req := g.DeleteGroupReq(groupId)
-	resp, err := req.Send()
-	if err != nil {
-		return err
-	}
-
-	if resp.ResponseCode != http.StatusNoContent {
-		return newApiStatusError(resp.Body)
-	}
-	return nil
+	_, err := sendAndCheck(req, http.StatusNoContent)
+	return err
 }
 
 // Get Enterprise Groups
@@ -342,15 +305,6 @@ func (g *Group) GetEnterpriseGroupsReq(name string, offset int32, limit int32, f
 func (g *Group) GetEnterpriseGroups(name string, offset int32, limit int32, fields []string) (outGroups []*Group, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := g.GetEnterpriseGroupsReq(name, offset, limit, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, 0, 0, 0, newApiStatusError(resp.Body)
-	}
-
 	groups := struct {
 		TotalCount int      `json:"total_count"`
 		Entries    []*Group `json:"entries"`
@@ -358,8 +312,7 @@ func (g *Group) GetEnterpriseGroups(name string, offset int32, limit int32, fiel
 		Limit      int      `json:"limit"`
 	}{}
 
-	err = UnmarshalJSONWrapper(resp.Body, &groups)
-	if err != nil {
+	if _, err := sendAndDecode(req, &groups, http.StatusOK); err != nil {
 		return nil, 0, 0, 0, err
 	}
 	return groups.Entries, groups.Offset, groups.Limit, groups.TotalCount, nil

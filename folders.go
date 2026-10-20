@@ -116,7 +116,7 @@ func (sl *SharedLink) MarshalJSON() (r []byte, err error) {
 		return []byte("null"), nil
 	}
 	b := bytes.Buffer{}
-	writeIfNotNil := func(name string, v interface{}) error {
+	writeIfNotNil := func(name string, v any) error {
 		if v != nil && !reflect.ValueOf(v).IsNil() {
 			marshaled, e := json.Marshal(v)
 			if e != nil {
@@ -367,17 +367,8 @@ func (f *Folder) GetInfoReq(folderId string, fields []string) *Request {
 // https://developer.box.com/reference#get-folder-info
 func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 	req := f.GetInfoReq(folderId, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
 	folder := &Folder{}
-	err = UnmarshalJSONBoxResourceWrapper(resp.Body, folder)
-	if err != nil {
+	if _, err := sendAndDecode(req, folder, http.StatusOK); err != nil {
 		return nil, err
 	}
 	for _, v := range folder.ItemCollection.Entries {
@@ -418,22 +409,13 @@ func (f *Folder) FolderItemReq(folderId string, offset int, limit int, sort stri
 func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string, sortDir string, fields []string) (outResources []BoxResource, outOffset, outLimit, outTotalCount int, err error) {
 
 	req := f.FolderItemReq(folderId, offset, limit, sort, sortDir, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, 0, 0, 0, newApiStatusError(resp.Body)
-	}
 	items := struct {
 		TotalCount int               `json:"total_count"`
 		Offset     int               `json:"offset"`
 		Limit      int               `json:"limit"`
 		Entries    []json.RawMessage `json:"entries"`
 	}{}
-	err = UnmarshalJSONWrapper(resp.Body, &items)
-	if err != nil {
+	if _, err := sendAndDecode(req, &items, http.StatusOK); err != nil {
 		return nil, 0, 0, 0, err
 	}
 
@@ -463,10 +445,10 @@ func (f *Folder) CreateReq(parentFolderId string, name string, fields []string) 
 		query = query + fmt.Sprintf("?%s", fieldsParam)
 	}
 
-	var parent = map[string]interface{}{
+	var parent = map[string]any{
 		"id": parentFolderId,
 	}
-	var bodyMap = map[string]interface{}{
+	var bodyMap = map[string]any{
 		"name":   name,
 		"parent": parent,
 	}
@@ -482,17 +464,8 @@ func (f *Folder) CreateReq(parentFolderId string, name string, fields []string) 
 func (f *Folder) Create(parentFolderId string, name string, fields []string) (*Folder, error) {
 
 	req := f.CreateReq(parentFolderId, name, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
 	folder := Folder{}
-	err = UnmarshalJSONBoxResourceWrapper(resp.Body, &folder)
-	if err != nil {
+	if _, err := sendAndDecode(req, &folder, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	folder.apiInfo = f.apiInfo
@@ -741,17 +714,8 @@ func (f *Folder) UpdateReq(folderId string, fields []string) *Request {
 // https://developer.box.com/reference#update-information-about-a-folder
 func (f *Folder) Update(folderId string, fields []string) (*Folder, error) {
 	req := f.UpdateReq(folderId, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
 	folder := &Folder{}
-	err = UnmarshalJSONBoxResourceWrapper(resp.Body, folder)
-	if err != nil {
+	if _, err := sendAndDecode(req, folder, http.StatusOK); err != nil {
 		return nil, err
 	}
 	for _, v := range folder.ItemCollection.Entries {
@@ -792,15 +756,8 @@ func (f *Folder) DeleteReq(folderId string, recursive bool, ifMatch string) *Req
 // https://developer.box.com/reference#delete-a-folder
 func (f *Folder) Delete(folderId string, recursive bool, ifMatch string) error {
 	req := f.DeleteReq(folderId, recursive, ifMatch)
-	resp, err := req.Send()
-	if err != nil {
-		return err
-	}
-
-	if resp.ResponseCode != http.StatusNoContent {
-		return newApiStatusError(resp.Body)
-	}
-	return nil
+	_, err := sendAndCheck(req, http.StatusNoContent)
+	return err
 }
 
 // Copy Folder
@@ -817,10 +774,10 @@ func (f *Folder) CopyReq(folderId string, parentFolderId string, newName string,
 		query = query + fmt.Sprintf("?%s", fieldsParam)
 	}
 
-	var parent = map[string]interface{}{
+	var parent = map[string]any{
 		"id": parentFolderId,
 	}
-	var bodyMap = map[string]interface{}{
+	var bodyMap = map[string]any{
 		"parent": parent,
 	}
 	if newName != "" {
@@ -838,17 +795,8 @@ func (f *Folder) CopyReq(folderId string, parentFolderId string, newName string,
 // https://developer.box.com/reference#copy-a-folder
 func (f *Folder) Copy(folderId string, parentFolderId string, newName string, fields []string) (*Folder, error) {
 	req := f.CopyReq(folderId, parentFolderId, newName, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
 	folder := &Folder{}
-	err = UnmarshalJSONBoxResourceWrapper(resp.Body, folder)
-	if err != nil {
+	if _, err := sendAndDecode(req, folder, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	for _, v := range folder.ItemCollection.Entries {
@@ -880,20 +828,11 @@ func (f *Folder) CollaborationsReq(folderId string, fields []string) *Request {
 func (f *Folder) Collaborations(folderId string, fields []string) ([]*Collaboration, error) {
 
 	req := f.CollaborationsReq(folderId, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
 	collabs := struct {
 		TotalCount int              `json:"total_count"`
 		Entries    []*Collaboration `json:"entries"`
 	}{}
-	err = UnmarshalJSONWrapper(resp.Body, &collabs)
-	if err != nil {
+	if _, err := sendAndDecode(req, &collabs, http.StatusOK); err != nil {
 		return nil, err
 	}
 	for _, collab := range collabs.Entries {
