@@ -1,19 +1,57 @@
 # goboxer
-[![Build Status](https://travis-ci.com/jparound30/goboxer.svg)](https://travis-ci.com/jparound30/goboxer)
-[![Coverage Status](https://coveralls.io/repos/github/jparound30/goboxer/badge.svg)](https://coveralls.io/github/jparound30/goboxer)
+[![Go](https://github.com/jparound30/goboxer/actions/workflows/go.yml/badge.svg)](https://github.com/jparound30/goboxer/actions/workflows/go.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/jparound30/goboxer.svg)](https://pkg.go.dev/github.com/jparound30/goboxer)
 
 _goboxer_ is **UNOFFICIAL** Box API(https://developer.box.com/reference) library for golang.  
 
 _goboxer_ is UNDER DEVELOPMENT and its API may be destructively changed.
 
+## Requirements
+* Go 1.26 or later
+
+## Installation
+```sh
+go get github.com/jparound30/goboxer
+```
+
 ## Features
-* Batch request supported.
-* Builtin retry process (HTTP Status Code 429 or 500+)
+* OAuth 2.0 (authorization code / refresh token) and JWT (service account / user) authentication
 * Auto refreshing access_token / refresh_token
+* Builtin retry process (HTTP Status Code 429 or 500+)
+* Batch request supported.
+
+## Usage
+
+### OAuth 2.0
+```go
+apiConn := goboxer.NewAPIConnWithRefreshToken(clientID, clientSecret, accessToken, refreshToken)
+
+folder := goboxer.NewFolder(apiConn)
+info, err := folder.GetInfo("0", nil)
+```
+`cmd/goboxertokengen` is a helper that runs the OAuth 2.0 authorization flow locally and prints the resulting tokens.
+
+### JWT
+Load the JSON configuration file downloaded from the Box Developer Console and create a connection
+as the service account (enterprise) or as a managed user.
+```go
+configFile, err := os.Open("config.json")
+if err != nil {
+	log.Fatal(err)
+}
+defer configFile.Close()
+
+loader := goboxer.JwtConfigDefaultLoader{}
+
+// as service account
+apiConn, err := goboxer.NewAPIConnWithJwtConfig(configFile, loader)
+
+// as user
+// apiConn, err := goboxer.NewAPIConnWithJwtConfigForUser(configFile, loader, userID)
+```
+See `cmd/sandbox/jwt_example.go` for a complete example.
 
 ### NOTICE
-JWT auth is not supported currently.
-
 **About features for enterprise (Retention policy, Whitelist, etc...), it will not be implemented. ( I have no environment that testing those api! )**
 
 ### Implementation status.
