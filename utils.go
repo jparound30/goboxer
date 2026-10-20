@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"golang.org/x/xerrors"
 	"io"
+	"slices"
 	"strings"
 	"time"
 )
@@ -204,4 +205,30 @@ func UnmarshalJSONWrapper(data []byte, v interface{}) error {
 		return newApiOtherError(err, string(data))
 	}
 	return nil
+}
+
+// sendAndCheck sends req and verifies that the response status is one of okStatuses.
+// Any other status is converted into an ApiStatusError built from the response body.
+func sendAndCheck(req *Request, okStatuses ...int) (*Response, error) {
+	resp, err := req.Send()
+	if err != nil {
+		return nil, err
+	}
+	if !slices.Contains(okStatuses, resp.ResponseCode) {
+		return nil, newApiStatusError(resp.Body)
+	}
+	return resp, nil
+}
+
+// sendAndDecode sends req, verifies the response status with sendAndCheck,
+// and decodes the JSON response body into out.
+func sendAndDecode(req *Request, out any, okStatuses ...int) (*Response, error) {
+	resp, err := sendAndCheck(req, okStatuses...)
+	if err != nil {
+		return nil, err
+	}
+	if err := UnmarshalJSONWrapper(resp.Body, out); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
