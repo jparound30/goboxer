@@ -392,8 +392,8 @@ func (f *Folder) GetInfo(folderId string, fields []string) (*Folder, error) {
 // Gets all of the files, folders, or web links contained within a folder.
 // https://developer.box.com/reference#get-a-folders-items
 //
-//  sort: "id", "name" or "date"
-//  sortDir: "ASC" or "DESC"
+//	sort: "id", "name" or "date"
+//	sortDir: "ASC" or "DESC"
 func (f *Folder) FolderItemReq(folderId string, offset int, limit int, sort string, sortDir string, fields []string) *Request {
 	var url string
 	var query string
@@ -413,8 +413,8 @@ func (f *Folder) FolderItemReq(folderId string, offset int, limit int, sort stri
 // Gets all of the files, folders, or web links contained within a folder.
 // https://developer.box.com/reference#get-a-folders-items
 //
-//  sort: "id", "name" or "date"
-//  sortDir: "ASC" or "DESC"
+//	sort: "id", "name" or "date"
+//	sortDir: "ASC" or "DESC"
 func (f *Folder) FolderItem(folderId string, offset int, limit int, sort string, sortDir string, fields []string) (outResources []BoxResource, outOffset, outLimit, outTotalCount int, err error) {
 
 	req := f.FolderItemReq(folderId, offset, limit, sort, sortDir, fields)

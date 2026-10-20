@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"time"
 )
 
 var (
@@ -16,7 +15,6 @@ var (
 )
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
 	stateStr = GenerateState()
 }
 
