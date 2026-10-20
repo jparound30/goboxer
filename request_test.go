@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -684,5 +685,49 @@ func TestBatchRequest_ExecuteBatch_ReadBodyError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to read response") {
 		t.Errorf("ExecuteBatch() error = %v, want read failure", err)
+	}
+}
+
+func TestRequest_MaxRequestAttempts(t *testing.T) {
+	var hits atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			hits.Add(1)
+			// always retryable, without waiting
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+		},
+	))
+	defer ts.Close()
+
+	tests := []struct {
+		name        string
+		maxAttempts int
+		wantHits    int32
+	}{
+		{"default when unset", 0, 5},
+		{"default when negative", -1, 5},
+		{"single attempt (no retry)", 1, 1},
+		{"two attempts", 2, 2},
+		{"more than default", 7, 7},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hits.Store(0)
+			apiConn := commonInit(ts.URL)
+			apiConn.MaxRequestAttempts = tt.maxAttempts
+
+			req := NewRequest(apiConn, apiConn.BaseURL+"users/me", GET, nil, nil)
+			resp, err := req.Send()
+			if err != nil {
+				t.Fatalf("Send() error = %v", err)
+			}
+			if resp.ResponseCode != http.StatusTooManyRequests {
+				t.Errorf("ResponseCode = %d, want %d", resp.ResponseCode, http.StatusTooManyRequests)
+			}
+			if got := hits.Load(); got != tt.wantHits {
+				t.Errorf("server hits = %d, want %d", got, tt.wantHits)
+			}
+		})
 	}
 }

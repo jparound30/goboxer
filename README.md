@@ -17,7 +17,7 @@ go get github.com/jparound30/goboxer
 ## Features
 * OAuth 2.0 (authorization code / refresh token) and JWT (service account / user) authentication
 * Auto refreshing access_token / refresh_token
-* Builtin retry process (HTTP Status Code 429 or 500+)
+* Builtin retry process (HTTP Status Code 429 or 500+). The number of attempts is configurable via `APIConn.MaxRequestAttempts` (default: 5)
 * Batch request supported.
 
 ## Usage

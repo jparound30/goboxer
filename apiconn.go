@@ -41,18 +41,20 @@ type APIConnRefreshNotifier interface {
 
 // APIConn is the structure for Box API connection
 type APIConn struct {
-	ClientID           string
-	ClientSecret       string
-	AccessToken        string
-	RefreshToken       string
-	TokenURL           string
-	RevokeURL          string
-	BaseURL            string
-	BaseUploadURL      string
-	AuthorizationURL   string
-	UserAgent          string
-	LastRefresh        time.Time
-	Expires            float64
+	ClientID         string
+	ClientSecret     string
+	AccessToken      string
+	RefreshToken     string
+	TokenURL         string
+	RevokeURL        string
+	BaseURL          string
+	BaseUploadURL    string
+	AuthorizationURL string
+	UserAgent        string
+	LastRefresh      time.Time
+	Expires          float64
+	// MaxRequestAttempts is the total number of attempts for a request, including the first one.
+	// Requests are retried on HTTP 429 and 5xx responses. Values less than 1 are treated as the default (5).
 	MaxRequestAttempts int
 	rwLock             sync.RWMutex
 	notifier           APIConnRefreshNotifier
@@ -162,7 +164,7 @@ func (ac *APIConn) commonInit() {
 	ac.BaseUploadURL = "https://upload.box.com/api/2.0/"
 	ac.AuthorizationURL = "https://account.box.com/api/oauth2/authorize"
 	ac.UserAgent = fmt.Sprintf("goboxer/%s", VERSION)
-	ac.MaxRequestAttempts = 5
+	ac.MaxRequestAttempts = defaultMaxRequestAttempts
 }
 
 // SetAPIConnRefreshNotifier set APIConnRefreshNotifier
