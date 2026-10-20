@@ -196,18 +196,8 @@ func (f *File) GetFileInfoReq(fileId string, needExpiringEmbedLink bool, fields 
 func (f *File) GetFileInfo(fileId string, needExpiringEmbedLink bool, fields []string) (*File, error) {
 
 	req := f.GetFileInfoReq(fileId, needExpiringEmbedLink, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &File{apiInfo: &apiInfo{api: f.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -233,20 +223,7 @@ func (f *File) DownloadFile(fileId string, fileVersion string, boxApiHeader stri
 
 	req := NewRequest(f.apiInfo.api, url, GET, headers, nil)
 
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	switch resp.ResponseCode {
-	case http.StatusOK:
-		fallthrough
-	case http.StatusAccepted:
-		return resp, nil
-
-	default:
-		return nil, newApiStatusError(resp.Body)
-	}
+	return sendAndCheck(req, http.StatusOK, http.StatusAccepted)
 }
 
 // Upload File
@@ -309,15 +286,6 @@ func (f *File) UploadFile(filename string, reader io.Reader, parentFolderId stri
 	headers.Add("Content-Type", contentType)
 	req := NewRequest(f.apiInfo.api, url, POST, headers, body)
 
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	files := struct {
 		TotalCount int     `json:"total_count"`
 		Entries    []*File `json:"entries"`
@@ -325,8 +293,7 @@ func (f *File) UploadFile(filename string, reader io.Reader, parentFolderId stri
 		Limit      int     `json:"limit"`
 	}{}
 
-	err = UnmarshalJSONWrapper(resp.Body, &files)
-	if err != nil {
+	if _, err := sendAndDecode(req, &files, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	r := files.Entries[0]
@@ -397,15 +364,6 @@ func (f *File) UploadFileVersion(fileId string, reader io.Reader, filename *stri
 	headers.Add("Content-Type", contentType)
 	req := NewRequest(f.apiInfo.api, url, POST, headers, body)
 
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	files := struct {
 		TotalCount int     `json:"total_count"`
 		Entries    []*File `json:"entries"`
@@ -413,8 +371,7 @@ func (f *File) UploadFileVersion(fileId string, reader io.Reader, filename *stri
 		Limit      int     `json:"limit"`
 	}{}
 
-	err = UnmarshalJSONWrapper(resp.Body, &files)
-	if err != nil {
+	if _, err := sendAndDecode(req, &files, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	r := files.Entries[0]
@@ -478,17 +435,8 @@ func (f *File) UpdateReq(fileId string, ifMatch string, fields []string) *Reques
 func (f *File) Update(fileId string, ifMatch string, fields []string) (*File, error) {
 
 	req := f.UpdateReq(fileId, ifMatch, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
 	file := &File{apiInfo: f.apiInfo}
-	err = UnmarshalJSONWrapper(resp.Body, &file)
-	if err != nil {
+	if _, err := sendAndDecode(req, &file, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return file, nil
@@ -509,13 +457,8 @@ func (f *File) PreflightCheck(name string, parentFolderId string, size *int) (ok
 	bodyBytes, _ := json.Marshal(data)
 
 	req := NewRequest(f.apiInfo.api, url, OPTION, nil, bytes.NewReader(bodyBytes))
-	resp, err := req.Send()
-	if err != nil {
+	if _, err := sendAndCheck(req, http.StatusOK); err != nil {
 		return false, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return false, newApiStatusError(resp.Body)
 	}
 	return true, nil
 }
@@ -545,16 +488,8 @@ func (f *File) DeleteReq(fileId string, ifMatch string) *Request {
 func (f *File) Delete(fileId string, ifMatch string) error {
 
 	req := f.DeleteReq(fileId, ifMatch)
-	resp, err := req.Send()
-	if err != nil {
-		return err
-	}
-
-	if resp.ResponseCode != http.StatusNoContent {
-		return newApiStatusError(resp.Body)
-	}
-
-	return nil
+	_, err := sendAndCheck(req, http.StatusNoContent)
+	return err
 }
 
 // Copy File
@@ -589,18 +524,8 @@ func (f *File) CopyReq(fileId string, parentFolderId string, name string, versio
 // https://developer.box.com/reference#copy-a-file
 func (f *File) Copy(fileId string, parentFolderId string, name string, version string, fields []string) (file *File, err error) {
 	req := f.CopyReq(fileId, parentFolderId, name, version, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	file = &File{apiInfo: &apiInfo{api: f.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, file)
-	if err != nil {
+	if _, err := sendAndDecode(req, file, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	return file, nil
@@ -635,20 +560,11 @@ func (f *File) CollaborationsReq(fileId string, marker string, limit int, fields
 func (f *File) Collaborations(fileId string, marker string, limit int, fields []string) (outCollaborator []*Collaboration, nextMarker string, err error) {
 
 	req := f.CollaborationsReq(fileId, marker, limit, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, "", err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, "", newApiStatusError(resp.Body)
-	}
 	items := struct {
 		NextMarker string           `json:"next_marker,omitempty"`
 		Entries    []*Collaboration `json:"entries"`
 	}{}
-	err = UnmarshalJSONWrapper(resp.Body, &items)
-	if err != nil {
+	if _, err := sendAndDecode(req, &items, http.StatusOK); err != nil {
 		return nil, "", err
 	}
 
