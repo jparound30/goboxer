@@ -258,7 +258,7 @@ func TestFile_GetFileInfo(t *testing.T) {
 		args    args
 		want    *File
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{"10001", false, nil}, normal, false, nil},
 		{"http error/404", args{"404", false, FolderAllFields}, nil, true, &ApiStatusError{Status: 404}},
@@ -403,7 +403,7 @@ func TestFile_DownloadFile(t *testing.T) {
 		args    args
 		want    io.Reader
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal/302", args{"302", "", ""}, strings.NewReader("DOWNLOAD SUCCESS"), false, nil},
 		{"normal/202", args{"202", "", ""}, strings.NewReader("DOWNLOAD SUCCESS"), false, nil},
@@ -490,7 +490,7 @@ func TestFile_UploadFile(t *testing.T) {
 			}
 			// ok, return some response
 			attrStr := r.FormValue("attributes")
-			var v map[string]interface{}
+			var v map[string]any
 			_ = json.Unmarshal([]byte(attrStr), &v)
 			parentFolderId := v["name"]
 
@@ -563,7 +563,7 @@ func TestFile_UploadFile(t *testing.T) {
 		args    args
 		want    *File
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			args{
@@ -693,7 +693,7 @@ func TestFile_UploadFileVersion(t *testing.T) {
 			}
 			// ok, return some response
 			attrStr := r.FormValue("attributes")
-			var v map[string]interface{}
+			var v map[string]any
 			_ = json.Unmarshal([]byte(attrStr), &v)
 			fileId := strings.Split(r.URL.Path, "/")[4]
 
@@ -765,7 +765,7 @@ func TestFile_UploadFileVersion(t *testing.T) {
 		args    args
 		want    *File
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			args{
@@ -1236,14 +1236,14 @@ func TestFile_UpdateReq(t *testing.T) {
 				t.Errorf("differs: (-got +want)\n%s", diff)
 			}
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -1349,7 +1349,7 @@ func TestFile_Update(t *testing.T) {
 		args    args
 		want    *File
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal/fields unspecified", args{fileId: "10001", ifMatch: "", fields: nil}, normal, false, nil},
 		{"normal/allFields", args{fileId: "10002", ifMatch: "", fields: FolderAllFields}, normal, false, nil},
@@ -1440,7 +1440,7 @@ func TestFile_PreflightCheck(t *testing.T) {
 
 			readAll, _ := io.ReadAll(r.Body)
 
-			var v map[string]interface{}
+			var v map[string]any
 			_ = json.Unmarshal(readAll, &v)
 			name := v["name"]
 
@@ -1481,7 +1481,7 @@ func TestFile_PreflightCheck(t *testing.T) {
 		args    args
 		wantOk  bool
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{"NEWNAME1", "p10001", nil}, true, false, nil},
 		{"normal", args{"NEWNAME2", "p10002", setIntPtr(123456)}, true, false, nil},
@@ -1654,7 +1654,7 @@ func TestFile_Delete(t *testing.T) {
 		name    string
 		args    args
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{
 			"normal",
@@ -1793,9 +1793,9 @@ func TestFile_CopyReq(t *testing.T) {
 			b1, _ := io.ReadAll(got.body)
 			b2, _ := io.ReadAll(tt.want.body)
 
-			var m1 map[string]interface{}
+			var m1 map[string]any
 			_ = json.Unmarshal(b1, &m1)
-			var m2 map[string]interface{}
+			var m2 map[string]any
 			_ = json.Unmarshal(b2, &m2)
 
 			if diff := cmp.Diff(m1, m2); diff != "" {
@@ -1877,7 +1877,7 @@ func TestFile_Copy(t *testing.T) {
 		args    args
 		want    *want
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{
 			"normal/fields unspecified",
@@ -2109,7 +2109,7 @@ func TestFile_Collaborations(t *testing.T) {
 		args    args
 		want    *want
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{
 			"normal/fields unspecified",

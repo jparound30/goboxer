@@ -139,14 +139,14 @@ func TestFile_LockFileReq(t *testing.T) {
 				t.Errorf("differs: (-got +want)\n%s", diff)
 			}
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -239,7 +239,7 @@ func TestFile_LockFile(t *testing.T) {
 		args    args
 		want    *File
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			args{
@@ -398,14 +398,14 @@ func TestFile_UnlockFileReq(t *testing.T) {
 				t.Errorf("differs: (-got +want)\n%s", diff)
 			}
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -496,7 +496,7 @@ func TestFile_UnlockFile(t *testing.T) {
 		args    args
 		want    *File
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			args{

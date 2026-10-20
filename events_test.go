@@ -73,7 +73,7 @@ func TestBoxEvent_Source(t *testing.T) {
 		SessionID         *string
 		SourceRaw         json.RawMessage
 		source            BoxResource
-		AdditionalDetails map[string]interface{}
+		AdditionalDetails map[string]any
 		CreatedAt         time.Time
 		RecordedAt        *time.Time
 		ActionBy          *UserGroupMini
@@ -254,7 +254,7 @@ func TestEvent_UserEvent(t *testing.T) {
 		wantEvents             []*BoxEvent
 		wantNextStreamPosition string
 		wantErr                bool
-		errType                interface{}
+		errType                any
 		status                 int
 	}{
 		{"normal",
@@ -473,7 +473,7 @@ func TestEvent_EnterpriseEvent(t *testing.T) {
 			SessionID:         nil,
 			SourceRaw:         nil,
 			source:            &file001,
-			AdditionalDetails: map[string]interface{}{"size": 21696.0, "ekm_id": "8afe49be-4ced-42cb-a3b0-8342a1cfe111", "version_id": "25012733090"},
+			AdditionalDetails: map[string]any{"size": 21696.0, "ekm_id": "8afe49be-4ced-42cb-a3b0-8342a1cfe111", "version_id": "25012733090"},
 			CreatedAt:         *setTime("2018-08-21T14:25:38-07:00"),
 			RecordedAt:        nil,
 			ActionBy:          nil,
@@ -496,7 +496,7 @@ func TestEvent_EnterpriseEvent(t *testing.T) {
 		wantEvents             []*BoxEvent
 		wantNextStreamPosition string
 		wantErr                bool
-		errType                interface{}
+		errType                any
 		status                 int
 	}{
 		{"normal",
@@ -660,7 +660,7 @@ func TestBoxEvent_String(t *testing.T) {
 		SessionID         *string
 		SourceRaw         json.RawMessage
 		source            BoxResource
-		AdditionalDetails map[string]interface{}
+		AdditionalDetails map[string]any
 		CreatedAt         time.Time
 		RecordedAt        *time.Time
 		ActionBy          *UserGroupMini
@@ -677,7 +677,7 @@ func TestBoxEvent_String(t *testing.T) {
 				EventType:         EE_COPY,
 				SessionID:         setStringPtr("SESSIONID"),
 				SourceRaw:         []byte(fileJson001),
-				AdditionalDetails: map[string]interface{}{"additional": "details"},
+				AdditionalDetails: map[string]any{"additional": "details"},
 				CreatedAt:         time.Now(),
 				RecordedAt:        nil,
 				ActionBy:          nil,
@@ -691,7 +691,7 @@ func TestBoxEvent_String(t *testing.T) {
 				EventType:         EE_COPY,
 				SessionID:         nil,
 				SourceRaw:         []byte(fileJson001),
-				AdditionalDetails: map[string]interface{}{"additional": "details"},
+				AdditionalDetails: map[string]any{"additional": "details"},
 				CreatedAt:         time.Now(),
 				RecordedAt:        nil,
 				ActionBy:          nil,

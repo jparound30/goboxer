@@ -81,7 +81,7 @@ func TestJwtAuthClaim_Claim(t *testing.T) {
 			}
 
 			parsed := &boxJwt{}
-			token, err := jwt.ParseWithClaims(signed, parsed, func(token *jwt.Token) (interface{}, error) {
+			token, err := jwt.ParseWithClaims(signed, parsed, func(token *jwt.Token) (any, error) {
 				if token.Method != jwt.SigningMethodRS256 {
 					t.Errorf("unexpected signing method: %v", token.Method)
 				}

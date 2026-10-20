@@ -73,7 +73,7 @@ func (f *File) UnlockFileReq(fileId string, fields []string) *Request {
 		query = fmt.Sprintf("?%s", fieldsParam)
 	}
 
-	data := map[string]interface{}{"lock": nil}
+	data := map[string]any{"lock": nil}
 	bodyBytes, _ := json.Marshal(data)
 
 	return NewRequest(f.apiInfo.api, url+query, PUT, nil, bytes.NewReader(bodyBytes))

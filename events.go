@@ -149,10 +149,10 @@ type BoxEvent struct {
 	SessionID         *string         `json:"session_id,omitempty"`
 	SourceRaw         json.RawMessage `json:"source,omitempty"`
 	source            BoxResource
-	AdditionalDetails map[string]interface{} `json:"additional_details,omitempty"`
-	CreatedAt         time.Time              `json:"created_at"`
-	RecordedAt        *time.Time             `json:"recorded_at,omitempty"`
-	ActionBy          *UserGroupMini         `json:"action_by"`
+	AdditionalDetails map[string]any `json:"additional_details,omitempty"`
+	CreatedAt         time.Time      `json:"created_at"`
+	RecordedAt        *time.Time     `json:"recorded_at,omitempty"`
+	ActionBy          *UserGroupMini `json:"action_by"`
 }
 
 func (be *BoxEvent) ResourceType() BoxResourceType {

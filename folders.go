@@ -116,7 +116,7 @@ func (sl *SharedLink) MarshalJSON() (r []byte, err error) {
 		return []byte("null"), nil
 	}
 	b := bytes.Buffer{}
-	writeIfNotNil := func(name string, v interface{}) error {
+	writeIfNotNil := func(name string, v any) error {
 		if v != nil && !reflect.ValueOf(v).IsNil() {
 			marshaled, e := json.Marshal(v)
 			if e != nil {
@@ -445,10 +445,10 @@ func (f *Folder) CreateReq(parentFolderId string, name string, fields []string) 
 		query = query + fmt.Sprintf("?%s", fieldsParam)
 	}
 
-	var parent = map[string]interface{}{
+	var parent = map[string]any{
 		"id": parentFolderId,
 	}
-	var bodyMap = map[string]interface{}{
+	var bodyMap = map[string]any{
 		"name":   name,
 		"parent": parent,
 	}
@@ -774,10 +774,10 @@ func (f *Folder) CopyReq(folderId string, parentFolderId string, newName string,
 		query = query + fmt.Sprintf("?%s", fieldsParam)
 	}
 
-	var parent = map[string]interface{}{
+	var parent = map[string]any{
 		"id": parentFolderId,
 	}
-	var bodyMap = map[string]interface{}{
+	var bodyMap = map[string]any{
 		"parent": parent,
 	}
 	if newName != "" {

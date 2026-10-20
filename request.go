@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"strconv"
@@ -436,9 +436,9 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 	}
 	var r struct {
 		Responses []struct {
-			Status   int                    `json:"status"`
-			Headers  map[string]interface{} `json:"headers"`
-			Response json.RawMessage        `json:"response"`
+			Status   int             `json:"status"`
+			Headers  map[string]any  `json:"headers"`
+			Response json.RawMessage `json:"response"`
 		} `json:"responses"`
 	}
 	err = UnmarshalJSONWrapper(respBodyBytes, &r)

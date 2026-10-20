@@ -254,7 +254,7 @@ func TestMembership_GetMembership(t *testing.T) {
 		args    args
 		want    *Membership
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{"10001"}, normal, false, nil},
 		{"http error/404", args{"404"}, nil, true, &ApiStatusError{Status: 404}},
@@ -543,14 +543,14 @@ func TestMembership_CreateMembershipReq(t *testing.T) {
 			}
 
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -586,9 +586,9 @@ func TestMembership_CreateMembership(t *testing.T) {
 			}
 			// ok, return some response
 			body, _ := io.ReadAll(r.Body)
-			var js map[string]interface{}
+			var js map[string]any
 			_ = json.Unmarshal(body, &js)
-			userId := js["user"].(map[string]interface{})["id"]
+			userId := js["user"].(map[string]any)["id"]
 
 			switch userId {
 			case "500":
@@ -642,7 +642,7 @@ func TestMembership_CreateMembership(t *testing.T) {
 		target  *Membership
 		want    *Membership
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			m1,
@@ -877,14 +877,14 @@ func TestMembership_UpdateMembershipReq(t *testing.T) {
 			}
 
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -977,7 +977,7 @@ func TestMembership_UpdateMembership(t *testing.T) {
 		args    args
 		want    *Membership
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			m1,
@@ -1226,7 +1226,7 @@ func TestMembership_DeleteMembership(t *testing.T) {
 		args    args
 		want    *Membership
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			m1,
@@ -1417,7 +1417,7 @@ func TestMembership_GetMembershipForGroup(t *testing.T) {
 		args    args
 		want    []*Membership
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{"10001", 0, 1000},
 			[]*Membership{
@@ -1650,7 +1650,7 @@ func TestMembership_GetMembershipForUser(t *testing.T) {
 		args    args
 		want    []*Membership
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{"10001", 0, 1000},
 			[]*Membership{
@@ -1866,7 +1866,7 @@ func TestMembership_GetCollaborationsForGroup(t *testing.T) {
 		args    args
 		want    []*Collaboration
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{"10001", 0, 1000},
 			[]*Collaboration{

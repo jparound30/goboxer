@@ -198,7 +198,7 @@ func UnmarshalJSONBoxResourceWrapper(data []byte, v BoxResource) error {
 	return nil
 }
 
-func UnmarshalJSONWrapper(data []byte, v interface{}) error {
+func UnmarshalJSONWrapper(data []byte, v any) error {
 	err := json.Unmarshal(data, v)
 	if err != nil {
 		err = xerrors.Errorf("failed to unmarshal response: %w", err)

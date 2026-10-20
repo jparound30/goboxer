@@ -350,7 +350,7 @@ func TestCollaboration_GetInfo(t *testing.T) {
 		args    args
 		want    *Collaboration
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal/fields unspecified", args{collaborationId: "10001", fields: nil}, normal, false, nil},
 		{"normal/allFields", args{collaborationId: "10002", fields: CollaborationAllFields}, normal, false, nil},
@@ -984,14 +984,14 @@ func TestCollaboration_CreateReq(t *testing.T) {
 				t.Errorf("differs: (-got +want)\n%s", diff)
 			}
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -1027,9 +1027,9 @@ func TestCollaboration_Create(t *testing.T) {
 			}
 			// ok, return some response
 			body, _ := io.ReadAll(r.Body)
-			var js map[string]interface{}
+			var js map[string]any
 			_ = json.Unmarshal(body, &js)
-			tmp1 := js["item"].(map[string]interface{})
+			tmp1 := js["item"].(map[string]any)
 			collabId := tmp1["id"].(string)
 
 			switch collabId {
@@ -1073,7 +1073,7 @@ func TestCollaboration_Create(t *testing.T) {
 		args    args
 		want    *Collaboration
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			args{
@@ -1345,14 +1345,14 @@ func TestCollaboration_UpdateReq(t *testing.T) {
 				t.Errorf("differs: (-got +want)\n%s", diff)
 			}
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -1431,7 +1431,7 @@ func TestCollaboration_Update(t *testing.T) {
 		args    args
 		want    *Collaboration
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			args{
@@ -1647,7 +1647,7 @@ func TestCollaboration_Delete(t *testing.T) {
 		args    args
 		want    *Collaboration
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal",
 			args{
@@ -1907,7 +1907,7 @@ func TestCollaboration_PendingCollaborations(t *testing.T) {
 		wantOutLimit      int
 		wantOutTotalCount int
 		wantErr           bool
-		errType           interface{}
+		errType           any
 	}{
 		{"normal",
 			args{offset: 0, limit: 1000, fields: nil},

@@ -236,7 +236,7 @@ func (f *File) UploadFile(filename string, reader io.Reader, parentFolderId stri
 	var url string
 
 	url = fmt.Sprintf("%s%s", f.apiInfo.api.BaseUploadURL, "files/content")
-	attr := map[string]interface{}{}
+	attr := map[string]any{}
 	attr["name"] = filename
 	attr["parent"] = map[string]string{"id": parentFolderId}
 	if contentCreatedAt != nil {
@@ -313,7 +313,7 @@ func (f *File) UploadFileVersion(fileId string, reader io.Reader, filename *stri
 	var url string
 
 	url = fmt.Sprintf("%s%s%s%s", f.apiInfo.api.BaseUploadURL, "files/", fileId, "/content")
-	attr := map[string]interface{}{}
+	attr := map[string]any{}
 	if filename != nil {
 		attr["name"] = *filename
 	}
@@ -447,7 +447,7 @@ func (f *File) PreflightCheck(name string, parentFolderId string, size *int) (ok
 	var url string
 	url = fmt.Sprintf("%s%s", f.apiInfo.api.BaseURL, "files/content")
 
-	data := map[string]interface{}{}
+	data := map[string]any{}
 
 	data["name"] = name
 	data["parent"] = map[string]string{"id": parentFolderId}
@@ -504,7 +504,7 @@ func (f *File) CopyReq(fileId string, parentFolderId string, name string, versio
 	if fieldsParams := BuildFieldsQueryParams(fields); fieldsParams != "" {
 		query = fmt.Sprintf("?%s", fieldsParams)
 	}
-	data := map[string]interface{}{}
+	data := map[string]any{}
 
 	data["parent"] = map[string]string{"id": parentFolderId}
 	if name != "" {

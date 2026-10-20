@@ -1,13 +1,13 @@
 package goboxer
 
 type Logger interface {
-	RequestDumpf(format string, args ...interface{})
-	ResponseDumpf(format string, args ...interface{})
-	Debugf(format string, args ...interface{})
-	Infof(format string, args ...interface{})
-	Warnf(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
-	Fatalf(format string, args ...interface{})
+	RequestDumpf(format string, args ...any)
+	ResponseDumpf(format string, args ...any)
+	Debugf(format string, args ...any)
+	Infof(format string, args ...any)
+	Warnf(format string, args ...any)
+	Errorf(format string, args ...any)
+	Fatalf(format string, args ...any)
 	EnabledLoggingResponseBody() bool
 	EnabledLoggingRequestBody() bool
 }

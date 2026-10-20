@@ -453,7 +453,7 @@ func TestUser_GetCurrentUser(t *testing.T) {
 		args    args
 		want    *User
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{[]string{"type"}},
 			normal, false, nil,
@@ -654,7 +654,7 @@ func TestUser_GetUser(t *testing.T) {
 		args    args
 		want    *User
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{"10001", []string{"type"}},
 			normal, false, nil,
@@ -1164,14 +1164,14 @@ func TestUser_CreateUserReq(t *testing.T) {
 			}
 
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -1205,7 +1205,7 @@ func TestUser_CreateUser(t *testing.T) {
 				t.Fatalf("not exists access token")
 			}
 			// ok, return some response
-			var v map[string]interface{}
+			var v map[string]any
 			decoder := json.NewDecoder(r.Body)
 			err := decoder.Decode(&v)
 			if err != nil {
@@ -1279,7 +1279,7 @@ func TestUser_CreateUser(t *testing.T) {
 		args    args
 		want    *User
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", u1, args{[]string{"type"}},
 			normal, false, nil,
@@ -1785,14 +1785,14 @@ func TestUser_UpdateUserReq(t *testing.T) {
 			}
 
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -1895,7 +1895,7 @@ func TestUser_UpdateUser(t *testing.T) {
 		args    args
 		want    *User
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", u1, args{"10001", []string{"type"}},
 			normal, false, nil,
@@ -2364,14 +2364,14 @@ func TestUser_CreateAppUserReq(t *testing.T) {
 			}
 
 			gotBodyDec := json.NewDecoder(got.body)
-			var gotBody map[string]interface{}
+			var gotBody map[string]any
 			err := gotBodyDec.Decode(&gotBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
 			}
 
 			expBodyDec := json.NewDecoder(tt.want.body)
-			var expBody map[string]interface{}
+			var expBody map[string]any
 			err = expBodyDec.Decode(&expBody)
 			if err != nil {
 				t.Fatalf("body json doesnt unmarshal")
@@ -2405,7 +2405,7 @@ func TestUser_CreateAppUser(t *testing.T) {
 				t.Fatalf("not exists access token")
 			}
 			// ok, return some response
-			var v map[string]interface{}
+			var v map[string]any
 			decoder := json.NewDecoder(r.Body)
 			err := decoder.Decode(&v)
 			if err != nil {
@@ -2479,7 +2479,7 @@ func TestUser_CreateAppUser(t *testing.T) {
 		args    args
 		want    *User
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", u1, args{[]string{"type"}},
 			normal, false, nil,
@@ -2689,7 +2689,7 @@ func TestUser_DeleteUser(t *testing.T) {
 		name    string
 		args    args
 		wantErr bool
-		errType interface{}
+		errType any
 	}{
 		{"normal", args{"10001", false, false},
 			false, nil,
@@ -2875,7 +2875,7 @@ func TestUser_GetEnterpriseUsers(t *testing.T) {
 		wantLimit      int
 		wantTotalCount int
 		wantErr        bool
-		errType        interface{}
+		errType        any
 	}{
 		{"normal", args{"10001", 0, 1000, nil},
 			[]*User{

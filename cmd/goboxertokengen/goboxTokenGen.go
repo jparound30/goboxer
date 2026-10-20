@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/jparound30/goboxer"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 )
 
@@ -23,7 +23,7 @@ var rs1Letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 func GenerateState() string {
 	b := make([]rune, 10)
 	for i := range b {
-		b[i] = rs1Letters[rand.Intn(len(rs1Letters))]
+		b[i] = rs1Letters[rand.IntN(len(rs1Letters))]
 	}
 	return string(b)
 }
