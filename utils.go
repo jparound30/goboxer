@@ -7,6 +7,7 @@ import (
 	"golang.org/x/xerrors"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -58,7 +59,7 @@ func intToString(i *int) string {
 	if i == nil {
 		return "<nil>"
 	}
-	return string(rune(*i))
+	return strconv.Itoa(*i)
 }
 
 func ParseResource(jsonEntity []byte) (r BoxResource, err error) {

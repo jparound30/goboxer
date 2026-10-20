@@ -347,22 +347,17 @@ func (req *Request) MarshalJSON() ([]byte, error) {
 		buf.Write(all)
 	}
 
-	if req.headers != nil && len(req.headers) != 0 {
-		buf.WriteString(`,`)
-		buf.WriteString(`"headers":{`)
-
-		// FIXME json formatting...
-		for key, value := range req.headers {
-			buf.WriteString(`"` + key + `":"`)
-			for i, v := range value {
-				if i != 0 {
-					buf.WriteString(` `)
-				}
-				buf.WriteString(v)
-			}
-			buf.WriteString(`"`)
+	if len(req.headers) != 0 {
+		headers := make(map[string]string, len(req.headers))
+		for key, values := range req.headers {
+			headers[key] = strings.Join(values, " ")
 		}
-		buf.WriteString(`}`)
+		headerBytes, err := json.Marshal(headers)
+		if err != nil {
+			return nil, err
+		}
+		buf.WriteString(`,"headers":`)
+		buf.Write(headerBytes)
 	}
 
 	buf.WriteString("}")
@@ -424,6 +419,10 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 	}()
 
 	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		err = xerrors.Errorf("failed to read response: %w", err)
+		return nil, newApiOtherError(err, "")
+	}
 
 	logResponse(resp, respBodyBytes, rttInMillis)
 

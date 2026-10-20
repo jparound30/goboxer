@@ -2,6 +2,7 @@ package goboxer
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -600,5 +601,88 @@ func TestRequest_RetryProcess(t *testing.T) {
 				return
 			}
 		})
+	}
+}
+
+func TestRequest_MarshalJSON(t *testing.T) {
+	apiConn := commonInit("https://api.box.com")
+
+	type batchEntry struct {
+		Method      string            `json:"method"`
+		RelativeUrl string            `json:"relative_url"`
+		Body        json.RawMessage   `json:"body"`
+		Headers     map[string]string `json:"headers"`
+	}
+
+	escapedHeaders := http.Header{}
+	escapedHeaders.Set("If-Match", `"etag-1"`)
+	escapedHeaders.Add("X-Multi", `a\b`)
+	escapedHeaders.Add("X-Multi", "c")
+
+	tests := []struct {
+		name string
+		req  *Request
+		want batchEntry
+	}{
+		{
+			"get without body and headers",
+			NewRequest(apiConn, apiConn.BaseURL+"users/123", GET, nil, nil),
+			batchEntry{Method: "GET", RelativeUrl: "/users/123"},
+		},
+		{
+			"post with body",
+			NewRequest(apiConn, apiConn.BaseURL+"folders", POST, nil, strings.NewReader(`{"name":"n1"}`)),
+			batchEntry{Method: "POST", RelativeUrl: "/folders", Body: json.RawMessage(`{"name":"n1"}`)},
+		},
+		{
+			"headers needing json escape and multiple values",
+			NewRequest(apiConn, apiConn.BaseURL+"files/1", DELETE, escapedHeaders, nil),
+			batchEntry{Method: "DELETE", RelativeUrl: "/files/1", Headers: map[string]string{"If-Match": `"etag-1"`, "X-Multi": `a\b c`}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := json.Marshal(tt.req)
+			if err != nil {
+				t.Fatalf("MarshalJSON() error = %v", err)
+			}
+			if !json.Valid(got) {
+				t.Fatalf("MarshalJSON() produced invalid json: %s", got)
+			}
+			var entry batchEntry
+			if err := json.Unmarshal(got, &entry); err != nil {
+				t.Fatalf("failed to unmarshal result %s: %v", got, err)
+			}
+			if diff := cmp.Diff(tt.want, entry); diff != "" {
+				t.Errorf("MarshalJSON() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestBatchRequest_ExecuteBatch_ReadBodyError(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			// declare a longer body than is written so the client fails while reading it
+			w.Header().Set("Content-Type", ContentTypeApplicationJson)
+			w.Header().Set("Content-Length", "1000")
+			w.WriteHeader(200)
+			_, _ = w.Write([]byte(`{"responses":[`))
+		},
+	))
+	defer ts.Close()
+
+	apiConn := commonInit(ts.URL)
+	req := NewRequest(apiConn, apiConn.BaseURL+"users/123", GET, nil, nil)
+
+	got, err := NewBatchRequest(apiConn).ExecuteBatch([]*Request{req})
+	if err == nil {
+		t.Fatalf("ExecuteBatch() expected an error, got response %v", got)
+	}
+	if _, ok := err.(*ApiOtherError); !ok {
+		t.Errorf("ExecuteBatch() error type = %T, want *ApiOtherError", err)
+	}
+	if !strings.Contains(err.Error(), "failed to read response") {
+		t.Errorf("ExecuteBatch() error = %v, want read failure", err)
 	}
 }
