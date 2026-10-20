@@ -94,18 +94,8 @@ func (c *Collaboration) GetInfoReq(collaborationId string, fields []string) *Req
 func (c *Collaboration) GetInfo(collaborationId string, fields []string) (*Collaboration, error) {
 
 	req := c.GetInfoReq(collaborationId, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &Collaboration{apiInfo: &apiInfo{api: c.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -192,18 +182,8 @@ func (c *Collaboration) CreateReq(targetItem ItemMini, grantedTo UserGroupMini, 
 // https://developer.box.com/reference#add-a-collaboration
 func (c *Collaboration) Create(targetItem ItemMini, grantedTo UserGroupMini, role Role, canViewPath *bool, fields []string, notify bool) (*Collaboration, error) {
 	req := c.CreateReq(targetItem, grantedTo, role, canViewPath, fields, notify)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &Collaboration{apiInfo: &apiInfo{api: c.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -242,27 +222,22 @@ func (c *Collaboration) UpdateReq(collaborationId string, role Role, status *Col
 // https://developer.box.com/reference#edit-a-collaboration
 func (c *Collaboration) Update(collaborationId string, role Role, status *CollaborationStatus, canViewPath *bool, fields []string) (*Collaboration, error) {
 	req := c.UpdateReq(collaborationId, role, status, canViewPath, fields)
-	resp, err := req.Send()
+	resp, err := sendAndCheck(req, http.StatusOK, http.StatusNoContent)
 	if err != nil {
 		return nil, err
 	}
-
-	switch resp.ResponseCode {
-	case http.StatusOK:
-		r := &Collaboration{apiInfo: &apiInfo{api: c.apiInfo.api}}
-		err = UnmarshalJSONWrapper(resp.Body, r)
-		if err != nil {
-			return nil, err
-		}
-		return r, nil
-	case http.StatusNoContent:
+	if resp.ResponseCode == http.StatusNoContent {
 		// If the role field is changed from co-owner to owner, then the collaboration object is deleted
 		// and a new one is created with the previous owner granted access as a co-owner.
 		// A 204 response is returned in this case.
 		return nil, nil
-	default:
-		return nil, newApiStatusError(resp.Body)
 	}
+
+	r := &Collaboration{apiInfo: &apiInfo{api: c.apiInfo.api}}
+	if err := UnmarshalJSONWrapper(resp.Body, r); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 // Delete Collaboration
@@ -281,18 +256,8 @@ func (c *Collaboration) DeleteReq(collaborationId string) *Request {
 // https://developer.box.com/reference#edit-a-collaboration
 func (c *Collaboration) Delete(collaborationId string) error {
 	req := c.DeleteReq(collaborationId)
-	resp, err := req.Send()
-	if err != nil {
-		return err
-	}
-
-	switch resp.ResponseCode {
-	case http.StatusNoContent:
-		return nil
-	default:
-		err = newApiStatusError(resp.Body)
-		return err
-	}
+	_, err := sendAndCheck(req, http.StatusNoContent)
+	return err
 }
 
 // Pending Collaborations
@@ -316,23 +281,13 @@ func (c *Collaboration) PendingCollaborationsReq(offset int, limit int, fields [
 // Get all pending collaboration invites for a user.
 func (c *Collaboration) PendingCollaborations(offset int, limit int, fields []string) (pendingList []*Collaboration, outOffset int, outLimit int, outTotalCount int, err error) {
 	req := c.PendingCollaborationsReq(offset, limit, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, offset, limit, 0, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, offset, limit, 0, newApiStatusError(resp.Body)
-	}
-
 	r := struct {
 		TotalCount int              `json:"total_count"`
 		Offset     int              `json:"offset"`
 		Limit      int              `json:"limit"`
 		Entries    []*Collaboration `json:"entries"`
 	}{}
-	err = UnmarshalJSONWrapper(resp.Body, &r)
-	if err != nil {
+	if _, err := sendAndDecode(req, &r, http.StatusOK); err != nil {
 		return nil, offset, limit, 0, err
 	}
 
