@@ -233,22 +233,13 @@ func (e *Event) UserEvent(streamType StreamType, streamPosition string, limit in
 	url = fmt.Sprintf("%s%s?%s", e.apiInfo.api.BaseURL, "events", query.String())
 	req := NewRequest(e.apiInfo.api, url, GET, nil, nil)
 
-	resp, err := req.Send()
-	if err != nil {
-		return nil, "", err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, "", newApiStatusError(resp.Body)
-	}
 	event := &struct {
 		ChunkSize          int         `json:"chunk_size"`
 		NextStreamPosition int64       `json:"next_stream_position"`
 		Entries            []*BoxEvent `json:"entries,omitempty"`
 	}{}
 
-	err = UnmarshalJSONWrapper(resp.Body, &event)
-	if err != nil {
+	if _, err := sendAndDecode(req, &event, http.StatusOK); err != nil {
 		return nil, "", err
 	}
 	for _, v := range event.Entries {
@@ -290,22 +281,13 @@ func (e *Event) EnterpriseEvent(streamPosition string, eventTypes []EventType, c
 	urlStr = fmt.Sprintf("%s%s?%s", e.apiInfo.api.BaseURL, "events", query.String())
 	req := NewRequest(e.apiInfo.api, urlStr, GET, nil, nil)
 
-	resp, err := req.Send()
-	if err != nil {
-		return nil, "", err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, "", newApiStatusError(resp.Body)
-	}
 	event := &struct {
 		ChunkSize          int         `json:"chunk_size"`
 		NextStreamPosition string      `json:"next_stream_position"`
 		Entries            []*BoxEvent `json:"entries,omitempty"`
 	}{}
 
-	err = UnmarshalJSONWrapper(resp.Body, &event)
-	if err != nil {
+	if _, err := sendAndDecode(req, &event, http.StatusOK); err != nil {
 		return nil, "", err
 	}
 	for _, v := range event.Entries {
