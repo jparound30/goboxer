@@ -12,13 +12,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/xerrors"
 )
 
 const (
 	refreshMarginInSec = 60.0
+	// jwtAssertionLifetime is the validity period of a JWT assertion. Box requires "exp" within 60 seconds.
+	jwtAssertionLifetime = 55 * time.Second
 )
 
 func generateUniqueIdForJwt() string {
@@ -99,14 +101,12 @@ func (j *JwtAuthClaim) Claim(tokenUrl string) (string, error) {
 
 	boxJwt := boxJwt{
 		BoxSubType: boxSubType,
-		Audience:   tokenUrl,
-		ExpiresAt:  time.Now().Add(time.Duration(55) * time.Second).Unix(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    j.jwtConfig.BoxAppSettings.ClientID,
 			Subject:   subject,
+			Audience:  jwt.ClaimStrings{tokenUrl},
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(jwtAssertionLifetime)),
 			ID:        generateUniqueIdForJwt(),
-			IssuedAt:  nil,
-			NotBefore: nil,
 		},
 	}
 
@@ -120,24 +120,19 @@ func (j *JwtAuthClaim) Claim(tokenUrl string) (string, error) {
 
 	return signedString, nil
 }
+
+// NewJwtAuthClaim creates a JwtAuthClaim for service account (enterprise) authentication.
 func NewJwtAuthClaim(config *JwtConfig, pkey interface{}) (*JwtAuthClaim, error) {
-	pkey, ok := pkey.(*rsa.PrivateKey)
-	if config == nil {
-		return nil, xerrors.New("config parameter must be non-null")
-	}
-	if !ok {
-		return nil, xerrors.New("pkey must be rsa private key")
-	}
-	return &JwtAuthClaim{
-		jwtConfig:  config,
-		privateKey: pkey,
-		typ:        jwtAuthServiceAccount,
-		userId:     "",
-	}, nil
+	return newJwtAuthClaim(config, pkey, jwtAuthServiceAccount, "")
 }
 
+// NewJwtAuthClaimForUser creates a JwtAuthClaim for user authentication.
 func NewJwtAuthClaimForUser(config *JwtConfig, pkey interface{}, userId string) (*JwtAuthClaim, error) {
-	pkey, ok := pkey.(*rsa.PrivateKey)
+	return newJwtAuthClaim(config, pkey, jwtAuthUser, userId)
+}
+
+func newJwtAuthClaim(config *JwtConfig, pkey interface{}, typ jwtAuthType, userId string) (*JwtAuthClaim, error) {
+	rsaKey, ok := pkey.(*rsa.PrivateKey)
 	if config == nil {
 		return nil, xerrors.New("config parameter must be non-null")
 	}
@@ -146,16 +141,16 @@ func NewJwtAuthClaimForUser(config *JwtConfig, pkey interface{}, userId string) 
 	}
 	return &JwtAuthClaim{
 		jwtConfig:  config,
-		privateKey: pkey,
-		typ:        jwtAuthUser,
+		privateKey: rsaKey,
+		typ:        typ,
 		userId:     userId,
 	}, nil
 }
 
+// boxJwt is the JWT claim set required by Box.
+// See https://developer.box.com/guides/authentication/jwt/without-sdk/
 type boxJwt struct {
 	BoxSubType string `json:"box_sub_type"`
-	Audience   string `json:"aud"`
-	ExpiresAt  int64  `json:"exp"`
 	jwt.RegisteredClaims
 }
 
@@ -237,43 +232,19 @@ func (ac *APIConn) Refresh() error {
 	} else {
 		jwtClaim, err := ac.jwtAuth.Claim(ac.TokenURL)
 		if err != nil {
-			err = xerrors.Errorf("failed to create jwt claim: ", err)
+			err = xerrors.Errorf("failed to create jwt claim: %w", err)
 			ac.notifyFail(err)
 			return err
 		}
 		params.Add("grant_type", "urn:ietf:params:oauth:grant-type:jwt-bearer")
 		params.Add("assertion", jwtClaim)
 	}
-	params.Add("client_id", ac.ClientID)
-	params.Add("client_secret", ac.ClientSecret)
 
-	header := http.Header{}
-	header.Add(httpHeaderContentType, ContentTypeFormUrlEncoded)
-	request := NewRequest(ac, ac.TokenURL, POST, header, strings.NewReader(params.Encode()))
-	request.shouldAuthenticate = false
-
-	resp, err := request.Send()
+	tokenResp, err := ac.requestToken(params, "failed to refresh")
 	if err != nil {
-		ac.notifyFail(err)
 		return err
 	}
-	if resp.ResponseCode != http.StatusOK {
-		err := xerrors.New("failed to refresh")
-		ac.notifyFail(err)
-		return err
-	}
-
-	var tokenResp tokenResponse
-	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
-		err = xerrors.Errorf("failed to parse response. error = %w", err)
-		ac.notifyFail(err)
-		return err
-	}
-
-	ac.AccessToken = tokenResp.AccessToken
-	ac.RefreshToken = tokenResp.RefreshToken
-	ac.Expires = tokenResp.ExpiresIn
-	ac.LastRefresh = time.Now()
+	ac.applyTokenResponse(tokenResp)
 	ac.RestrictedTo = tokenResp.RestrictedTo
 
 	ac.notifySuccess()
@@ -289,42 +260,55 @@ func (ac *APIConn) Authenticate(authCode string) error {
 	var params = url.Values{}
 	params.Add("grant_type", "authorization_code")
 	params.Add("code", authCode)
+
+	tokenResp, err := ac.requestToken(params, "failed to Authenticate with authCode")
+	if err != nil {
+		return err
+	}
+	ac.applyTokenResponse(tokenResp)
+
+	ac.notifySuccess()
+
+	return nil
+}
+
+// requestToken posts params to the token endpoint and parses the token response.
+// On any failure the registered notifier is informed and the error is returned.
+func (ac *APIConn) requestToken(params url.Values, statusErrMsg string) (*tokenResponse, error) {
 	params.Add("client_id", ac.ClientID)
 	params.Add("client_secret", ac.ClientSecret)
 
 	header := http.Header{}
 	header.Add(httpHeaderContentType, ContentTypeFormUrlEncoded)
-
 	request := NewRequest(ac, ac.TokenURL, POST, header, strings.NewReader(params.Encode()))
 	request.shouldAuthenticate = false
 
 	resp, err := request.Send()
 	if err != nil {
 		ac.notifyFail(err)
-		return err
+		return nil, err
 	}
-
 	if resp.ResponseCode != http.StatusOK {
-		err := xerrors.New("failed to Authenticate with authCode")
+		err := xerrors.New(statusErrMsg)
 		ac.notifyFail(err)
-		return err
+		return nil, err
 	}
 
 	var tokenResp tokenResponse
 	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
 		err = xerrors.Errorf("failed to parse response. error = %w", err)
 		ac.notifyFail(err)
-		return err
+		return nil, err
 	}
+	return &tokenResp, nil
+}
 
+// applyTokenResponse stores the newly issued tokens. Caller must hold rwLock.
+func (ac *APIConn) applyTokenResponse(tokenResp *tokenResponse) {
 	ac.AccessToken = tokenResp.AccessToken
 	ac.RefreshToken = tokenResp.RefreshToken
 	ac.Expires = tokenResp.ExpiresIn
 	ac.LastRefresh = time.Now()
-
-	ac.notifySuccess()
-
-	return nil
 }
 
 type apiConnState struct {
@@ -388,25 +372,19 @@ type tokenResponse struct {
 }
 
 func (ac *APIConn) needsRefresh() bool {
-	var needsRefresh = false
 	ac.rwLock.RLock()
 	defer ac.rwLock.RUnlock()
 
-	now := time.Now()
-	durationInSec := now.Unix() - ac.LastRefresh.Unix()
-	needsRefresh = float64(durationInSec) >= ac.Expires-refreshMarginInSec
-	return needsRefresh
+	durationInSec := time.Now().Unix() - ac.LastRefresh.Unix()
+	return float64(durationInSec) >= ac.Expires-refreshMarginInSec
 }
 func (ac *APIConn) lockAccessToken() (string, error) {
 	if ac.canRefresh() && ac.needsRefresh() {
-		err := ac.Refresh()
-		if err != nil {
+		if err := ac.Refresh(); err != nil {
 			return "", err
 		}
-		ac.accessTokenLock.Lock()
-	} else {
-		ac.accessTokenLock.Lock()
 	}
+	ac.accessTokenLock.Lock()
 	return ac.AccessToken, nil
 }
 func (ac *APIConn) unlockAccessToken() {
@@ -414,35 +392,20 @@ func (ac *APIConn) unlockAccessToken() {
 }
 
 // NewAPIConnWithJwtConfig allocates and returns a new Box API connection from Jwt config.
+//
+// The connection authenticates as the service account of the enterprise.
 func NewAPIConnWithJwtConfig(reader io.Reader, loader JwtConfigLoader) (*APIConn, error) {
-	// 1. Read JSON configuration
-	jwtConf, err := loader.Load(reader)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to load jwt config %w", err)
-	}
-
-	// 2. Decrypt private key
-	pkey, err := loader.DecryptPrivateKey(jwtConf)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to decrypt private key %w", err)
-	}
-
-	jwtAuthClaim, err := NewJwtAuthClaim(jwtConf, pkey)
-	if err != nil {
-		return nil, xerrors.Errorf("failed to create JwtAuthClaim %w", err)
-	}
-
-	instance := &APIConn{
-		ClientID:     jwtConf.BoxAppSettings.ClientID,
-		ClientSecret: jwtConf.BoxAppSettings.ClientSecret,
-		jwtAuth:      jwtAuthClaim,
-	}
-	instance.commonInit()
-	return instance, nil
+	return newAPIConnWithJwtConfig(reader, loader, jwtAuthServiceAccount, "")
 }
 
 // NewAPIConnWithJwtConfigForUser allocates and returns a new Box API connection from Jwt config.
+//
+// The connection authenticates as the user specified by userId.
 func NewAPIConnWithJwtConfigForUser(reader io.Reader, loader JwtConfigLoader, userId string) (*APIConn, error) {
+	return newAPIConnWithJwtConfig(reader, loader, jwtAuthUser, userId)
+}
+
+func newAPIConnWithJwtConfig(reader io.Reader, loader JwtConfigLoader, typ jwtAuthType, userId string) (*APIConn, error) {
 	// 1. Read JSON configuration
 	jwtConf, err := loader.Load(reader)
 	if err != nil {
@@ -455,7 +418,8 @@ func NewAPIConnWithJwtConfigForUser(reader io.Reader, loader JwtConfigLoader, us
 		return nil, xerrors.Errorf("failed to decrypt private key %w", err)
 	}
 
-	jwtAuthClaim, err := NewJwtAuthClaimForUser(jwtConf, pkey, userId)
+	// 3. Prepare JWT assertion builder
+	jwtAuthClaim, err := newJwtAuthClaim(jwtConf, pkey, typ, userId)
 	if err != nil {
 		return nil, xerrors.Errorf("failed to create JwtAuthClaim %w", err)
 	}

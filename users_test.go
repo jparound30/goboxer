@@ -2,9 +2,9 @@ package goboxer
 
 import (
 	"encoding/json"
-	"os"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"

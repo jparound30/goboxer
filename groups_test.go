@@ -3,9 +3,9 @@ package goboxer
 import (
 	"encoding/json"
 	"io"
-	"os"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"

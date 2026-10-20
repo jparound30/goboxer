@@ -3,9 +3,9 @@ package goboxer
 import (
 	"encoding/json"
 	"io"
-	"os"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -16,9 +16,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-//
 // COMMON UTILITY FUNCTIONS FOR TESTS
-//
 func commonInit(url string) *APIConn {
 	var apiConn = NewAPIConnWithRefreshToken(
 		"CLIENT_ID",

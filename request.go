@@ -285,7 +285,6 @@ func send(request *http.Request) (resp *http.Response, rttInMillis int64, err er
 			exponent := 5 - (retryCount - 1)
 			minWindow := 0.5
 			maxWindow := 1.5
-			rand.Seed(time.Now().Unix())
 			jitter := (rand.Float64() * (maxWindow - minWindow)) + minWindow
 
 			retryAfter = int(math.Pow(2, float64(exponent)) * jitter)
