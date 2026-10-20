@@ -204,18 +204,8 @@ func (u *User) GetCurrentUserReq(fields []string) *Request {
 func (u *User) GetCurrentUser(fields []string) (*User, error) {
 
 	req := u.GetCurrentUserReq(fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -244,18 +234,8 @@ func (u *User) GetUserReq(userId string, fields []string) *Request {
 func (u *User) GetUser(userId string, fields []string) (*User, error) {
 
 	req := u.GetUserReq(userId, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -332,18 +312,8 @@ func (u *User) CreateUserReq(fields []string) *Request {
 func (u *User) CreateUser(fields []string) (*User, error) {
 
 	req := u.CreateUserReq(fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -520,18 +490,8 @@ func (u *User) UpdateUserReq(userId string, fields []string) *Request {
 func (u *User) UpdateUser(userId string, fields []string) (*User, error) {
 
 	req := u.UpdateUserReq(userId, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -596,18 +556,8 @@ func (u *User) CreateAppUserReq(fields []string) *Request {
 func (u *User) CreateAppUser(fields []string) (*User, error) {
 
 	req := u.CreateAppUserReq(fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	r := &User{apiInfo: &apiInfo{api: u.apiInfo.api}}
-	err = UnmarshalJSONWrapper(resp.Body, r)
-	if err != nil {
+	if _, err := sendAndDecode(req, r, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -631,16 +581,8 @@ func (u *User) DeleteUserReq(userId string, notify bool, force bool) *Request {
 func (u *User) DeleteUser(userId string, notify bool, force bool) error {
 
 	req := u.DeleteUserReq(userId, notify, force)
-	resp, err := req.Send()
-	if err != nil {
-		return err
-	}
-
-	if resp.ResponseCode != http.StatusNoContent {
-		return newApiStatusError(resp.Body)
-	}
-
-	return nil
+	_, err := sendAndCheck(req, http.StatusNoContent)
+	return err
 }
 
 func (u *User) GetEnterpriseUsersReq(filterTerm string, offset int, limit int, fields []string) *Request {
@@ -665,22 +607,13 @@ func (u *User) GetEnterpriseUsersReq(filterTerm string, offset int, limit int, f
 func (u *User) GetEnterpriseUsers(filterTerm string, offset int, limit int, fields []string) (outUsers []*User, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := u.GetEnterpriseUsersReq(filterTerm, offset, limit, fields)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, 0, 0, 0, newApiStatusError(resp.Body)
-	}
 	users := struct {
 		TotalCount int     `json:"total_count"`
 		Entries    []*User `json:"entries"`
 		Offset     int     `json:"offset"`
 		Limit      int     `json:"limit"`
 	}{}
-	err = UnmarshalJSONWrapper(resp.Body, &users)
-	if err != nil {
+	if _, err := sendAndDecode(req, &users, http.StatusOK); err != nil {
 		return nil, 0, 0, 0, err
 	}
 	for _, user := range users.Entries {
