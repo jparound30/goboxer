@@ -77,19 +77,9 @@ func (m *Membership) GetMembershipReq(membershipId string) *Request {
 func (m *Membership) GetMembership(membershipId string) (*Membership, error) {
 
 	req := m.GetMembershipReq(membershipId)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	membership := Membership{apiInfo: m.apiInfo}
 
-	err = UnmarshalJSONWrapper(resp.Body, &membership)
-	if err != nil {
+	if _, err := sendAndDecode(req, &membership, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return &membership, nil
@@ -123,19 +113,9 @@ func (m *Membership) CreateMembershipReq() *Request {
 func (m *Membership) CreateMembership() (*Membership, error) {
 
 	req := m.CreateMembershipReq()
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusCreated {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	membership := &Membership{apiInfo: m.apiInfo}
 
-	err = UnmarshalJSONWrapper(resp.Body, membership)
-	if err != nil {
+	if _, err := sendAndDecode(req, membership, http.StatusCreated); err != nil {
 		return nil, err
 	}
 	return membership, nil
@@ -193,19 +173,9 @@ func (m *Membership) UpdateMembershipReq(membershipId string) *Request {
 func (m *Membership) UpdateMembership(membershipId string) (*Membership, error) {
 
 	req := m.UpdateMembershipReq(membershipId)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, newApiStatusError(resp.Body)
-	}
-
 	membership := Membership{apiInfo: m.apiInfo}
 
-	err = UnmarshalJSONWrapper(resp.Body, &membership)
-	if err != nil {
+	if _, err := sendAndDecode(req, &membership, http.StatusOK); err != nil {
 		return nil, err
 	}
 	return &membership, nil
@@ -229,15 +199,8 @@ func (m *Membership) DeleteMembershipReq(membershipId string) *Request {
 func (m *Membership) DeleteMembership(membershipId string) error {
 
 	req := m.DeleteMembershipReq(membershipId)
-	resp, err := req.Send()
-	if err != nil {
-		return err
-	}
-
-	if resp.ResponseCode != http.StatusNoContent {
-		return newApiStatusError(resp.Body)
-	}
-	return nil
+	_, err := sendAndCheck(req, http.StatusNoContent)
+	return err
 }
 
 // Get Memberships for Group
@@ -261,15 +224,6 @@ func (m *Membership) GetMembershipForGroupReq(groupId string, offset int32, limi
 func (m *Membership) GetMembershipForGroup(groupId string, offset int32, limit int32) (outMembership []*Membership, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := m.GetMembershipForGroupReq(groupId, offset, limit)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, 0, 0, 0, newApiStatusError(resp.Body)
-	}
-
 	memberships := struct {
 		TotalCount int           `json:"total_count"`
 		Entries    []*Membership `json:"entries"`
@@ -277,8 +231,7 @@ func (m *Membership) GetMembershipForGroup(groupId string, offset int32, limit i
 		Limit      int           `json:"limit"`
 	}{}
 
-	err = UnmarshalJSONWrapper(resp.Body, &memberships)
-	if err != nil {
+	if _, err := sendAndDecode(req, &memberships, http.StatusOK); err != nil {
 		return nil, 0, 0, 0, err
 	}
 	for _, v := range memberships.Entries {
@@ -308,15 +261,6 @@ func (m *Membership) GetMembershipForUserReq(userId string, offset int32, limit 
 func (m *Membership) GetMembershipForUser(userId string, offset int32, limit int32) (outMembership []*Membership, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := m.GetMembershipForUserReq(userId, offset, limit)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, 0, 0, 0, newApiStatusError(resp.Body)
-	}
-
 	memberships := struct {
 		TotalCount int           `json:"total_count"`
 		Entries    []*Membership `json:"entries"`
@@ -324,8 +268,7 @@ func (m *Membership) GetMembershipForUser(userId string, offset int32, limit int
 		Limit      int           `json:"limit"`
 	}{}
 
-	err = UnmarshalJSONWrapper(resp.Body, &memberships)
-	if err != nil {
+	if _, err := sendAndDecode(req, &memberships, http.StatusOK); err != nil {
 		return nil, 0, 0, 0, err
 	}
 	for _, v := range memberships.Entries {
@@ -355,15 +298,6 @@ func (m *Membership) GetCollaborationsForGroupReq(groupId string, offset int32, 
 func (m *Membership) GetCollaborationsForGroup(groupId string, offset int32, limit int32) (outCollaborations []*Collaboration, outOffset int, outLimit int, outTotalCount int, err error) {
 
 	req := m.GetCollaborationsForGroupReq(groupId, offset, limit)
-	resp, err := req.Send()
-	if err != nil {
-		return nil, 0, 0, 0, err
-	}
-
-	if resp.ResponseCode != http.StatusOK {
-		return nil, 0, 0, 0, newApiStatusError(resp.Body)
-	}
-
 	collabs := struct {
 		TotalCount int              `json:"total_count"`
 		Entries    []*Collaboration `json:"entries"`
@@ -371,8 +305,7 @@ func (m *Membership) GetCollaborationsForGroup(groupId string, offset int32, lim
 		Limit      int              `json:"limit"`
 	}{}
 
-	err = UnmarshalJSONWrapper(resp.Body, &collabs)
-	if err != nil {
+	if _, err := sendAndDecode(req, &collabs, http.StatusOK); err != nil {
 		return nil, 0, 0, 0, err
 	}
 	for _, v := range collabs.Entries {
