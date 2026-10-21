@@ -1,14 +1,10 @@
 package goboxer
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"golang.org/x/xerrors"
-	"io"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -62,104 +58,48 @@ func intToString(i *int) string {
 	return strconv.Itoa(*i)
 }
 
-func ParseResource(jsonEntity []byte) (r BoxResource, err error) {
-	decoder := json.NewDecoder(bytes.NewReader(jsonEntity))
-	outerStack := 0
-	for {
-		token, err := decoder.Token()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return nil, err
-		}
-		var typ string
-		switch token {
-		case json.Delim('{'):
-			outerStack++
-			if outerStack != 1 {
-				continue
-			}
-			stack := 0
-			var foundTypeField = false
-			newDecoder := json.NewDecoder(io.MultiReader(strings.NewReader("{"), decoder.Buffered()))
-		InnerLoop:
-			for newDecoder.More() {
-				token2, err := newDecoder.Token()
-				if err == io.EOF {
-					break
-				} else if err != nil {
-					return nil, err
-				}
-				switch token2 {
-				case json.Delim('{'):
-					stack++
-					continue
-				case json.Delim('}'):
-					stack--
-					if stack == 0 {
-						break
-					}
-					continue
-				case json.Delim('['), json.Delim(']'):
-					continue
-				default:
-					switch token2.(type) {
-					case string:
-						if foundTypeField {
-							typ = fmt.Sprint(token2)
-							break InnerLoop
-						}
-					default:
-						continue
-					}
-				}
-				if token2 == "type" {
-					foundTypeField = true
-				}
-			}
-		case json.Delim('}'):
-			outerStack--
-			continue
-		default:
-			continue
-		}
-		dec := json.NewDecoder(bytes.NewReader(jsonEntity))
-
-		switch typ {
-		case "folder":
-			folder := &Folder{}
-			err = dec.Decode(folder)
-			r = folder
-		case "file":
-			file := &File{}
-			err = dec.Decode(file)
-			r = file
-		case "file_version":
-			fv := &FileVersion{}
-			err = dec.Decode(fv)
-			r = fv
-		case "user":
-			u := &User{}
-			err = dec.Decode(u)
-			r = u
-		case "group":
-			g := &Group{}
-			err = dec.Decode(g)
-			r = g
-		case "group_membership":
-			gm := &Membership{}
-			err = dec.Decode(gm)
-			r = gm
-		case "collaboration":
-			c := &Collaboration{}
-			err = dec.Decode(c)
-			r = c
-		}
+// ParseResource decodes a Box API object into the concrete resource type selected by its
+// top-level "type" field. Supported types are file, folder, file_version, user, group,
+// group_membership and collaboration.
+//
+// An error is returned when the JSON is invalid, has no top-level "type" field, or names an
+// unsupported type. When the type is supported but decoding the object fails, the partially
+// decoded resource is returned together with the error.
+func ParseResource(jsonEntity []byte) (BoxResource, error) {
+	var probe struct {
+		Type string `json:"type"`
 	}
+	if err := json.Unmarshal(jsonEntity, &probe); err != nil {
+		return nil, err
+	}
+	r := newResourceForType(probe.Type)
 	if r == nil {
-		return nil, xerrors.Errorf("failed to parse box resource ")
+		return nil, xerrors.Errorf("failed to parse box resource: unsupported type %q", probe.Type)
 	}
+	err := json.Unmarshal(jsonEntity, r)
 	return r, err
+}
+
+// newResourceForType returns an empty resource for the given Box "type" value, or nil if unsupported.
+func newResourceForType(typ string) BoxResource {
+	switch typ {
+	case "folder":
+		return &Folder{}
+	case "file":
+		return &File{}
+	case "file_version":
+		return &FileVersion{}
+	case "user":
+		return &User{}
+	case "group":
+		return &Group{}
+	case "group_membership":
+		return &Membership{}
+	case "collaboration":
+		return &Collaboration{}
+	default:
+		return nil
+	}
 }
 
 func setApiInfo(r BoxResource, info *apiInfo) {
