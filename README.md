@@ -84,6 +84,14 @@ apiConn.HTTPClient = &http.Client{
 ```
 Prefer timeouts on the `Transport` over `http.Client.Timeout`: the latter also limits reading the body and would interrupt large `DownloadFile` streams. Connections that should share a pool must be given the same `*http.Client`.
 
+### Logging
+Logging uses the standard `log/slog` package and is off by default. Assign any `*slog.Logger` to `goboxer.Log`; request and response summaries are logged at debug level, retries at info level.
+```go
+goboxer.Log = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+goboxer.LogOpts = goboxer.LogOptions{RequestBody: true, ResponseBody: true} // optional, bodies are not logged by default
+```
+The `Authorization` header and OAuth secrets in form bodies are masked in the log output.
+
 ### NOTICE
 **About features for enterprise (Retention policy, Whitelist, etc...), it will not be implemented. ( I have no environment that testing those api! )**
 

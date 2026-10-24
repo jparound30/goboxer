@@ -4,10 +4,6 @@ const (
 	VERSION = "0.1.0"
 )
 
-var (
-	Log Logger = nil
-)
-
 type apiInfo struct {
 	api *APIConn
 }

@@ -76,6 +76,10 @@ Tests use JSON fixtures under `testdata/` (one subdirectory per resource type). 
 | `cmd/parallel` | Batch/parallel API operation utilities |
 | `cmd/sandbox` | JWT auth example |
 
+### Logging
+
+`goboxer.Log` (`logger.go`) is a `*slog.Logger`; nil disables logging. `logRequest` / `logResponse` / `logResponseBody` in `request.go` emit structured debug records, masking the `Authorization` header and OAuth form secrets. Body logging is opt-in through `goboxer.LogOpts`.
+
 ### Error handling
 
 `goboxererror.go` defines the custom error type returned from API calls. Callers should type-assert to inspect Box-specific error codes.

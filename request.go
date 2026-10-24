@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"math/rand/v2"
 	"net"
@@ -186,57 +187,61 @@ func (req *Request) Send() (*Response, error) {
 	return result, nil
 }
 
+// logRequest logs the request line and headers at debug level. The Authorization header is masked.
+// With LogOpts.RequestBody the JSON or form body is included; secrets in form bodies are masked.
 func logRequest(method string, request *http.Request) {
-	if Log == nil {
+	if Log == nil || !Log.Enabled(request.Context(), slog.LevelDebug) {
 		return
 	}
-	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("---\nRequest URL: %s %s\n", method, request.URL))
-	builder.WriteString("RequestHeader:\n")
-	for key, value := range request.Header {
-		builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
+	attrs := []any{
+		slog.String("method", method),
+		slog.String("url", request.URL.String()),
+		slog.Any("headers", redactHeaders(request.Header)),
 	}
-	switch request.Header.Get(httpHeaderContentType) {
-	case ContentTypeApplicationJson:
-		fallthrough
-	case ContentTypeFormUrlEncoded:
-		if readCloser, _ := request.GetBody(); readCloser != nil {
-			reqBody, _ := io.ReadAll(readCloser)
-			builder.WriteString(fmt.Sprintf("RequestBody:\n%s\n", string(reqBody)))
+	if LogOpts.RequestBody {
+		contentType := request.Header.Get(httpHeaderContentType)
+		if contentType == ContentTypeApplicationJson || contentType == ContentTypeFormUrlEncoded {
+			if readCloser, _ := request.GetBody(); readCloser != nil {
+				reqBody, _ := io.ReadAll(readCloser)
+				_ = readCloser.Close()
+				body := string(reqBody)
+				if contentType == ContentTypeFormUrlEncoded {
+					body = redactFormBody(body)
+				}
+				attrs = append(attrs, slog.String("body", body))
+			}
 		}
-	default:
 	}
-	builder.WriteString("---\n")
-	Log.RequestDumpf("[goboxer] Request\n%s", builder.String())
+	Log.Debug("goboxer: request", attrs...)
 }
 
-// logResponse logs the status line and headers. The body is logged separately by
+// logResponse logs the status and headers at debug level. The body is logged separately by
 // logResponseBody once it has been read, because it is streamed to the caller.
 func logResponse(resp *http.Response, rttInMillis int64) {
 	if Log == nil {
 		return
 	}
-	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("---\nHTTP Status Code: %d\n", resp.StatusCode))
-	builder.WriteString("ResponseHeader:\n")
-	for key, value := range resp.Header {
-		builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
-	}
-	builder.WriteString(fmt.Sprintf("Maybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
-	builder.WriteString("---\n")
-	Log.ResponseDumpf("[goboxer] Response\n%s", builder.String())
-	Log.Debugf("[goboxer] Request turn around time: %d [ms]\n", rttInMillis)
+	Log.Debug("goboxer: response",
+		slog.Int("status", resp.StatusCode),
+		slog.String("content_type", resp.Header.Get(httpHeaderContentType)),
+		slog.Int64("rtt_ms", rttInMillis),
+		slog.Bool("maybe_compressed", resp.ContentLength == -1 && resp.Uncompressed),
+		slog.Any("headers", resp.Header),
+	)
 }
 
-// logResponseBody logs a JSON response body when body logging is enabled.
+// logResponseBody logs a JSON response body at debug level when LogOpts.ResponseBody is set.
 func logResponseBody(contentType string, body []byte) {
-	if Log == nil || !Log.EnabledLoggingResponseBody() {
+	if Log == nil || !LogOpts.ResponseBody {
 		return
 	}
 	if contentType != ContentTypeApplicationJson {
 		return
 	}
-	Log.ResponseDumpf("[goboxer] ResponseBody\n---\n%s\n---\n", string(body))
+	Log.Debug("goboxer: response body",
+		slog.String("content_type", contentType),
+		slog.String("body", string(body)),
+	)
 }
 
 // send executes request with client, retrying on HTTP 429 and 5xx responses up to maxAttempts times in total.
@@ -268,7 +273,7 @@ func send(client *http.Client, request *http.Request, maxAttempts int) (resp *ht
 		if err != nil {
 			err = fmt.Errorf("failed to request response: %w", err)
 			if Log != nil {
-				Log.Warnf("%v\n", err)
+				Log.Warn("goboxer: request failed", slog.String("err", err.Error()), slog.Int("attempt", attempt))
 			}
 			return nil, rttInMillis, newApiOtherError(err, "")
 		}
@@ -278,7 +283,7 @@ func send(client *http.Client, request *http.Request, maxAttempts int) (resp *ht
 		}
 		if attempt == maxAttempts {
 			if Log != nil {
-				Log.Warnf("Retry count reached max count\n")
+				Log.Warn("goboxer: retry limit reached", slog.Int("attempts", maxAttempts), slog.Int("status", resp.StatusCode))
 			}
 			break
 		}
@@ -297,7 +302,7 @@ func send(client *http.Client, request *http.Request, maxAttempts int) (resp *ht
 			retryAfter = int(math.Pow(2, float64(exponent)) * jitter)
 		}
 		if Log != nil {
-			Log.Infof("Retry request...after %d secs.\n", retryAfter)
+			Log.Info("goboxer: retrying", slog.Int("attempt", attempt), slog.Int("status", resp.StatusCode), slog.Int("wait_sec", retryAfter))
 		}
 		time.Sleep(time.Duration(retryAfter) * time.Second)
 	}

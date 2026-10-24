@@ -16,6 +16,13 @@ they are always listed under a **Breaking Changes** heading.
   `*Response` (`File.DownloadFile`, `Request.Send`, `BatchRequest.ExecuteBatch`)
   must close the body, or call the new `Response.ReadBody()` to read and close
   it in one step. Large downloads no longer need to fit in memory.
+- Logging moved to `log/slog`. The `Logger` interface is removed; `goboxer.Log`
+  is now a `*slog.Logger` (nil disables logging, as before) and the new
+  `goboxer.LogOpts` (`LogOptions{RequestBody, ResponseBody}`) replaces the
+  `EnabledLogging*Body` methods. Request and response summaries are logged at
+  debug level as structured records (`method`, `url`, `headers`, `status`,
+  `rtt_ms`, ...), retries at info and failed attempts at warn level, instead of
+  printf-style text dumps.
 - `ApiOtherError` and `ApiStatusError` no longer implement `fmt.Formatter` /
   `xerrors.Formatter`: the `Format(fmt.State, rune)` and
   `FormatError(xerrors.Printer) error` methods are removed. `%v`, `%+v` and `%s`
@@ -24,6 +31,12 @@ they are always listed under a **Breaking Changes** heading.
 
 ### Changed
 
+- The `Authorization` header is masked in request logs, and `client_secret`,
+  `refresh_token`, `access_token`, `assertion` and `code` are masked in logged
+  form bodies. Previously the bearer token and OAuth secrets were written to the
+  log verbatim.
+- Request and response bodies are no longer logged unless enabled through
+  `LogOpts`.
 - Dropped the dependency on `golang.org/x/xerrors`. Internal error wrapping uses
   `errors.New` / `fmt.Errorf` with `%w`.
 - `%v` on an `ApiOtherError` no longer repeats the wrapped cause twice.
