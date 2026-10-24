@@ -167,25 +167,13 @@ func (req *Request) Send() (*Response, error) {
 		return nil, newApiOtherError(err, "")
 	}
 
-	var respBodyBytes []byte
+	logResponse(resp, rttInMillis)
 
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	// TODO should use io.ReadCloser. refine Response structure
-	respBodyBytes, err = io.ReadAll(resp.Body)
-	if err != nil {
-		err = fmt.Errorf("failed to read response: %w", err)
-		return nil, newApiOtherError(err, "")
-	}
-
-	logResponse(resp, respBodyBytes, rttInMillis)
-
+	// The body is handed to the caller as a stream; see Response.Body / Response.ReadBody.
 	result = &Response{
 		ResponseCode: resp.StatusCode,
 		Headers:      resp.Header,
-		Body:         respBodyBytes,
+		Body:         resp.Body,
 		Request:      req,
 		ContentType:  resp.Header.Get(httpHeaderContentType),
 		RTTInMillis:  rttInMillis,
@@ -218,7 +206,9 @@ func logRequest(method string, request *http.Request) {
 	Log.RequestDumpf("[goboxer] Request\n%s", builder.String())
 }
 
-func logResponse(resp *http.Response, respBodyBytes []byte, rttInMillis int64) {
+// logResponse logs the status line and headers. The body is logged separately by
+// logResponseBody once it has been read, because it is streamed to the caller.
+func logResponse(resp *http.Response, rttInMillis int64) {
 	if Log == nil {
 		return
 	}
@@ -229,17 +219,20 @@ func logResponse(resp *http.Response, respBodyBytes []byte, rttInMillis int64) {
 		builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
 	}
 	builder.WriteString(fmt.Sprintf("Maybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
-
-	if Log.EnabledLoggingResponseBody() {
-		switch resp.Header.Get(httpHeaderContentType) {
-		case ContentTypeApplicationJson:
-			builder.WriteString(fmt.Sprintf("ResponseBody:\n%s\n", string(respBodyBytes)))
-		default:
-		}
-	}
 	builder.WriteString("---\n")
 	Log.ResponseDumpf("[goboxer] Response\n%s", builder.String())
 	Log.Debugf("[goboxer] Request turn around time: %d [ms]\n", rttInMillis)
+}
+
+// logResponseBody logs a JSON response body when body logging is enabled.
+func logResponseBody(contentType string, body []byte) {
+	if Log == nil || !Log.EnabledLoggingResponseBody() {
+		return
+	}
+	if contentType != ContentTypeApplicationJson {
+		return
+	}
+	Log.ResponseDumpf("[goboxer] ResponseBody\n---\n%s\n---\n", string(body))
 }
 
 // send executes request, retrying on HTTP 429 and 5xx responses up to maxAttempts times in total.
@@ -285,6 +278,9 @@ func send(request *http.Request, maxAttempts int) (resp *http.Response, rttInMil
 			}
 			break
 		}
+		// this response will be retried; release its connection
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
 		var retryAfter int
 		if resp.StatusCode == http.StatusTooManyRequests {
 			retryAfter, _ = strconv.Atoi(resp.Header.Get(HttpHeaderRetryAfter))
@@ -431,7 +427,8 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		return nil, newApiOtherError(err, "")
 	}
 
-	logResponse(resp, respBodyBytes, rttInMillis)
+	logResponse(resp, rttInMillis)
+	logResponseBody(resp.Header.Get(httpHeaderContentType), respBodyBytes)
 
 	var result *BatchResponse
 
@@ -458,26 +455,22 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 			httpHeader.Add(hi, fmt.Sprintf("%v", hv))
 		}
-		bo := v.Response
-		indResp := &Response{
-			ResponseCode: v.Status,
-			Headers:      httpHeader,
-			Body:         []byte(bo),
-			Request:      requests[i],
-			ContentType:  resp.Header.Get(httpHeaderContentType),
-			RTTInMillis:  rttInMillis,
-		}
+		indResp := newBufferedResponse([]byte(v.Response))
+		indResp.ResponseCode = v.Status
+		indResp.Headers = httpHeader
+		indResp.Request = requests[i]
+		indResp.ContentType = resp.Header.Get(httpHeaderContentType)
+		indResp.RTTInMillis = rttInMillis
 		responses = append(responses, indResp)
 	}
+	outer := newBufferedResponse(respBodyBytes)
+	outer.ResponseCode = resp.StatusCode
+	outer.Headers = resp.Header
+	outer.Request = &req.Request
+	outer.ContentType = resp.Header.Get(httpHeaderContentType)
+	outer.RTTInMillis = rttInMillis
 	result = &BatchResponse{
-		Response: Response{
-			ResponseCode: resp.StatusCode,
-			Headers:      resp.Header,
-			Body:         nil,
-			Request:      &req.Request,
-			ContentType:  resp.Header.Get(httpHeaderContentType),
-			RTTInMillis:  rttInMillis,
-		},
+		Response:  *outer,
 		Responses: responses,
 	}
 	return result, nil

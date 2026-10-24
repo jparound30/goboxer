@@ -111,9 +111,14 @@ var createFolderCmd = &cobra.Command{
 				for _, resp := range response.Responses {
 					for _, v := range folderNames {
 						if v.req == resp.Request {
+							body, err := resp.ReadBody()
+							if err != nil {
+								fmt.Printf("%+v\n", fmt.Errorf("failed to read batch response: %w", err))
+								os.Exit(1)
+							}
 							if resp.ResponseCode == http.StatusCreated {
 								f := &goboxer.Folder{}
-								err = json.Unmarshal(resp.Body, f)
+								err = json.Unmarshal(body, f)
 								if err != nil {
 									fmt.Printf("%+v\n", fmt.Errorf("failed to parse batch request: %w", err))
 									os.Exit(1)
@@ -127,7 +132,7 @@ var createFolderCmd = &cobra.Command{
 								v.path = builder.String()
 								break
 							} else {
-								err := goboxer.NewApiStatusError(resp.Body)
+								err := goboxer.NewApiStatusError(body)
 								fmt.Printf("%+v\n", fmt.Errorf("failed to parse batch request: %w", err))
 								v.id = "failed"
 							}

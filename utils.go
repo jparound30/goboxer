@@ -156,19 +156,27 @@ func sendAndCheck(req *Request, okStatuses ...int) (*Response, error) {
 		return nil, err
 	}
 	if !slices.Contains(okStatuses, resp.ResponseCode) {
-		return nil, newApiStatusError(resp.Body)
+		body, err := resp.ReadBody()
+		if err != nil {
+			return nil, err
+		}
+		return nil, newApiStatusError(body)
 	}
 	return resp, nil
 }
 
 // sendAndDecode sends req, verifies the response status with sendAndCheck,
-// and decodes the JSON response body into out.
+// reads the whole body and decodes it as JSON into out.
 func sendAndDecode(req *Request, out any, okStatuses ...int) (*Response, error) {
 	resp, err := sendAndCheck(req, okStatuses...)
 	if err != nil {
 		return nil, err
 	}
-	if err := UnmarshalJSONWrapper(resp.Body, out); err != nil {
+	body, err := resp.ReadBody()
+	if err != nil {
+		return nil, err
+	}
+	if err := UnmarshalJSONWrapper(body, out); err != nil {
 		return nil, err
 	}
 	return resp, nil

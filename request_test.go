@@ -207,7 +207,8 @@ func Test_logResponse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Helper()
 			Log = tt.logger
-			logResponse(tt.args.resp, tt.args.respBodyBytes, tt.args.rttInMillis)
+			logResponse(tt.args.resp, tt.args.rttInMillis)
+			logResponseBody(tt.args.resp.Header.Get(httpHeaderContentType), tt.args.respBodyBytes)
 		})
 	}
 }
@@ -330,10 +331,10 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      http.Header{},
 		RTTInMillis:  0,
 		ResponseCode: 201,
-		Body: []byte(`{
+		Body: io.NopCloser(strings.NewReader(`{
         "type": "collaboration",
         "id": "123"
-      }`),
+      }`)),
 	}
 	bResp2 := &Response{
 		Request:      br2,
@@ -341,13 +342,13 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      http.Header{},
 		RTTInMillis:  0,
 		ResponseCode: 404,
-		Body: []byte(`{
+		Body: io.NopCloser(strings.NewReader(`{
         "type": "error",
         "status": 404,
         "code": "not_found",
         "message": "Not Found",
         "request_id": "139334760758014ea2935ab"
-      }`),
+      }`)),
 	}
 	bResp3 := &Response{
 		Request:      br3,
@@ -355,10 +356,10 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      http.Header{},
 		RTTInMillis:  0,
 		ResponseCode: 200,
-		Body: []byte(`{
+		Body: io.NopCloser(strings.NewReader(`{
         "type": "collaboration",
         "id": "456"
-      }`),
+      }`)),
 	}
 	bResp4 := &Response{
 		Request:      br4,
@@ -366,7 +367,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      http.Header{},
 		RTTInMillis:  0,
 		ResponseCode: 404,
-		Body:         []byte(`null`),
+		Body:         io.NopCloser(strings.NewReader(`null`)),
 	}
 	bResp5Header := http.Header{}
 	bResp5Header.Set("Retry-After", "4")
@@ -376,7 +377,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      bResp5Header,
 		RTTInMillis:  0,
 		ResponseCode: 429,
-		Body:         []byte(`null`),
+		Body:         io.NopCloser(strings.NewReader(`null`)),
 	}
 	bRespHeader := http.Header{}
 	bRespHeader.Set(httpHeaderContentType, ContentTypeApplicationJson)
@@ -460,10 +461,22 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 			// If normal response
 			opts := diffCompOptions()
 			opts = append(opts, cmpopts.IgnoreUnexported(Request{}))
-			opts = append(opts, cmpopts.IgnoreFields(Response{}, "RTTInMillis"))
+			opts = append(opts, cmpopts.IgnoreUnexported(Response{}))
+			opts = append(opts, cmpopts.IgnoreFields(Response{}, "RTTInMillis", "Body"))
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
 				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
 				return
+			}
+			// bodies are streams; compare their contents separately
+			for i := range tt.want.Responses {
+				gotBody, err := got.Responses[i].ReadBody()
+				if err != nil {
+					t.Fatalf("Responses[%d].ReadBody() error = %v", i, err)
+				}
+				wantBody, _ := tt.want.Responses[i].ReadBody()
+				if string(gotBody) != string(wantBody) {
+					t.Errorf("Responses[%d] body = %s, want %s", i, gotBody, wantBody)
+				}
 			}
 		})
 	}

@@ -290,6 +290,11 @@ func (ac *APIConn) requestToken(params url.Values, statusErrMsg string) (*tokenR
 		ac.notifyFail(err)
 		return nil, err
 	}
+	body, err := resp.ReadBody()
+	if err != nil {
+		ac.notifyFail(err)
+		return nil, err
+	}
 	if resp.ResponseCode != http.StatusOK {
 		err := errors.New(statusErrMsg)
 		ac.notifyFail(err)
@@ -297,7 +302,7 @@ func (ac *APIConn) requestToken(params url.Values, statusErrMsg string) (*tokenR
 	}
 
 	var tokenResp tokenResponse
-	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		err = fmt.Errorf("failed to parse response. error = %w", err)
 		ac.notifyFail(err)
 		return nil, err

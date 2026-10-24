@@ -11,6 +11,11 @@ they are always listed under a **Breaking Changes** heading.
 
 ### Breaking Changes
 
+- `Response.Body` is now an `io.ReadCloser` streamed from the server instead of
+  a `[]byte`, like `http.Response.Body`. Callers of methods that return a
+  `*Response` (`File.DownloadFile`, `Request.Send`, `BatchRequest.ExecuteBatch`)
+  must close the body, or call the new `Response.ReadBody()` to read and close
+  it in one step. Large downloads no longer need to fit in memory.
 - `ApiOtherError` and `ApiStatusError` no longer implement `fmt.Formatter` /
   `xerrors.Formatter`: the `Format(fmt.State, rune)` and
   `FormatError(xerrors.Printer) error` methods are removed. `%v`, `%+v` and `%s`
@@ -22,10 +27,20 @@ they are always listed under a **Breaking Changes** heading.
 - Dropped the dependency on `golang.org/x/xerrors`. Internal error wrapping uses
   `errors.New` / `fmt.Errorf` with `%w`.
 - `%v` on an `ApiOtherError` no longer repeats the wrapped cause twice.
+- When response body logging is enabled, the JSON body is logged in a separate
+  `ResponseBody` entry once it has been read, after the status and headers.
 
 ### Added
 
-- Tests for error formatting, unwrapping and `NewApiStatusError`.
+- `Response.ReadBody()` reads the whole body, closes it and caches the bytes;
+  repeated calls return the same result.
+- Tests for error formatting, unwrapping, `NewApiStatusError`, `Response.ReadBody`
+  and streamed downloads.
+
+### Fixed
+
+- The retry loop did not close the body of a 429 / 5xx response before retrying,
+  leaking the connection until the transport reclaimed it.
 
 ## [0.1.0] - 2026-10-24
 

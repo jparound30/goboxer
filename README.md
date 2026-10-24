@@ -34,6 +34,22 @@ info, err := folder.GetInfo("0", nil)
 ```
 `cmd/goboxertokengen` is a helper that runs the OAuth 2.0 authorization flow locally and prints the resulting tokens.
 
+### Downloading a file
+`DownloadFile` streams the content. Close the body when done, or use `ReadBody` to load it into memory.
+```go
+resp, err := goboxer.NewFile(apiConn).DownloadFile(fileID, "", "")
+if err != nil {
+	log.Fatal(err)
+}
+defer resp.Body.Close()
+
+out, _ := os.Create("downloaded.bin")
+defer out.Close()
+if _, err := io.Copy(out, resp.Body); err != nil {
+	log.Fatal(err)
+}
+```
+
 ### JWT
 Load the JSON configuration file downloaded from the Box Developer Console and create a connection
 as the service account (enterprise) or as a managed user.
