@@ -452,7 +452,10 @@ func TestFile_DownloadFile(t *testing.T) {
 			}
 
 			if got.ResponseCode == http.StatusOK {
-				gotBytes := got.Body
+				gotBytes, err := got.ReadBody()
+				if err != nil {
+					t.Fatalf("ReadBody() error = %v", err)
+				}
 				wantBytes, _ := io.ReadAll(tt.want)
 				if !reflect.DeepEqual(gotBytes, wantBytes) {
 					t.Errorf("File.DownloadFile() = %v, want %v", got, tt.want)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"math/rand/v2"
 	"net"
@@ -12,8 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -49,7 +48,9 @@ func convertMethodStr(method Method) string {
 	}
 }
 
-var transport = &http.Transport{
+// defaultTransport is shared by every APIConn that does not set its own HTTPClient,
+// so connections are pooled across connections to the same host.
+var defaultTransport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
 		Timeout:   30 * time.Second,
@@ -61,8 +62,10 @@ var transport = &http.Transport{
 	ExpectContinueTimeout: 1 * time.Second,
 	DisableCompression:    false,
 }
-var client = &http.Client{
-	Transport: transport,
+
+// DefaultHTTPClient is used by every APIConn whose HTTPClient field is nil.
+var DefaultHTTPClient = &http.Client{
+	Transport: defaultTransport,
 }
 
 const (
@@ -129,13 +132,13 @@ func (req *Request) Send() (*Response, error) {
 
 	newRequest, err := http.NewRequest(method, url, req.body)
 	if err != nil {
-		err = xerrors.Errorf("failed to create request: %w", err)
+		err = fmt.Errorf("failed to create request: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 	if req.shouldAuthenticate {
 		token, err := req.apiConn.lockAccessToken()
 		if err != nil {
-			err = xerrors.Errorf("failed to lock or refresh accessToken: %w", err)
+			err = fmt.Errorf("failed to lock or refresh accessToken: %w", err)
 			return nil, newApiOtherError(err, "")
 		}
 		defer req.apiConn.unlockAccessToken()
@@ -163,31 +166,19 @@ func (req *Request) Send() (*Response, error) {
 
 	logRequest(method, newRequest)
 
-	resp, rttInMillis, err := send(newRequest, req.apiConn.MaxRequestAttempts)
+	resp, rttInMillis, err := send(req.apiConn.httpClient(), newRequest, req.apiConn.MaxRequestAttempts)
 	if err != nil {
-		err = xerrors.Errorf("failed to send request: %w", err)
+		err = fmt.Errorf("failed to send request: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 
-	var respBodyBytes []byte
+	logResponse(resp, rttInMillis)
 
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	// TODO should use io.ReadCloser. refine Response structure
-	respBodyBytes, err = io.ReadAll(resp.Body)
-	if err != nil {
-		err = xerrors.Errorf("failed to read response: %w", err)
-		return nil, newApiOtherError(err, "")
-	}
-
-	logResponse(resp, respBodyBytes, rttInMillis)
-
+	// The body is handed to the caller as a stream; see Response.Body / Response.ReadBody.
 	result = &Response{
 		ResponseCode: resp.StatusCode,
 		Headers:      resp.Header,
-		Body:         respBodyBytes,
+		Body:         resp.Body,
 		Request:      req,
 		ContentType:  resp.Header.Get(httpHeaderContentType),
 		RTTInMillis:  rttInMillis,
@@ -196,57 +187,66 @@ func (req *Request) Send() (*Response, error) {
 	return result, nil
 }
 
+// logRequest logs the request line and headers at debug level. The Authorization header is masked.
+// With LogOpts.RequestBody the JSON or form body is included; secrets in form bodies are masked.
 func logRequest(method string, request *http.Request) {
+	if Log == nil || !Log.Enabled(request.Context(), slog.LevelDebug) {
+		return
+	}
+	attrs := []any{
+		slog.String("method", method),
+		slog.String("url", request.URL.String()),
+		slog.Any("headers", redactHeaders(request.Header)),
+	}
+	if LogOpts.RequestBody {
+		contentType := request.Header.Get(httpHeaderContentType)
+		if contentType == ContentTypeApplicationJson || contentType == ContentTypeFormUrlEncoded {
+			if readCloser, _ := request.GetBody(); readCloser != nil {
+				reqBody, _ := io.ReadAll(readCloser)
+				_ = readCloser.Close()
+				body := string(reqBody)
+				if contentType == ContentTypeFormUrlEncoded {
+					body = redactFormBody(body)
+				}
+				attrs = append(attrs, slog.String("body", body))
+			}
+		}
+	}
+	Log.Debug("goboxer: request", attrs...)
+}
+
+// logResponse logs the status and headers at debug level. The body is logged separately by
+// logResponseBody once it has been read, because it is streamed to the caller.
+func logResponse(resp *http.Response, rttInMillis int64) {
 	if Log == nil {
 		return
 	}
-	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("---\nRequest URL: %s %s\n", method, request.URL))
-	builder.WriteString("RequestHeader:\n")
-	for key, value := range request.Header {
-		builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
-	}
-	switch request.Header.Get(httpHeaderContentType) {
-	case ContentTypeApplicationJson:
-		fallthrough
-	case ContentTypeFormUrlEncoded:
-		if readCloser, _ := request.GetBody(); readCloser != nil {
-			reqBody, _ := io.ReadAll(readCloser)
-			builder.WriteString(fmt.Sprintf("RequestBody:\n%s\n", string(reqBody)))
-		}
-	default:
-	}
-	builder.WriteString("---\n")
-	Log.RequestDumpf("[goboxer] Request\n%s", builder.String())
+	Log.Debug("goboxer: response",
+		slog.Int("status", resp.StatusCode),
+		slog.String("content_type", resp.Header.Get(httpHeaderContentType)),
+		slog.Int64("rtt_ms", rttInMillis),
+		slog.Bool("maybe_compressed", resp.ContentLength == -1 && resp.Uncompressed),
+		slog.Any("headers", resp.Header),
+	)
 }
 
-func logResponse(resp *http.Response, respBodyBytes []byte, rttInMillis int64) {
-	if Log == nil {
+// logResponseBody logs a JSON response body at debug level when LogOpts.ResponseBody is set.
+func logResponseBody(contentType string, body []byte) {
+	if Log == nil || !LogOpts.ResponseBody {
 		return
 	}
-	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("---\nHTTP Status Code: %d\n", resp.StatusCode))
-	builder.WriteString("ResponseHeader:\n")
-	for key, value := range resp.Header {
-		builder.WriteString(fmt.Sprintf("\t  %s: %v\n", key, value))
+	if contentType != ContentTypeApplicationJson {
+		return
 	}
-	builder.WriteString(fmt.Sprintf("Maybe Compressed response: %t\n", resp.ContentLength == -1 && resp.Uncompressed))
-
-	if Log.EnabledLoggingResponseBody() {
-		switch resp.Header.Get(httpHeaderContentType) {
-		case ContentTypeApplicationJson:
-			builder.WriteString(fmt.Sprintf("ResponseBody:\n%s\n", string(respBodyBytes)))
-		default:
-		}
-	}
-	builder.WriteString("---\n")
-	Log.ResponseDumpf("[goboxer] Response\n%s", builder.String())
-	Log.Debugf("[goboxer] Request turn around time: %d [ms]\n", rttInMillis)
+	Log.Debug("goboxer: response body",
+		slog.String("content_type", contentType),
+		slog.String("body", string(body)),
+	)
 }
 
-// send executes request, retrying on HTTP 429 and 5xx responses up to maxAttempts times in total.
+// send executes request with client, retrying on HTTP 429 and 5xx responses up to maxAttempts times in total.
 // A maxAttempts value less than 1 falls back to defaultMaxRequestAttempts.
-func send(request *http.Request, maxAttempts int) (resp *http.Response, rttInMillis int64, err error) {
+func send(client *http.Client, request *http.Request, maxAttempts int) (resp *http.Response, rttInMillis int64, err error) {
 	if maxAttempts < 1 {
 		maxAttempts = defaultMaxRequestAttempts
 	}
@@ -271,9 +271,9 @@ func send(request *http.Request, maxAttempts int) (resp *http.Response, rttInMil
 		a := time.Now()
 		rttInMillis = (a.UnixNano() - b.UnixNano()) / 1000000
 		if err != nil {
-			err = xerrors.Errorf("failed to request response: %w", err)
+			err = fmt.Errorf("failed to request response: %w", err)
 			if Log != nil {
-				Log.Warnf("%v\n", err)
+				Log.Warn("goboxer: request failed", slog.String("err", err.Error()), slog.Int("attempt", attempt))
 			}
 			return nil, rttInMillis, newApiOtherError(err, "")
 		}
@@ -283,10 +283,13 @@ func send(request *http.Request, maxAttempts int) (resp *http.Response, rttInMil
 		}
 		if attempt == maxAttempts {
 			if Log != nil {
-				Log.Warnf("Retry count reached max count\n")
+				Log.Warn("goboxer: retry limit reached", slog.Int("attempts", maxAttempts), slog.Int("status", resp.StatusCode))
 			}
 			break
 		}
+		// this response will be retried; release its connection
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
 		var retryAfter int
 		if resp.StatusCode == http.StatusTooManyRequests {
 			retryAfter, _ = strconv.Atoi(resp.Header.Get(HttpHeaderRetryAfter))
@@ -299,7 +302,7 @@ func send(request *http.Request, maxAttempts int) (resp *http.Response, rttInMil
 			retryAfter = int(math.Pow(2, float64(exponent)) * jitter)
 		}
 		if Log != nil {
-			Log.Infof("Retry request...after %d secs.\n", retryAfter)
+			Log.Info("goboxer: retrying", slog.Int("attempt", attempt), slog.Int("status", resp.StatusCode), slog.Int("wait_sec", retryAfter))
 		}
 		time.Sleep(time.Duration(retryAfter) * time.Second)
 	}
@@ -387,7 +390,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		}
 		batchReqJson, err := json.Marshal(&r)
 		if err != nil {
-			err = xerrors.Errorf("json marshaling error: %w", err)
+			err = fmt.Errorf("json marshaling error: %w", err)
 			return nil, newApiOtherError(err, "")
 		}
 		buf.Write(batchReqJson)
@@ -396,13 +399,13 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	newRequest, err := http.NewRequest("POST", batchUrl, bytes.NewReader(buf.Bytes()))
 	if err != nil {
-		err = xerrors.Errorf("failed to generate request: %w", err)
+		err = fmt.Errorf("failed to generate request: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 	if req.shouldAuthenticate {
 		token, err := req.apiConn.lockAccessToken()
 		if err != nil {
-			err = xerrors.Errorf("failed to generate request: %w", err)
+			err = fmt.Errorf("failed to generate request: %w", err)
 			return nil, newApiOtherError(err, "")
 		}
 		defer req.apiConn.unlockAccessToken()
@@ -418,9 +421,9 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	logRequest("POST", newRequest)
 
-	resp, rttInMillis, err := send(newRequest, req.apiConn.MaxRequestAttempts)
+	resp, rttInMillis, err := send(req.apiConn.httpClient(), newRequest, req.apiConn.MaxRequestAttempts)
 	if err != nil {
-		err = xerrors.Errorf("failed to send request: %w", err)
+		err = fmt.Errorf("failed to send request: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 	defer func() {
@@ -429,11 +432,12 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		err = xerrors.Errorf("failed to read response: %w", err)
+		err = fmt.Errorf("failed to read response: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 
-	logResponse(resp, respBodyBytes, rttInMillis)
+	logResponse(resp, rttInMillis)
+	logResponseBody(resp.Header.Get(httpHeaderContentType), respBodyBytes)
 
 	var result *BatchResponse
 
@@ -460,26 +464,22 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 			httpHeader.Add(hi, fmt.Sprintf("%v", hv))
 		}
-		bo := v.Response
-		indResp := &Response{
-			ResponseCode: v.Status,
-			Headers:      httpHeader,
-			Body:         []byte(bo),
-			Request:      requests[i],
-			ContentType:  resp.Header.Get(httpHeaderContentType),
-			RTTInMillis:  rttInMillis,
-		}
+		indResp := newBufferedResponse([]byte(v.Response))
+		indResp.ResponseCode = v.Status
+		indResp.Headers = httpHeader
+		indResp.Request = requests[i]
+		indResp.ContentType = resp.Header.Get(httpHeaderContentType)
+		indResp.RTTInMillis = rttInMillis
 		responses = append(responses, indResp)
 	}
+	outer := newBufferedResponse(respBodyBytes)
+	outer.ResponseCode = resp.StatusCode
+	outer.Headers = resp.Header
+	outer.Request = &req.Request
+	outer.ContentType = resp.Header.Get(httpHeaderContentType)
+	outer.RTTInMillis = rttInMillis
 	result = &BatchResponse{
-		Response: Response{
-			ResponseCode: resp.StatusCode,
-			Headers:      resp.Header,
-			Body:         nil,
-			Request:      &req.Request,
-			ContentType:  resp.Header.Get(httpHeaderContentType),
-			RTTInMillis:  rttInMillis,
-		},
+		Response:  *outer,
 		Responses: responses,
 	}
 	return result, nil

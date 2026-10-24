@@ -9,7 +9,6 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
-	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 )
 
 require (

@@ -233,8 +233,12 @@ func (c *Collaboration) Update(collaborationId string, role Role, status *Collab
 		return nil, nil
 	}
 
+	body, err := resp.ReadBody()
+	if err != nil {
+		return nil, err
+	}
 	r := &Collaboration{apiInfo: &apiInfo{api: c.apiInfo.api}}
-	if err := UnmarshalJSONWrapper(resp.Body, r); err != nil {
+	if err := UnmarshalJSONWrapper(body, r); err != nil {
 		return nil, err
 	}
 	return r, nil
