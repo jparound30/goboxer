@@ -6,6 +6,9 @@ _goboxer_ is **UNOFFICIAL** Box API(https://developer.box.com/reference) library
 
 _goboxer_ is UNDER DEVELOPMENT and its API may be destructively changed.
 
+## Changelog
+See [CHANGELOG.md](CHANGELOG.md). Breaking changes are listed under a **Breaking Changes** heading for each release.
+
 ## Requirements
 * Go 1.26 or later
 
