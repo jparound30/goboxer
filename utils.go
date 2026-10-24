@@ -2,7 +2,7 @@ package goboxer
 
 import (
 	"encoding/json"
-	"golang.org/x/xerrors"
+	"fmt"
 	"slices"
 	"strconv"
 	"time"
@@ -74,7 +74,7 @@ func ParseResource(jsonEntity []byte) (BoxResource, error) {
 	}
 	r := newResourceForType(probe.Type)
 	if r == nil {
-		return nil, xerrors.Errorf("failed to parse box resource: unsupported type %q", probe.Type)
+		return nil, fmt.Errorf("failed to parse box resource: unsupported type %q", probe.Type)
 	}
 	err := json.Unmarshal(jsonEntity, r)
 	return r, err
@@ -133,7 +133,7 @@ func setApiInfo(r BoxResource, info *apiInfo) {
 func UnmarshalJSONBoxResourceWrapper(data []byte, v BoxResource) error {
 	err := json.Unmarshal(data, v)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal response: %w", err)
+		err = fmt.Errorf("failed to unmarshal response: %w", err)
 		return newApiOtherError(err, string(data))
 	}
 	return nil
@@ -142,7 +142,7 @@ func UnmarshalJSONBoxResourceWrapper(data []byte, v BoxResource) error {
 func UnmarshalJSONWrapper(data []byte, v any) error {
 	err := json.Unmarshal(data, v)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal response: %w", err)
+		err = fmt.Errorf("failed to unmarshal response: %w", err)
 		return newApiOtherError(err, string(data))
 	}
 	return nil

@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -129,13 +127,13 @@ func (req *Request) Send() (*Response, error) {
 
 	newRequest, err := http.NewRequest(method, url, req.body)
 	if err != nil {
-		err = xerrors.Errorf("failed to create request: %w", err)
+		err = fmt.Errorf("failed to create request: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 	if req.shouldAuthenticate {
 		token, err := req.apiConn.lockAccessToken()
 		if err != nil {
-			err = xerrors.Errorf("failed to lock or refresh accessToken: %w", err)
+			err = fmt.Errorf("failed to lock or refresh accessToken: %w", err)
 			return nil, newApiOtherError(err, "")
 		}
 		defer req.apiConn.unlockAccessToken()
@@ -165,7 +163,7 @@ func (req *Request) Send() (*Response, error) {
 
 	resp, rttInMillis, err := send(newRequest, req.apiConn.MaxRequestAttempts)
 	if err != nil {
-		err = xerrors.Errorf("failed to send request: %w", err)
+		err = fmt.Errorf("failed to send request: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 
@@ -178,7 +176,7 @@ func (req *Request) Send() (*Response, error) {
 	// TODO should use io.ReadCloser. refine Response structure
 	respBodyBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
-		err = xerrors.Errorf("failed to read response: %w", err)
+		err = fmt.Errorf("failed to read response: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 
@@ -271,7 +269,7 @@ func send(request *http.Request, maxAttempts int) (resp *http.Response, rttInMil
 		a := time.Now()
 		rttInMillis = (a.UnixNano() - b.UnixNano()) / 1000000
 		if err != nil {
-			err = xerrors.Errorf("failed to request response: %w", err)
+			err = fmt.Errorf("failed to request response: %w", err)
 			if Log != nil {
 				Log.Warnf("%v\n", err)
 			}
@@ -387,7 +385,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 		}
 		batchReqJson, err := json.Marshal(&r)
 		if err != nil {
-			err = xerrors.Errorf("json marshaling error: %w", err)
+			err = fmt.Errorf("json marshaling error: %w", err)
 			return nil, newApiOtherError(err, "")
 		}
 		buf.Write(batchReqJson)
@@ -396,13 +394,13 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	newRequest, err := http.NewRequest("POST", batchUrl, bytes.NewReader(buf.Bytes()))
 	if err != nil {
-		err = xerrors.Errorf("failed to generate request: %w", err)
+		err = fmt.Errorf("failed to generate request: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 	if req.shouldAuthenticate {
 		token, err := req.apiConn.lockAccessToken()
 		if err != nil {
-			err = xerrors.Errorf("failed to generate request: %w", err)
+			err = fmt.Errorf("failed to generate request: %w", err)
 			return nil, newApiOtherError(err, "")
 		}
 		defer req.apiConn.unlockAccessToken()
@@ -420,7 +418,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	resp, rttInMillis, err := send(newRequest, req.apiConn.MaxRequestAttempts)
 	if err != nil {
-		err = xerrors.Errorf("failed to send request: %w", err)
+		err = fmt.Errorf("failed to send request: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 	defer func() {
@@ -429,7 +427,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		err = xerrors.Errorf("failed to read response: %w", err)
+		err = fmt.Errorf("failed to read response: %w", err)
 		return nil, newApiOtherError(err, "")
 	}
 
