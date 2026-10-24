@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## About
 
-`goboxer` is a Go client library for the [Box API](https://developer.box.com/). Module: `github.com/jparound30/goboxer`. It is under active development (v0.1.0) and the API may change destructively.
+`goboxer` is a Go client library for the [Box API](https://developer.box.com/). Module: `github.com/jparound30/goboxer`. It is under active development (v0.2.0) and the API may change destructively.
 
 ## Commands
 

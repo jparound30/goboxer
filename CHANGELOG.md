@@ -9,6 +9,12 @@ they are always listed under a **Breaking Changes** heading.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-24
+
+This release drops `golang.org/x/xerrors` and reworks three parts of the library
+that depended on it or on in-memory buffering: error formatting, response bodies
+and logging. Migration notes are given under each breaking change.
+
 ### Breaking Changes
 
 - `Response.Body` is now an `io.ReadCloser` streamed from the server instead of
@@ -111,6 +117,7 @@ Initial development version (never tagged). Files, folders, collaborations,
 users, groups, memberships, events, file locks, batch requests, OAuth 2.0 and
 JWT authentication.
 
-[Unreleased]: https://github.com/jparound30/goboxer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jparound30/goboxer/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jparound30/goboxer/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jparound30/goboxer/releases/tag/v0.1.0
 [0.0.1]: https://github.com/jparound30/goboxer/commit/0273273
