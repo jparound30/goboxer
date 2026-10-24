@@ -32,6 +32,10 @@ they are always listed under a **Breaking Changes** heading.
 
 ### Added
 
+- `APIConn.HTTPClient` lets each connection use its own `*http.Client` (proxy,
+  TLS, timeouts, custom `http.RoundTripper` for tests or tracing). When nil the
+  new exported `DefaultHTTPClient` is used, which keeps the previous behavior
+  and shares one connection pool across connections.
 - `Response.ReadBody()` reads the whole body, closes it and caches the bytes;
   repeated calls return the same result.
 - Tests for error formatting, unwrapping, `NewApiStatusError`, `Response.ReadBody`

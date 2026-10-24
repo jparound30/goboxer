@@ -47,7 +47,9 @@ func convertMethodStr(method Method) string {
 	}
 }
 
-var transport = &http.Transport{
+// defaultTransport is shared by every APIConn that does not set its own HTTPClient,
+// so connections are pooled across connections to the same host.
+var defaultTransport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
 		Timeout:   30 * time.Second,
@@ -59,8 +61,10 @@ var transport = &http.Transport{
 	ExpectContinueTimeout: 1 * time.Second,
 	DisableCompression:    false,
 }
-var client = &http.Client{
-	Transport: transport,
+
+// DefaultHTTPClient is used by every APIConn whose HTTPClient field is nil.
+var DefaultHTTPClient = &http.Client{
+	Transport: defaultTransport,
 }
 
 const (
@@ -161,7 +165,7 @@ func (req *Request) Send() (*Response, error) {
 
 	logRequest(method, newRequest)
 
-	resp, rttInMillis, err := send(newRequest, req.apiConn.MaxRequestAttempts)
+	resp, rttInMillis, err := send(req.apiConn.httpClient(), newRequest, req.apiConn.MaxRequestAttempts)
 	if err != nil {
 		err = fmt.Errorf("failed to send request: %w", err)
 		return nil, newApiOtherError(err, "")
@@ -235,9 +239,9 @@ func logResponseBody(contentType string, body []byte) {
 	Log.ResponseDumpf("[goboxer] ResponseBody\n---\n%s\n---\n", string(body))
 }
 
-// send executes request, retrying on HTTP 429 and 5xx responses up to maxAttempts times in total.
+// send executes request with client, retrying on HTTP 429 and 5xx responses up to maxAttempts times in total.
 // A maxAttempts value less than 1 falls back to defaultMaxRequestAttempts.
-func send(request *http.Request, maxAttempts int) (resp *http.Response, rttInMillis int64, err error) {
+func send(client *http.Client, request *http.Request, maxAttempts int) (resp *http.Response, rttInMillis int64, err error) {
 	if maxAttempts < 1 {
 		maxAttempts = defaultMaxRequestAttempts
 	}
@@ -412,7 +416,7 @@ func (req *BatchRequest) ExecuteBatch(requests []*Request) (*BatchResponse, erro
 
 	logRequest("POST", newRequest)
 
-	resp, rttInMillis, err := send(newRequest, req.apiConn.MaxRequestAttempts)
+	resp, rttInMillis, err := send(req.apiConn.httpClient(), newRequest, req.apiConn.MaxRequestAttempts)
 	if err != nil {
 		err = fmt.Errorf("failed to send request: %w", err)
 		return nil, newApiOtherError(err, "")

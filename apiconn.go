@@ -56,11 +56,22 @@ type APIConn struct {
 	// MaxRequestAttempts is the total number of attempts for a request, including the first one.
 	// Requests are retried on HTTP 429 and 5xx responses. Values less than 1 are treated as the default (5).
 	MaxRequestAttempts int
-	rwLock             sync.RWMutex
-	notifier           APIConnRefreshNotifier
-	accessTokenLock    sync.RWMutex
-	RestrictedTo       []*FileScope `json:"restricted_to"`
-	jwtAuth            *JwtAuthClaim
+	// HTTPClient sends the requests of this connection. When nil, DefaultHTTPClient is used,
+	// which shares one connection pool across all connections.
+	//
+	// Set it to control proxies, TLS, timeouts or to inject a custom http.RoundTripper
+	// (for example for tests or tracing). Several APIConn values that should share a
+	// connection pool must be given the same *http.Client.
+	//
+	// Prefer timeouts on the Transport (dial, TLS handshake, ResponseHeaderTimeout) over
+	// http.Client.Timeout: the latter also limits reading the body, so it would cut off
+	// large DownloadFile streams.
+	HTTPClient      *http.Client
+	rwLock          sync.RWMutex
+	notifier        APIConnRefreshNotifier
+	accessTokenLock sync.RWMutex
+	RestrictedTo    []*FileScope `json:"restricted_to"`
+	jwtAuth         *JwtAuthClaim
 }
 
 type JwtConfig struct {
@@ -154,6 +165,14 @@ func newJwtAuthClaim(config *JwtConfig, pkey any, typ jwtAuthType, userId string
 type boxJwt struct {
 	BoxSubType string `json:"box_sub_type"`
 	jwt.RegisteredClaims
+}
+
+// httpClient returns the client used to send requests, falling back to DefaultHTTPClient.
+func (ac *APIConn) httpClient() *http.Client {
+	if ac.HTTPClient != nil {
+		return ac.HTTPClient
+	}
+	return DefaultHTTPClient
 }
 
 // Common Initialization
