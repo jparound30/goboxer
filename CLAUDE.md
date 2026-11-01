@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## About
 
-`goboxer` is a Go client library for the [Box API](https://developer.box.com/). Module: `github.com/jparound30/goboxer`. It is under active development (v0.1.0) and the API may change destructively.
+`goboxer` is a Go client library for the [Box API](https://developer.box.com/). Module: `github.com/jparound30/goboxer`. It is under active development (v0.2.0) and the API may change destructively.
 
 ## Commands
 
@@ -24,6 +24,8 @@ go test -run TestFile ./...
 # Run with verbose output
 go test -v -run TestFunctionName ./...
 ```
+
+Every user-visible change (behavior, public API, dependencies, Go version requirement) must be recorded in `CHANGELOG.md` under `## [Unreleased]`, using the Keep a Changelog headings (`Breaking Changes`, `Added`, `Changed`, `Fixed`, `Dependencies`, `Documentation`). Anything that removes or changes a public identifier or alters existing behavior goes under `Breaking Changes`. When releasing, rename `[Unreleased]` to the version and date, update the `VERSION` constant in `goboxer.go`, and tag `vX.Y.Z`.
 
 There is no Makefile, linter config, or lint step in CI. CI runs `go test -cover` via GitHub Actions (`.github/workflows/go.yml`) on push and pull requests.
 
@@ -73,6 +75,10 @@ Tests use JSON fixtures under `testdata/` (one subdirectory per resource type). 
 | `cmd/goboxertokengen` | OAuth2 token generator (requires self-signed certs in `cert/`) |
 | `cmd/parallel` | Batch/parallel API operation utilities |
 | `cmd/sandbox` | JWT auth example |
+
+### Logging
+
+`goboxer.Log` (`logger.go`) is a `*slog.Logger`; nil disables logging. `logRequest` / `logResponse` / `logResponseBody` in `request.go` emit structured debug records, masking the `Authorization` header and OAuth form secrets. Body logging is opt-in through `goboxer.LogOpts`.
 
 ### Error handling
 

@@ -2,7 +2,7 @@ package goboxer
 
 import (
 	"encoding/json"
-	"golang.org/x/xerrors"
+	"fmt"
 	"slices"
 	"strconv"
 	"time"
@@ -74,7 +74,7 @@ func ParseResource(jsonEntity []byte) (BoxResource, error) {
 	}
 	r := newResourceForType(probe.Type)
 	if r == nil {
-		return nil, xerrors.Errorf("failed to parse box resource: unsupported type %q", probe.Type)
+		return nil, fmt.Errorf("failed to parse box resource: unsupported type %q", probe.Type)
 	}
 	err := json.Unmarshal(jsonEntity, r)
 	return r, err
@@ -133,7 +133,7 @@ func setApiInfo(r BoxResource, info *apiInfo) {
 func UnmarshalJSONBoxResourceWrapper(data []byte, v BoxResource) error {
 	err := json.Unmarshal(data, v)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal response: %w", err)
+		err = fmt.Errorf("failed to unmarshal response: %w", err)
 		return newApiOtherError(err, string(data))
 	}
 	return nil
@@ -142,7 +142,7 @@ func UnmarshalJSONBoxResourceWrapper(data []byte, v BoxResource) error {
 func UnmarshalJSONWrapper(data []byte, v any) error {
 	err := json.Unmarshal(data, v)
 	if err != nil {
-		err = xerrors.Errorf("failed to unmarshal response: %w", err)
+		err = fmt.Errorf("failed to unmarshal response: %w", err)
 		return newApiOtherError(err, string(data))
 	}
 	return nil
@@ -156,19 +156,27 @@ func sendAndCheck(req *Request, okStatuses ...int) (*Response, error) {
 		return nil, err
 	}
 	if !slices.Contains(okStatuses, resp.ResponseCode) {
-		return nil, newApiStatusError(resp.Body)
+		body, err := resp.ReadBody()
+		if err != nil {
+			return nil, err
+		}
+		return nil, newApiStatusError(body)
 	}
 	return resp, nil
 }
 
 // sendAndDecode sends req, verifies the response status with sendAndCheck,
-// and decodes the JSON response body into out.
+// reads the whole body and decodes it as JSON into out.
 func sendAndDecode(req *Request, out any, okStatuses ...int) (*Response, error) {
 	resp, err := sendAndCheck(req, okStatuses...)
 	if err != nil {
 		return nil, err
 	}
-	if err := UnmarshalJSONWrapper(resp.Body, out); err != nil {
+	body, err := resp.ReadBody()
+	if err != nil {
+		return nil, err
+	}
+	if err := UnmarshalJSONWrapper(body, out); err != nil {
 		return nil, err
 	}
 	return resp, nil

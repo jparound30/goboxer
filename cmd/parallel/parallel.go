@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -38,7 +39,7 @@ func main() {
 
 	mainState := Main{}
 	apiConn.SetAPIConnRefreshNotifier(&mainState)
-	goboxer.Log = &mainState
+	goboxer.Log = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 	// API Usage Example
 
@@ -105,40 +106,6 @@ func main() {
 }
 
 type Main struct {
-}
-
-func (*Main) RequestDumpf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) ResponseDumpf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Debugf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Infof(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Warnf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Errorf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Fatalf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-func (*Main) EnabledLoggingResponseBody() bool {
-	return false
-}
-func (*Main) EnabledLoggingRequestBody() bool {
-	return true
 }
 
 func (*Main) Success(apiConn *goboxer.APIConn) {

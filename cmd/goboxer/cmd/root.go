@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/jparound30/goboxer"
+	"log/slog"
 	"os"
+
+	"github.com/jparound30/goboxer"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -127,53 +129,16 @@ func createGoboxerApiConn() error {
 	}
 
 	apiConn.SetAPIConnRefreshNotifier(&mainState)
-	goboxer.Log = &mainState
+	level := slog.LevelWarn
+	if verbose {
+		level = slog.LevelDebug
+	}
+	goboxer.Log = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+	goboxer.LogOpts = goboxer.LogOptions{RequestBody: verbose, ResponseBody: verbose}
 	return nil
 }
 
 type Main struct {
-}
-
-func (*Main) RequestDumpf(format string, args ...any) {
-	if verbose {
-		fmt.Printf(format, args...)
-	}
-}
-
-func (*Main) ResponseDumpf(format string, args ...any) {
-	if verbose {
-		fmt.Printf(format, args...)
-	}
-}
-
-func (*Main) Debugf(format string, args ...any) {
-	if verbose {
-		fmt.Printf("[goboxer] "+format, args...)
-	}
-}
-
-func (*Main) Infof(format string, args ...any) {
-	if verbose {
-		fmt.Printf("[goboxer] "+format, args...)
-	}
-}
-
-func (*Main) Warnf(format string, args ...any) {
-	fmt.Printf("[goboxer] "+format, args...)
-}
-
-func (*Main) Errorf(format string, args ...any) {
-	fmt.Printf("[goboxer] "+format, args...)
-}
-
-func (*Main) Fatalf(format string, args ...any) {
-	fmt.Printf("[goboxer] "+format, args...)
-}
-func (*Main) EnabledLoggingResponseBody() bool {
-	return true
-}
-func (*Main) EnabledLoggingRequestBody() bool {
-	return true
 }
 
 func (*Main) Success(apiConn *goboxer.APIConn) {

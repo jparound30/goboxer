@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"strings"
 	"time"
-
-	"golang.org/x/xerrors"
 )
 
 type PathCollection struct {
@@ -53,12 +51,12 @@ func (ic *ItemCollection) UnmarshalJSON(data []byte) error {
 	var inner innerItemCollection
 	err := json.Unmarshal(data, &inner)
 	if err != nil {
-		return xerrors.Errorf("failed to unmarshal json: %w", err)
+		return fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 	for _, v := range inner.Entries {
 		resource, err := ParseResource(v)
 		if err != nil {
-			return xerrors.Errorf("failed to unmarshal json: %w", err)
+			return fmt.Errorf("failed to unmarshal json: %w", err)
 		}
 		ic.Entries = append(ic.Entries, resource)
 	}

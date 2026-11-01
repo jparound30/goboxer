@@ -22,10 +22,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/jparound30/goboxer"
 	"github.com/spf13/cobra"
-	"golang.org/x/xerrors"
 	"os"
 )
 
@@ -61,7 +61,7 @@ var getinfoFolderCmd = &cobra.Command{
 		if err != nil {
 			// error type check
 			var t *goboxer.ApiStatusError
-			if xerrors.As(err, &t) {
+			if errors.As(err, &t) {
 				fmt.Printf("ApiStatusError: %+v\n", t)
 			} else {
 				fmt.Printf("otherError: %+v\n", err)

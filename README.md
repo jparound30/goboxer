@@ -6,6 +6,9 @@ _goboxer_ is **UNOFFICIAL** Box API(https://developer.box.com/reference) library
 
 _goboxer_ is UNDER DEVELOPMENT and its API may be destructively changed.
 
+## Changelog
+See [CHANGELOG.md](CHANGELOG.md). Breaking changes are listed under a **Breaking Changes** heading for each release.
+
 ## Requirements
 * Go 1.26 or later
 
@@ -31,6 +34,22 @@ info, err := folder.GetInfo("0", nil)
 ```
 `cmd/goboxertokengen` is a helper that runs the OAuth 2.0 authorization flow locally and prints the resulting tokens.
 
+### Downloading a file
+`DownloadFile` streams the content. Close the body when done, or use `ReadBody` to load it into memory.
+```go
+resp, err := goboxer.NewFile(apiConn).DownloadFile(fileID, "", "")
+if err != nil {
+	log.Fatal(err)
+}
+defer resp.Body.Close()
+
+out, _ := os.Create("downloaded.bin")
+defer out.Close()
+if _, err := io.Copy(out, resp.Body); err != nil {
+	log.Fatal(err)
+}
+```
+
 ### JWT
 Load the JSON configuration file downloaded from the Box Developer Console and create a connection
 as the service account (enterprise) or as a managed user.
@@ -50,6 +69,28 @@ apiConn, err := goboxer.NewAPIConnWithJwtConfig(configFile, loader)
 // apiConn, err := goboxer.NewAPIConnWithJwtConfigForUser(configFile, loader, userID)
 ```
 See `cmd/sandbox/jwt_example.go` for a complete example.
+
+### Custom HTTP client
+Each `APIConn` sends its requests with `APIConn.HTTPClient`. When it is nil, `goboxer.DefaultHTTPClient` is used and all connections share one connection pool.
+Set it to configure a proxy, TLS, timeouts, or to inject your own `http.RoundTripper` (for tests or tracing).
+```go
+apiConn := goboxer.NewAPIConnWithAccessToken(accessToken)
+apiConn.HTTPClient = &http.Client{
+	Transport: &http.Transport{
+		Proxy:                 http.ProxyURL(proxyURL),
+		ResponseHeaderTimeout: 30 * time.Second,
+	},
+}
+```
+Prefer timeouts on the `Transport` over `http.Client.Timeout`: the latter also limits reading the body and would interrupt large `DownloadFile` streams. Connections that should share a pool must be given the same `*http.Client`.
+
+### Logging
+Logging uses the standard `log/slog` package and is off by default. Assign any `*slog.Logger` to `goboxer.Log`; request and response summaries are logged at debug level, retries at info level.
+```go
+goboxer.Log = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+goboxer.LogOpts = goboxer.LogOptions{RequestBody: true, ResponseBody: true} // optional, bodies are not logged by default
+```
+The `Authorization` header and OAuth secrets in form bodies are masked in the log output.
 
 ### NOTICE
 **About features for enterprise (Retention policy, Whitelist, etc...), it will not be implemented. ( I have no environment that testing those api! )**

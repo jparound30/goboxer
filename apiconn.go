@@ -3,6 +3,7 @@ package goboxer
 import (
 	"crypto/rsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"golang.org/x/xerrors"
 )
 
 const (
@@ -56,11 +56,22 @@ type APIConn struct {
 	// MaxRequestAttempts is the total number of attempts for a request, including the first one.
 	// Requests are retried on HTTP 429 and 5xx responses. Values less than 1 are treated as the default (5).
 	MaxRequestAttempts int
-	rwLock             sync.RWMutex
-	notifier           APIConnRefreshNotifier
-	accessTokenLock    sync.RWMutex
-	RestrictedTo       []*FileScope `json:"restricted_to"`
-	jwtAuth            *JwtAuthClaim
+	// HTTPClient sends the requests of this connection. When nil, DefaultHTTPClient is used,
+	// which shares one connection pool across all connections.
+	//
+	// Set it to control proxies, TLS, timeouts or to inject a custom http.RoundTripper
+	// (for example for tests or tracing). Several APIConn values that should share a
+	// connection pool must be given the same *http.Client.
+	//
+	// Prefer timeouts on the Transport (dial, TLS handshake, ResponseHeaderTimeout) over
+	// http.Client.Timeout: the latter also limits reading the body, so it would cut off
+	// large DownloadFile streams.
+	HTTPClient      *http.Client
+	rwLock          sync.RWMutex
+	notifier        APIConnRefreshNotifier
+	accessTokenLock sync.RWMutex
+	RestrictedTo    []*FileScope `json:"restricted_to"`
+	jwtAuth         *JwtAuthClaim
 }
 
 type JwtConfig struct {
@@ -117,7 +128,7 @@ func (j *JwtAuthClaim) Claim(tokenUrl string) (string, error) {
 	signedString, err := token.SignedString(j.privateKey)
 	if err != nil {
 		log.Printf("failed to signing token : %s", err)
-		return "", xerrors.New("failed to signing token")
+		return "", errors.New("failed to signing token")
 	}
 
 	return signedString, nil
@@ -136,10 +147,10 @@ func NewJwtAuthClaimForUser(config *JwtConfig, pkey any, userId string) (*JwtAut
 func newJwtAuthClaim(config *JwtConfig, pkey any, typ jwtAuthType, userId string) (*JwtAuthClaim, error) {
 	rsaKey, ok := pkey.(*rsa.PrivateKey)
 	if config == nil {
-		return nil, xerrors.New("config parameter must be non-null")
+		return nil, errors.New("config parameter must be non-null")
 	}
 	if !ok {
-		return nil, xerrors.New("pkey must be rsa private key")
+		return nil, errors.New("pkey must be rsa private key")
 	}
 	return &JwtAuthClaim{
 		jwtConfig:  config,
@@ -154,6 +165,14 @@ func newJwtAuthClaim(config *JwtConfig, pkey any, typ jwtAuthType, userId string
 type boxJwt struct {
 	BoxSubType string `json:"box_sub_type"`
 	jwt.RegisteredClaims
+}
+
+// httpClient returns the client used to send requests, falling back to DefaultHTTPClient.
+func (ac *APIConn) httpClient() *http.Client {
+	if ac.HTTPClient != nil {
+		return ac.HTTPClient
+	}
+	return DefaultHTTPClient
 }
 
 // Common Initialization
@@ -222,7 +241,7 @@ func (ac *APIConn) Refresh() error {
 	defer ac.rwLock.Unlock()
 
 	if !ac.canRefresh() {
-		err := xerrors.New("cannot refreshed(There is NO RefreshToken")
+		err := errors.New("cannot refreshed(There is NO RefreshToken")
 		ac.notifyFail(err)
 		return err
 	}
@@ -234,7 +253,7 @@ func (ac *APIConn) Refresh() error {
 	} else {
 		jwtClaim, err := ac.jwtAuth.Claim(ac.TokenURL)
 		if err != nil {
-			err = xerrors.Errorf("failed to create jwt claim: %w", err)
+			err = fmt.Errorf("failed to create jwt claim: %w", err)
 			ac.notifyFail(err)
 			return err
 		}
@@ -290,15 +309,20 @@ func (ac *APIConn) requestToken(params url.Values, statusErrMsg string) (*tokenR
 		ac.notifyFail(err)
 		return nil, err
 	}
+	body, err := resp.ReadBody()
+	if err != nil {
+		ac.notifyFail(err)
+		return nil, err
+	}
 	if resp.ResponseCode != http.StatusOK {
-		err := xerrors.New(statusErrMsg)
+		err := errors.New(statusErrMsg)
 		ac.notifyFail(err)
 		return nil, err
 	}
 
 	var tokenResp tokenResponse
-	if err := json.Unmarshal(resp.Body, &tokenResp); err != nil {
-		err = xerrors.Errorf("failed to parse response. error = %w", err)
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		err = fmt.Errorf("failed to parse response. error = %w", err)
 		ac.notifyFail(err)
 		return nil, err
 	}
@@ -333,7 +357,7 @@ func (ac *APIConn) SaveState() ([]byte, error) {
 
 	bytes, err := json.MarshalIndent(state, "", "")
 	if err != nil {
-		return nil, xerrors.Errorf("failed to serialize state. error = %w", err)
+		return nil, fmt.Errorf("failed to serialize state. error = %w", err)
 	}
 	return bytes, nil
 }
@@ -343,7 +367,7 @@ func (ac *APIConn) RestoreState(stateData []byte) error {
 	var state apiConnState
 	err := json.Unmarshal(stateData, &state)
 	if err != nil {
-		return xerrors.Errorf("failed to deserialize state. error = %w", err)
+		return fmt.Errorf("failed to deserialize state. error = %w", err)
 	}
 	ac.AccessToken = state.AccessToken
 	ac.RefreshToken = state.RefreshToken
@@ -411,19 +435,19 @@ func newAPIConnWithJwtConfig(reader io.Reader, loader JwtConfigLoader, typ jwtAu
 	// 1. Read JSON configuration
 	jwtConf, err := loader.Load(reader)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to load jwt config %w", err)
+		return nil, fmt.Errorf("failed to load jwt config %w", err)
 	}
 
 	// 2. Decrypt private key
 	pkey, err := loader.DecryptPrivateKey(jwtConf)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to decrypt private key %w", err)
+		return nil, fmt.Errorf("failed to decrypt private key %w", err)
 	}
 
 	// 3. Prepare JWT assertion builder
 	jwtAuthClaim, err := newJwtAuthClaim(jwtConf, pkey, typ, userId)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create JwtAuthClaim %w", err)
+		return nil, fmt.Errorf("failed to create JwtAuthClaim %w", err)
 	}
 
 	instance := &APIConn{

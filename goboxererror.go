@@ -3,44 +3,40 @@ package goboxer
 import (
 	"encoding/json"
 	"fmt"
-
-	"golang.org/x/xerrors"
 )
 
+// ApiOtherError is returned when a request fails before or after talking to the Box API:
+// building the request, network errors, or an unparsable response.
+//
+// It wraps the underlying error, so errors.Is / errors.As work through it.
+// When a response body was available it is included in the message.
 type ApiOtherError struct {
-	err   error
-	msg   string
-	frame xerrors.Frame
+	err error
+	msg string
 }
 
 func (e *ApiOtherError) errorMsg() string {
 	if e.msg != "" {
 		return fmt.Sprintf("%s\nbox api response:\n-----\n%s\n-----\n", e.err.Error(), e.msg)
-	} else {
-		return fmt.Sprintf("%s\n", e.err.Error())
 	}
+	return fmt.Sprintf("%s\n", e.err.Error())
 }
+
 func (e *ApiOtherError) Error() string {
 	return e.errorMsg()
 }
-func (e *ApiOtherError) Format(f fmt.State, c rune) { // implements fmt.Formatter
-	xerrors.FormatError(e, f, c)
-}
 
-func (e *ApiOtherError) FormatError(p xerrors.Printer) error { // implements xerrors.Formatter
-	p.Print(e.errorMsg())
-	if p.Detail() {
-		e.frame.Format(p)
-	}
-	return e.err
-}
+// Unwrap returns the underlying error.
 func (e *ApiOtherError) Unwrap() error {
 	return e.err
 }
+
 func newApiOtherError(err error, msg string) error {
-	return &ApiOtherError{err: err, msg: msg, frame: xerrors.Caller(1)}
+	return &ApiOtherError{err: err, msg: msg}
 }
 
+// ApiStatusError is the error object returned by the Box API for a non-successful HTTP status.
+//
 // Refer https://developer.box.com/reference#errors
 type ApiStatusError struct {
 	Type        string         `json:"type"`
@@ -50,48 +46,34 @@ type ApiStatusError struct {
 	HelpUrl     string         `json:"help_url,omitempty"`
 	Message     string         `json:"message,omitempty"`
 	RequestId   string         `json:"request_id,omitempty"`
-	frame       xerrors.Frame
-}
-
-func (e *ApiStatusError) Format(f fmt.State, c rune) { // implements fmt.Formatter
-	xerrors.FormatError(e, f, c)
 }
 
 func (e *ApiStatusError) errorMsg() string {
 	return fmt.Sprintf("HTTP status code: [%d], Message: [%s], RequestId: [%s], ContextInfo: [%s]", e.Status, e.Message, e.RequestId, e.ContextInfo)
 }
-func (e *ApiStatusError) FormatError(p xerrors.Printer) error { // implements xerrors.Formatter
-	p.Print(e.errorMsg())
-	if p.Detail() {
-		e.frame.Format(p)
-	}
-	return nil
-}
+
+// Unwrap always returns nil; an ApiStatusError has no underlying error.
 func (e *ApiStatusError) Unwrap() error {
 	return nil
 }
+
 func (e *ApiStatusError) Error() string {
 	return e.errorMsg()
 }
 
 // for internal use
 func newApiStatusError(errBody []byte) error {
-	e := &ApiStatusError{frame: xerrors.Caller(1)}
-	err := json.Unmarshal(errBody, e)
-	if err != nil {
-		body := string(errBody)
-		err = xerrors.Errorf("response json marshaling error: %w", err)
-		return newApiOtherError(err, body)
-	}
-	return e
+	return NewApiStatusError(errBody)
 }
 
+// NewApiStatusError parses a Box API error response body into an ApiStatusError.
+// If the body is not a valid error object, an ApiOtherError carrying the raw body is returned instead.
 func NewApiStatusError(errBody []byte) error {
-	e := &ApiStatusError{frame: xerrors.Caller(0)}
+	e := &ApiStatusError{}
 	err := json.Unmarshal(errBody, e)
 	if err != nil {
 		body := string(errBody)
-		err = xerrors.Errorf("response json marshaling error: %w", err)
+		err = fmt.Errorf("response json marshaling error: %w", err)
 		return newApiOtherError(err, body)
 	}
 	return e

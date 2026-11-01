@@ -3,8 +3,8 @@ package goboxer
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -18,57 +18,8 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-var mainObj Main
-
-type Main struct {
-}
-
-func (*Main) RequestDumpf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) ResponseDumpf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Debugf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Infof(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Warnf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Errorf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-
-func (*Main) Fatalf(format string, args ...any) {
-	fmt.Printf(format, args...)
-}
-func (*Main) EnabledLoggingResponseBody() bool {
-	return true
-}
-func (*Main) EnabledLoggingRequestBody() bool {
-	return true
-}
-
-func (*Main) Success(apiConn *APIConn) {
-	stateData, err := apiConn.SaveState()
-	if err != nil {
-		fmt.Printf("%v\n", err)
-		return
-	}
-	fmt.Printf("%v\n", stateData)
-}
-
-func (*Main) Fail(apiConn *APIConn, err error) {
-	fmt.Printf("%v\n", err)
-}
+// testLog is a verbose structured logger used by the tests that exercise logging.
+var testLog = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 func Test_logRequest(t *testing.T) {
 
@@ -101,7 +52,7 @@ func Test_logRequest(t *testing.T) {
 	tests := []struct {
 		name   string
 		args   args
-		logger Logger
+		logger *slog.Logger
 	}{
 		{
 			"get nobody",
@@ -109,7 +60,7 @@ func Test_logRequest(t *testing.T) {
 				"GET",
 				r1,
 			},
-			&mainObj,
+			testLog,
 		},
 		{
 			"json",
@@ -117,7 +68,7 @@ func Test_logRequest(t *testing.T) {
 				"POST",
 				r2,
 			},
-			&mainObj,
+			testLog,
 		},
 		{
 			"form-url-encoded",
@@ -125,7 +76,7 @@ func Test_logRequest(t *testing.T) {
 				"PUT",
 				r3,
 			},
-			&mainObj,
+			testLog,
 		},
 		{
 			"no logger",
@@ -140,6 +91,7 @@ func Test_logRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Helper()
 			Log = tt.logger
+			LogOpts = LogOptions{RequestBody: true, ResponseBody: true}
 			logRequest(tt.args.method, tt.args.request)
 		})
 	}
@@ -196,18 +148,20 @@ func Test_logResponse(t *testing.T) {
 	tests := []struct {
 		name   string
 		args   args
-		logger Logger
+		logger *slog.Logger
 	}{
-		{"nobody", args{r1, nil, 1000}, &mainObj},
-		{"json", args{r2, []byte(r2str), 1000}, &mainObj},
-		{"octet-stream", args{r3, r3byte, 1000}, &mainObj},
+		{"nobody", args{r1, nil, 1000}, testLog},
+		{"json", args{r2, []byte(r2str), 1000}, testLog},
+		{"octet-stream", args{r3, r3byte, 1000}, testLog},
 		{"no logger", args{r1, nil, 1000}, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Helper()
 			Log = tt.logger
-			logResponse(tt.args.resp, tt.args.respBodyBytes, tt.args.rttInMillis)
+			LogOpts = LogOptions{RequestBody: true, ResponseBody: true}
+			logResponse(tt.args.resp, tt.args.rttInMillis)
+			logResponseBody(tt.args.resp.Header.Get(httpHeaderContentType), tt.args.respBodyBytes)
 		})
 	}
 }
@@ -330,10 +284,10 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      http.Header{},
 		RTTInMillis:  0,
 		ResponseCode: 201,
-		Body: []byte(`{
+		Body: io.NopCloser(strings.NewReader(`{
         "type": "collaboration",
         "id": "123"
-      }`),
+      }`)),
 	}
 	bResp2 := &Response{
 		Request:      br2,
@@ -341,13 +295,13 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      http.Header{},
 		RTTInMillis:  0,
 		ResponseCode: 404,
-		Body: []byte(`{
+		Body: io.NopCloser(strings.NewReader(`{
         "type": "error",
         "status": 404,
         "code": "not_found",
         "message": "Not Found",
         "request_id": "139334760758014ea2935ab"
-      }`),
+      }`)),
 	}
 	bResp3 := &Response{
 		Request:      br3,
@@ -355,10 +309,10 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      http.Header{},
 		RTTInMillis:  0,
 		ResponseCode: 200,
-		Body: []byte(`{
+		Body: io.NopCloser(strings.NewReader(`{
         "type": "collaboration",
         "id": "456"
-      }`),
+      }`)),
 	}
 	bResp4 := &Response{
 		Request:      br4,
@@ -366,7 +320,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      http.Header{},
 		RTTInMillis:  0,
 		ResponseCode: 404,
-		Body:         []byte(`null`),
+		Body:         io.NopCloser(strings.NewReader(`null`)),
 	}
 	bResp5Header := http.Header{}
 	bResp5Header.Set("Retry-After", "4")
@@ -376,7 +330,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 		Headers:      bResp5Header,
 		RTTInMillis:  0,
 		ResponseCode: 429,
-		Body:         []byte(`null`),
+		Body:         io.NopCloser(strings.NewReader(`null`)),
 	}
 	bRespHeader := http.Header{}
 	bRespHeader.Set(httpHeaderContentType, ContentTypeApplicationJson)
@@ -399,7 +353,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		logger  Logger
+		logger  *slog.Logger
 		want    *BatchResponse
 		wantErr bool
 		errType any
@@ -412,7 +366,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 					br1, br2, br3, br4, br5,
 				},
 			},
-			&mainObj,
+			testLog,
 			bResp,
 			false,
 			nil,
@@ -429,7 +383,7 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 			}
 
 			req := batchRequest
-			Log = &mainObj
+			Log = testLog
 			got, err := req.ExecuteBatch(tt.args.requests)
 
 			// Error checks
@@ -460,10 +414,22 @@ func TestBatchRequest_ExecuteBatch(t *testing.T) {
 			// If normal response
 			opts := diffCompOptions()
 			opts = append(opts, cmpopts.IgnoreUnexported(Request{}))
-			opts = append(opts, cmpopts.IgnoreFields(Response{}, "RTTInMillis"))
+			opts = append(opts, cmpopts.IgnoreUnexported(Response{}))
+			opts = append(opts, cmpopts.IgnoreFields(Response{}, "RTTInMillis", "Body"))
 			if diff := cmp.Diff(got, tt.want, opts...); diff != "" {
 				t.Errorf("Marshal/Unmarshal differs: (-got +want)\n%s", diff)
 				return
+			}
+			// bodies are streams; compare their contents separately
+			for i := range tt.want.Responses {
+				gotBody, err := got.Responses[i].ReadBody()
+				if err != nil {
+					t.Fatalf("Responses[%d].ReadBody() error = %v", i, err)
+				}
+				wantBody, _ := tt.want.Responses[i].ReadBody()
+				if string(gotBody) != string(wantBody) {
+					t.Errorf("Responses[%d] body = %s, want %s", i, gotBody, wantBody)
+				}
 			}
 		})
 	}
